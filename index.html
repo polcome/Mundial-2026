@@ -282,38 +282,40 @@ function parseSheet(json) {
   const rows = json.table.rows || [];
   if (!rows.length) return [];
 
-  // Comprova si les labels són reals o genèriques (A, B, C...)
-  const labelsOk = cols.every(c => c.label && c.label.trim() && !/^[A-Z]$/.test(c.label.trim()));
-
   function cellVal(cell) {
     if (!cell) return '';
-    const v = cell.v !== null && cell.v !== undefined ? cell.v : (cell.f ?? '');
+    const v = (cell.v !== null && cell.v !== undefined) ? cell.v : (cell.f ?? '');
     return typeof v === 'string' ? v.trim() : v;
   }
 
+  // Gviz de vegades retorna labels correctes, de vegades A/B/C
+  // Estratègia: sempre agafem la primera fila com a capçaleres reals
+  // i les combinem amb les labels del gviz (preferint les de la fila)
+  const firstRowVals = cols.map((c, i) => cellVal(rows[0]?.c?.[i]));
+  const gvizLabels   = cols.map(c => (c.label || '').trim());
+
+  // Detecta si la primera fila és capçalera: tots els valors són strings
+  // i cap és un número ni sembla una dada real
+  const firstRowIsHeader = firstRowVals.every(v =>
+    v === '' || (typeof v === 'string' && isNaN(parseFloat(v)))
+  ) && firstRowVals.some(v => v !== '');
+
   let headers, dataRows;
-  if (labelsOk) {
-    // Cas normal: labels correctes (ex: Puntuacions)
-    headers = cols.map(c => c.label.trim());
-    dataRows = rows;
+  if (firstRowIsHeader) {
+    // Usa la primera fila com a capçaleres (el cas habitual amb gviz)
+    headers  = cols.map((c, i) => firstRowVals[i] || gvizLabels[i] || String.fromCharCode(65 + i));
+    dataRows = rows.slice(1);
   } else {
-    // Les labels són A/B/C — la primera fila conté les capçaleres reals
-    const firstRow = rows[0];
-    headers = cols.map((c, i) => {
-      const v = cellVal(firstRow?.c?.[i]);
-      return v ? String(v) : String.fromCharCode(65 + i);
-    });
-    dataRows = rows.slice(1); // salta la fila de capçaleres
+    // Les labels del gviz ja són correctes (cas rar)
+    headers  = gvizLabels.map((l, i) => l || String.fromCharCode(65 + i));
+    dataRows = rows;
   }
 
   return dataRows.map(row => {
     const obj = {};
     headers.forEach((col, i) => { obj[col] = cellVal(row.c?.[i]); });
     return obj;
-  }).filter(row => headers.some(h => {
-    const v = row[h];
-    return v !== '' && v !== null && v !== undefined;
-  }));
+  }).filter(row => headers.some(h => row[h] !== '' && row[h] !== null && row[h] !== undefined));
 }
 
 // ============================================================
@@ -359,60 +361,40 @@ function setSyncBar(state) {
 // CÀLCULS
 // ============================================================
 function norm(s) { return (s ?? '').toString().trim().toLowerCase().replace(/\s+/g, ' '); }
-
-function findKey(obj, target) {
-  const t = norm(target);
-  return Object.keys(obj).find(k => norm(k) === t);
-}
-
-function getVal(row, ...keys) {
-  for (const key of keys) {
-    const k = findKey(row, key);
-    if (k !== undefined && row[k] !== '' && row[k] !== null && row[k] !== undefined) return row[k];
-  }
-  return '';
-}
+function v(row, key) { return (row[key] ?? '').toString().trim(); }
 
 function getParticipants() {
   if (!gData) return [];
-  return (gData.participants || []).map(r => {
-    return getVal(r, 'Nom', 'Nombre', 'Name') || r[Object.keys(r)[0]] || '';
-  }).filter(Boolean);
+  return (gData.participants || []).map(r => v(r, 'Nom')).filter(Boolean);
 }
 
 function getPlayers(participant) {
   if (!gData) return [];
   const pN = norm(participant);
-  return (gData.jugadors || []).filter(r => norm(getVal(r, 'Participant', 'Participante')) === pN);
+  return (gData.jugadors || []).filter(r => norm(v(r, 'Participant')) === pN);
 }
 
 function getScore(participant, jugador, fase, jornada) {
   if (!gData) return null;
-  const pN = norm(participant), jN = norm(jugador), fN = norm(fase), jorN = norm(jornada);
   return (gData.puntuacions || []).find(r =>
-    norm(getVal(r, 'Participant', 'Participante')) === pN &&
-    norm(getVal(r, 'Jugador', 'Player')) === jN &&
-    norm(getVal(r, 'Fase', 'Phase')) === fN &&
-    norm(getVal(r, 'Jornada', 'Matchday')) === jorN
+    norm(v(r,'Participant')) === norm(participant) &&
+    norm(v(r,'Jugador'))     === norm(jugador) &&
+    norm(v(r,'Fase'))        === norm(fase) &&
+    norm(v(r,'Jornada'))     === norm(jornada)
   ) || null;
 }
 
-function debugSheetKeys() {
-  if (!gData) return;
-  console.group('Claus llegides del Sheet');
-  ['participants','jugadors','puntuacions','canvis'].forEach(t => {
-    if (gData[t]?.[0]) console.log(t + ':', Object.keys(gData[t][0]), gData[t][0]);
-  });
-  console.log('Participants:', getParticipants());
-  console.groupEnd();
+function getChanges(participant) {
+  if (!gData) return [];
+  return (gData.canvis || []).filter(r => norm(v(r,'Participant')) === norm(participant));
 }
 
 function calcPlayerPhasePts(participant, jugador, fase) {
   let total = 0;
   for (const jorn of PHASE_JORNADES[fase] || []) {
     const sc = getScore(participant, jugador, fase, jorn);
-    if (sc && sc['Nota'] !== '' && sc['Nota'] !== null && sc['Nota'] !== undefined) {
-      total += parseFloat(sc['Nota'] || 0) + (parseInt(sc['Gols'] || 0) * 5) + (parseInt(sc['Assistencies'] || 0) * 3);
+    if (sc && v(sc,'Nota') !== '') {
+      total += parseFloat(v(sc,'Nota') || 0) + (parseInt(v(sc,'Gols') || 0) * 5) + (parseInt(v(sc,'Assistencies') || 0) * 3);
     }
   }
   return total;
@@ -431,9 +413,10 @@ function calcParticipantTotal(participant) {
 
 function calcParticipantGoals(participant) {
   if (!gData) return 0;
+  const pN = norm(participant);
   return (gData.puntuacions || [])
-    .filter(r => r['Participant']?.toString().trim().toLowerCase() === participant.trim().toLowerCase())
-    .reduce((sum, r) => sum + (parseInt(r['Gols'] || 0)), 0);
+    .filter(r => norm(v(r,'Participant')) === pN)
+    .reduce((sum, r) => sum + (parseInt(v(r,'Gols') || 0)), 0);
 }
 
 function getRanking() {
@@ -520,26 +503,26 @@ function renderTeam(participant) {
     const phaseTotal = players.reduce((sum, pl) => sum + calcPlayerPhasePts(participant, pl['Jugador'], phase), 0);
     const jornHeaders = jornades.map(j => `<th>${j}</th>`).join('');
     const rows = players.map(pl => {
-      const name = pl['Jugador'] || '';
-      const team = pl['Equip'] || '';
-      const pos = (pl['Posicio'] || pl['Posición'] || 'MIG').toUpperCase();
+      const name = v(pl,'Jugador');
+      const team = v(pl,'Equip');
+      const pos = (v(pl,'Posicio') || 'MIG').toUpperCase();
       const jornCells = jornades.map(jorn => {
         const sc = getScore(participant, name, phase, jorn);
-        if (!sc || sc['Nota'] === '' || sc['Nota'] === null || sc['Nota'] === undefined) {
+        if (!sc || v(sc,'Nota') === '') {
           return `<td><span class="score-chip score-empty">—</span></td>`;
         }
-        const note = parseFloat(sc['Nota']);
+        const note = parseFloat(v(sc,'Nota') || 0);
         const cls = note >= 8 ? 'score-high' : note >= 6.5 ? 'score-mid' : 'score-low';
-        const g = parseInt(sc['Gols'] || 0);
-        const a = parseInt(sc['Assistencies'] || 0);
+        const g = parseInt(v(sc,'Gols') || 0);
+        const a = parseInt(v(sc,'Assistencies') || 0);
         const gStr = g > 0 ? ` ${'⚽'.repeat(Math.min(g,3))}` : '';
         const aStr = a > 0 ? ` ${'🅰️'.repeat(Math.min(a,3))}` : '';
         return `<td><span class="score-chip ${cls}">${note.toFixed(1)}</span>${gStr}${aStr}</td>`;
       }).join('');
       const playerTotal = jornades.reduce((s, jorn) => {
         const sc = getScore(participant, name, phase, jorn);
-        if (!sc || sc['Nota'] === '' || sc['Nota'] === null) return s;
-        return s + parseFloat(sc['Nota']||0) + parseInt(sc['Gols']||0)*5 + parseInt(sc['Assistencies']||0)*3;
+        if (!sc || v(sc,'Nota') === '') return s;
+        return s + parseFloat(v(sc,'Nota')||0) + parseInt(v(sc,'Gols')||0)*5 + parseInt(v(sc,'Assistencies')||0)*3;
       }, 0);
       return `<tr>
         <td>${name}<span class="pos-badge pos-${pos}">${pos}</span><br><small style="color:var(--silver);font-size:0.7rem">${team}</small></td>
@@ -599,21 +582,19 @@ function renderCanvis() {
   const participants = getParticipants();
   let html = '';
   for (const p of participants) {
-    const changes = (gData.canvis || []).filter(r =>
-      r['Participant']?.toString().trim().toLowerCase() === p.trim().toLowerCase()
-    );
+    const changes = getChanges(p);
     if (!changes.length) continue;
     html += `<div style="margin-bottom:1.5rem">
       <div class="phase-label">${p}</div>
       <div class="changes-grid">${changes.map(c => `
         <div class="change-card">
-          <div class="change-phase">${c['Fase'] || ''}</div>
+          <div class="change-phase">${v(c,'Fase')}</div>
           <div class="change-names">
-            <span class="change-out">${c['Jugador_Surt'] || ''}</span>
+            <span class="change-out">${v(c,'Jugador_Surt')}</span>
             <span style="color:var(--silver)">→</span>
-            <span class="change-in">${c['Jugador_Entra'] || ''}</span>
+            <span class="change-in">${v(c,'Jugador_Entra')}</span>
           </div>
-          ${c['Data'] ? `<div style="font-size:0.7rem;color:var(--silver);margin-top:4px">${c['Data']}</div>` : ''}
+          ${v(c,'Data') ? `<div style="font-size:0.7rem;color:var(--silver);margin-top:4px">${v(c,'Data')}</div>` : ''}
         </div>`).join('')}
       </div>
     </div>`;
