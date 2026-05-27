@@ -349,27 +349,53 @@ function setSyncBar(state) {
 // ============================================================
 // CÀLCULS
 // ============================================================
+function norm(s) { return (s ?? '').toString().trim().toLowerCase().replace(/\s+/g, ' '); }
+
+function findKey(obj, target) {
+  const t = norm(target);
+  return Object.keys(obj).find(k => norm(k) === t);
+}
+
+function getVal(row, ...keys) {
+  for (const key of keys) {
+    const k = findKey(row, key);
+    if (k !== undefined && row[k] !== '' && row[k] !== null && row[k] !== undefined) return row[k];
+  }
+  return '';
+}
+
 function getParticipants() {
   if (!gData) return [];
-  return (gData.participants || []).map(r => r['Nom'] || r[Object.keys(r)[0]] || '').filter(Boolean);
+  return (gData.participants || []).map(r => {
+    return getVal(r, 'Nom', 'Nombre', 'Name') || r[Object.keys(r)[0]] || '';
+  }).filter(Boolean);
 }
 
 function getPlayers(participant) {
   if (!gData) return [];
-  return (gData.jugadors || []).filter(r => 
-    (r['Participant'] || '').toString().trim().toLowerCase() === participant.trim().toLowerCase()
-  );
+  const pN = norm(participant);
+  return (gData.jugadors || []).filter(r => norm(getVal(r, 'Participant', 'Participante')) === pN);
 }
 
 function getScore(participant, jugador, fase, jornada) {
   if (!gData) return null;
-  const row = (gData.puntuacions || []).find(r =>
-    r['Participant']?.toString().trim().toLowerCase() === participant.trim().toLowerCase() &&
-    r['Jugador']?.toString().trim().toLowerCase() === jugador.trim().toLowerCase() &&
-    r['Fase']?.toString().trim().toLowerCase() === fase.trim().toLowerCase() &&
-    r['Jornada']?.toString().trim().toUpperCase() === jornada.trim().toUpperCase()
-  );
-  return row || null;
+  const pN = norm(participant), jN = norm(jugador), fN = norm(fase), jorN = norm(jornada);
+  return (gData.puntuacions || []).find(r =>
+    norm(getVal(r, 'Participant', 'Participante')) === pN &&
+    norm(getVal(r, 'Jugador', 'Player')) === jN &&
+    norm(getVal(r, 'Fase', 'Phase')) === fN &&
+    norm(getVal(r, 'Jornada', 'Matchday')) === jorN
+  ) || null;
+}
+
+function debugSheetKeys() {
+  if (!gData) return;
+  console.group('Claus llegides del Sheet');
+  ['participants','jugadors','puntuacions','canvis'].forEach(t => {
+    if (gData[t]?.[0]) console.log(t + ':', Object.keys(gData[t][0]), gData[t][0]);
+  });
+  console.log('Participants:', getParticipants());
+  console.groupEnd();
 }
 
 function calcPlayerPhasePts(participant, jugador, fase) {
@@ -690,12 +716,12 @@ function reloadData() {
     renderJornades(currentJornada.phase, currentJornada.jorn);
     renderCanvis();
     // Info debug a la consola
+    debugSheetKeys();
     console.log('✅ Dades carregades:', {
       participants: gData.participants?.length,
       jugadors: gData.jugadors?.length,
       puntuacions: gData.puntuacions?.length,
       canvis: gData.canvis?.length,
-      mostra_participants: gData.participants?.slice(0,3),
     });
     showToast(`✅ Actualitzat · ${gData.participants?.length || 0} participants · ${gData.jugadors?.length || 0} jugadors`);
   }).catch(e => {
