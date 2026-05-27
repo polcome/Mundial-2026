@@ -286,15 +286,19 @@ function parseSheet(json) {
 
   function cellVal(cell) {
     if (!cell) return '';
-    const v = (cell.v !== null && cell.v !== undefined) ? cell.v : (cell.f ?? '');
+    // Prefereix el valor formatat (f) per a dates i números
+    if (cell.f !== null && cell.f !== undefined && cell.f !== '') return String(cell.f).trim();
+    const v = (cell.v !== null && cell.v !== undefined) ? cell.v : '';
     return typeof v === 'string' ? v.trim() : v;
   }
 
   const firstRowVals = cols.map((c, i) => cellVal(rows[0]?.c?.[i]));
   const gvizLabels   = cols.map(c => (c.label || '').trim());
-  const firstRowIsHeader = firstRowVals.every(v =>
-    v === '' || (typeof v === 'string' && isNaN(parseFloat(v)))
-  ) && firstRowVals.some(v => v !== '');
+  // La primera fila és capçalera si tots els seus valors no-buits són strings
+  // (ignorem que algunes files de dades puguin tenir números/dates)
+  const nonEmptyFirst = firstRowVals.filter(v => v !== '' && v !== null);
+  const firstRowIsHeader = nonEmptyFirst.length > 0 &&
+    nonEmptyFirst.every(v => typeof v === 'string' && isNaN(parseFloat(v)));
 
   let headers, dataRows;
   if (firstRowIsHeader) {
