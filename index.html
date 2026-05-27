@@ -264,12 +264,15 @@ let currentJornada = {phase: 'grups', jorn: 'J1'};
 // LECTURA DEL GOOGLE SHEET (via gviz — no necessita API key)
 // ============================================================
 async function fetchSheet(sheetName) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
-  const res = await fetch(url);
+  // cache-buster evita que el mòbil serveixi una versió antiga en caché
+  const ts = Date.now();
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}&_=${ts}`;
+  const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const text = await res.text();
-  // gviz retorna JSONP — extreu el JSON interior de forma robusta
-  const match = text.match(/^[^\(]+\((.+)\);?\s*$/s) || text.match(/setResponse\(([\s\S]+)\)/);
+  const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]+)\);?\s*$/) ||
+                text.match(/setResponse\(([\s\S]+)\)/) ||
+                text.match(/^[^\(]+\(([\s\S]+)\);?\s*$/);
   if (!match) throw new Error('Format gviz inesperat');
   const json = JSON.parse(match[1]);
   if (json.status === 'error') throw new Error(json.errors?.[0]?.message || 'Error Sheet');
@@ -374,6 +377,45 @@ function getPlayers(participant) {
   return (gData.jugadors || []).filter(r => norm(v(r, 'Participant')) === pN);
 }
 
+// Retorna la plantilla activa per a una fase concreta, aplicant els canvis anteriors
+// Fase del canvi (columna Fase a Canvis) indica QUAN es fa el canvi:
+//   post-grups → canvi actiu des de r16 en endavant
+//   post-r16   → actiu des de qf
+//   post-qf    → actiu des de sf
+//   post-sf    → actiu des de final
+const CHANGE_ACTIVE_FROM = {
+  'post-grups': 'r16', 'post-grups-1': 'r16', 'post-grups-2': 'r16', 'post-grups-3': 'r16',
+  'post-r16': 'qf', 'post-16': 'qf',
+  'post-qf': 'sf', 'post-quarts': 'sf',
+  'post-sf': 'final', 'post-semis': 'final',
+};
+
+function getPlayersForPhase(participant, phase) {
+  const allPlayers = getPlayers(participant);
+  const changes    = getChanges(participant);
+  const phaseIdx   = PHASES.indexOf(phase);
+
+  // Aplica els canvis que ja estan actius per a aquesta fase
+  let roster = allPlayers.map(pl => ({ ...pl })); // còpia
+
+  for (const c of changes) {
+    const changeFase    = norm(v(c, 'Fase'));
+    const activeFromKey = Object.keys(CHANGE_ACTIVE_FROM).find(k => norm(k) === changeFase);
+    if (!activeFromKey) continue;
+    const activeFrom    = CHANGE_ACTIVE_FROM[activeFromKey];
+    const activeFromIdx = PHASES.indexOf(activeFrom);
+    if (activeFromIdx < 0 || phaseIdx < activeFromIdx) continue; // canvi encara no actiu
+
+    const outName = norm(v(c, 'Jugador_Surt'));
+    const inName  = v(c, 'Jugador_Entra');
+    const idx = roster.findIndex(pl => norm(v(pl,'Jugador')) === outName);
+    if (idx >= 0) {
+      roster[idx] = { ...roster[idx], Jugador: inName };
+    }
+  }
+  return roster;
+}
+
 function getScore(participant, jugador, fase, jornada) {
   if (!gData) return null;
   return (gData.puntuacions || []).find(r =>
@@ -401,11 +443,11 @@ function calcPlayerPhasePts(participant, jugador, fase) {
 }
 
 function calcParticipantTotal(participant) {
-  const players = getPlayers(participant);
   let total = 0;
   for (const ph of PHASES) {
-    for (const pl of players) {
-      total += calcPlayerPhasePts(participant, pl['Jugador'], ph);
+    const phasePlayers = getPlayersForPhase(participant, ph);
+    for (const pl of phasePlayers) {
+      total += calcPlayerPhasePts(participant, v(pl,'Jugador'), ph);
     }
   }
   return total;
@@ -500,9 +542,10 @@ function renderTeam(participant) {
 
   for (const phase of PHASES) {
     const jornades = PHASE_JORNADES[phase];
-    const phaseTotal = players.reduce((sum, pl) => sum + calcPlayerPhasePts(participant, pl['Jugador'], phase), 0);
+    const phasePlayers = getPlayersForPhase(participant, phase);
+    const phaseTotal = phasePlayers.reduce((sum, pl) => sum + calcPlayerPhasePts(participant, v(pl,'Jugador'), phase), 0);
     const jornHeaders = jornades.map(j => `<th>${j}</th>`).join('');
-    const rows = players.map(pl => {
+    const rows = phasePlayers.map(pl => {
       const name = v(pl,'Jugador');
       const team = v(pl,'Equip');
       const pos = (v(pl,'Posicio') || 'MIG').toUpperCase();
@@ -556,7 +599,7 @@ function renderJornades(phase, jorn) {
   const participants = getParticipants();
   if (!participants.length) { viewEl.innerHTML = '<div class="empty-state"><div class="big-icon">📅</div><p>Afegeix dades al Google Sheet.</p></div>'; return; }
   const ranked = participants.map(p => {
-    const players = getPlayers(p);
+    const players = getPlayersForPhase(p, phase);
     const pts = players.reduce((sum, pl) => {
       const sc = getScore(p, pl['Jugador'], phase, jorn);
       if (!sc || sc['Nota'] === '' || sc['Nota'] === null) return sum;
