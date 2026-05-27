@@ -74,7 +74,7 @@
   .rank-pts span { font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--silver); display: block; margin-top: -4px; }
   .phase-bar { display: flex; height: 4px; border-radius: 2px; overflow: hidden; margin-top: 6px; grid-column: 2/5; }
   .phase-seg { flex: 1; opacity: 0.7; }
-  .seg-grp{background:#28A04E} .seg-16{background:#3A8FD8} .seg-qf{background:#E8A020} .seg-sf{background:#E05050} .seg-fin{background:var(--gold)}
+  .seg-grp{background:#28A04E} .seg-16{background:#1A6BB5} .seg-r8{background:#3A8FD8} .seg-qf{background:#E8A020} .seg-sf{background:#E05050} .seg-fin{background:var(--gold)}
 
   /* TEAM */
   .team-header { background: linear-gradient(135deg, var(--pitch) 0%, var(--ink) 100%); border: 1px solid var(--glass-border); border-radius: 14px; padding: 1.8rem 2rem; margin-bottom: 1.5rem; display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: center; }
@@ -84,6 +84,11 @@
   .team-stat-val { font-family: 'Bebas Neue', cursive; font-size: 2rem; color: var(--white); }
   .team-stat-lbl { font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--silver); text-transform: uppercase; letter-spacing: 0.1em; }
   .phase-section { margin-bottom: 1.5rem; }
+  .phase-tabs { display: flex; gap: 0; flex-wrap: wrap; margin-bottom: 1.2rem; border-bottom: 1px solid var(--glass-border); }
+  .phase-tab-btn { background: none; border: none; cursor: pointer; padding: 0.7rem 1.1rem; font-family: 'Space Mono', monospace; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--silver); white-space: nowrap; border-bottom: 2px solid transparent; transition: color 0.2s, border-color 0.2s; }
+  .phase-tab-btn:hover { color: var(--white); }
+  .phase-tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+  .phase-tab-btn .pts-badge { font-family: 'DM Sans', sans-serif; font-size: 0.6rem; background: rgba(245,200,66,0.15); color: var(--gold); padding: 1px 5px; border-radius: 4px; margin-left: 5px; }
   .phase-label { font-family: 'Space Mono', monospace; font-size: 0.7rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin-bottom: 0.7rem; padding-left: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
   .phase-label::before { content:''; display:block; width:3px; height:14px; background:var(--gold); border-radius:2px; }
   .players-table { width: 100%; border-collapse: separate; border-spacing: 0 3px; }
@@ -245,11 +250,13 @@ const ADMIN_PASS_HASH = 'a8c9b8f3e2e9c9a1c3b2d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c
 const ADMIN_PASSWORD = 'mundial2026admin';
 // ============================================================
 
-const PHASES = ['grups','r16','qf','sf','final'];
-const PHASE_LABELS = {grups:'Fase de Grups', r16:'16ens', qf:'Quarts', sf:'Semis', final:'Final'};
-const PHASE_JORNADES = {grups:['J1','J2','J3'], r16:['J1','J2'], qf:['J1'], sf:['J1'], final:['J1']};
-const PHASE_ICONS = {grups:'⚽', r16:'🔵', qf:'🟠', sf:'🔴', final:'🏆'};
-const PHASE_COLORS = {grups:'seg-grp', r16:'seg-16', qf:'seg-qf', sf:'seg-sf', final:'seg-fin'};
+const PHASES = ['grups','r16','r8','qf','sf','final'];
+const PHASE_LABELS = {grups:'Fase de Grups', r16:'16ens de Final', r8:'Vuitens de Final', qf:'Quarts de Final', sf:'Semifinals', final:'Final'};
+// Grups té 3 jornades. La resta són eliminatòries (1 puntuació per partit)
+const PHASE_JORNADES = {grups:['J1','J2','J3'], r16:['E1'], r8:['E1'], qf:['E1'], sf:['E1'], final:['E1']};
+const PHASE_JORN_LABEL = {grups:true, r16:false, r8:false, qf:false, sf:false, final:false};
+const PHASE_ICONS = {grups:'⚽', r16:'🔵', r8:'⚡', qf:'🟠', sf:'🔴', final:'🏆'};
+const PHASE_COLORS = {grups:'seg-grp', r16:'seg-16', r8:'seg-r8', qf:'seg-qf', sf:'seg-sf', final:'seg-fin'};
 
 // Google Sheets API — lectura pública
 const SHEETS_API = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values`;
@@ -386,11 +393,11 @@ function getPlayers(participant) {
 
 function changeFaseToPhase(rawFase) {
   const f = norm(rawFase);
-  if (f === 'r16' || f.includes('post-grups') || f.includes('grups')) return 'r16';
-  if (f === 'qf'  || f.includes('post-r16')  || f.includes('post-16')) return 'qf';
-  if (f === 'sf'  || f.includes('post-qf')   || f.includes('quarts'))  return 'sf';
-  if (f === 'final'|| f.includes('post-sf')  || f.includes('semis'))   return 'final';
-  // Si posen directament el nom de la fase
+  if (f === 'r16' || f.includes('post-grups') || f.includes('grups'))  return 'r16';
+  if (f === 'r8'  || f.includes('post-r16')   || f.includes('16ens'))  return 'r8';
+  if (f === 'qf'  || f.includes('post-r8')    || f.includes('vuitens') || f.includes('octavos')) return 'qf';
+  if (f === 'sf'  || f.includes('post-qf')    || f.includes('quarts')) return 'sf';
+  if (f === 'final'|| f.includes('post-sf')   || f.includes('semis'))  return 'final';
   if (PHASES.includes(f)) return f;
   return null;
 }
@@ -512,6 +519,90 @@ function renderRanking() {
 // ============================================================
 // RENDER TEAM
 // ============================================================
+let currentPhaseTab = 'grups';
+
+function renderPhaseContent(participant, phase) {
+  const jornades = PHASE_JORNADES[phase];
+  const showJornLabel = PHASE_JORN_LABEL[phase];
+  const phasePlayers = getPlayersForPhase(participant, phase);
+
+  if (!phasePlayers.length) {
+    return '<div class="empty-state" style="padding:2rem"><div class="big-icon" style="font-size:2rem">👟</div><p>Sense jugadors per a aquesta fase.</p></div>';
+  }
+
+  // Per fase de grups: pestanyes per jornada
+  if (showJornLabel) {
+    const activeJorn = window._activeJorn?.[participant]?.[phase] || jornades[0];
+    const jornTabs = jornades.map(j => `
+      <button class="phase-tab-btn ${j===activeJorn?'active':''}"
+        onclick="setActiveJorn('${participant}','${phase}','${j}')">${j}</button>
+    `).join('');
+
+    const sc_rows = phasePlayers.map(pl => {
+      const name = v(pl,'Jugador'), team = v(pl,'Equip');
+      const pos = (v(pl,'Posicio')||'MIG').toUpperCase();
+      const sc = getScore(participant, name, phase, activeJorn);
+      const note = sc && v(sc,'Nota') !== '' ? parseFloat(v(sc,'Nota')||0) : null;
+      const g = sc ? parseInt(v(sc,'Gols')||0) : 0;
+      const a = sc ? parseInt(v(sc,'Assistencies')||0) : 0;
+      const pts = note !== null ? (note + g*5 + a*3) : null;
+      const cls = note === null ? 'score-empty' : note >= 8 ? 'score-high' : note >= 6.5 ? 'score-mid' : 'score-low';
+      return `<tr>
+        <td>${name}<span class="pos-badge pos-${pos}">${pos}</span><br><small style="color:var(--silver);font-size:0.7rem">${team}</small></td>
+        <td><span class="score-chip ${cls}">${note !== null ? note.toFixed(1) : '—'}</span>${g>0?' '+'⚽'.repeat(Math.min(g,3)):''}${a>0?' '+'🅰️'.repeat(Math.min(a,3)):''}</td>
+        <td>${pts !== null ? pts.toFixed(1) : '—'}</td>
+      </tr>`;
+    }).join('');
+
+    const jorTotal = phasePlayers.reduce((s,pl) => {
+      const sc = getScore(participant, v(pl,'Jugador'), phase, activeJorn);
+      if (!sc || v(sc,'Nota')==='') return s;
+      return s + parseFloat(v(sc,'Nota')||0) + parseInt(v(sc,'Gols')||0)*5 + parseInt(v(sc,'Assistencies')||0)*3;
+    }, 0);
+
+    return `
+      <div style="display:flex;gap:0;border-bottom:1px solid var(--glass-border);margin-bottom:1rem">
+        ${jornTabs}
+        <div style="margin-left:auto;padding:0.7rem 0;font-family:'Space Mono',monospace;font-size:0.65rem;color:var(--gold)">${jorTotal>0?jorTotal.toFixed(1)+' pts':''}</div>
+      </div>
+      <table class="players-table">
+        <thead><tr><th>Jugador</th><th>Nota</th><th>Pts</th></tr></thead>
+        <tbody>${sc_rows}</tbody>
+      </table>`;
+  }
+
+  // Eliminatòria (sense jornada): mostra directament, columna única "Eliminatòria"
+  const elim = jornades[0];
+  const rows = phasePlayers.map(pl => {
+    const name = v(pl,'Jugador'), team = v(pl,'Equip');
+    const pos = (v(pl,'Posicio')||'MIG').toUpperCase();
+    const sc = getScore(participant, name, phase, elim);
+    const note = sc && v(sc,'Nota') !== '' ? parseFloat(v(sc,'Nota')||0) : null;
+    const g = sc ? parseInt(v(sc,'Gols')||0) : 0;
+    const a = sc ? parseInt(v(sc,'Assistencies')||0) : 0;
+    const pts = note !== null ? (note + g*5 + a*3) : null;
+    const cls = note === null ? 'score-empty' : note >= 8 ? 'score-high' : note >= 6.5 ? 'score-mid' : 'score-low';
+    return `<tr>
+      <td>${name}<span class="pos-badge pos-${pos}">${pos}</span><br><small style="color:var(--silver);font-size:0.7rem">${team}</small></td>
+      <td><span class="score-chip ${cls}">${note !== null ? note.toFixed(1) : '—'}</span>${g>0?' '+'⚽'.repeat(Math.min(g,3)):''}${a>0?' '+'🅰️'.repeat(Math.min(a,3)):''}</td>
+      <td>${pts !== null ? pts.toFixed(1) : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  return `<table class="players-table">
+    <thead><tr><th>Jugador</th><th>Nota</th><th>Pts</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function setActiveJorn(participant, phase, jorn) {
+  if (!window._activeJorn) window._activeJorn = {};
+  if (!window._activeJorn[participant]) window._activeJorn[participant] = {};
+  window._activeJorn[participant][phase] = jorn;
+  // Re-render only the phase content
+  document.getElementById('phaseContent').innerHTML = renderPhaseContent(participant, phase);
+}
+
 function renderTeam(participant) {
   const view = document.getElementById('teamView');
   if (!gData || !participant) { view.innerHTML = ''; return; }
@@ -522,65 +613,42 @@ function renderTeam(participant) {
   const ranking = getRanking();
   const pos = ranking.findIndex(r => r.name === participant) + 1;
 
-  let html = `<div class="team-header">
-    <div>
-      <div class="team-name-big">${participant}</div>
-      <div class="team-stats-row">
-        <div class="team-stat"><div class="team-stat-val">#${pos}</div><div class="team-stat-lbl">Posició</div></div>
-        <div class="team-stat"><div class="team-stat-val">${total.toFixed(1)}</div><div class="team-stat-lbl">Punts</div></div>
-        <div class="team-stat"><div class="team-stat-val">${goals}</div><div class="team-stat-lbl">Gols</div></div>
-        <div class="team-stat"><div class="team-stat-val">${players.length}/11</div><div class="team-stat-lbl">Jugadors</div></div>
+  if (!players.length) {
+    view.innerHTML = `<div class="team-header"><div><div class="team-name-big">${participant}</div></div></div>
+      <div class="empty-state"><div class="big-icon">👟</div><p>Encara no hi ha jugadors per a aquest participant.</p></div>`;
+    return;
+  }
+
+  // Phase tabs with pts badges
+  const phaseTabs = PHASES.map(ph => {
+    const phTotal = getPlayersForPhase(participant, ph).reduce((s,pl) => s + calcPlayerPhasePts(participant, v(pl,'Jugador'), ph), 0);
+    const badge = phTotal > 0 ? `<span class="pts-badge">${phTotal.toFixed(1)}</span>` : '';
+    return `<button class="phase-tab-btn ${ph===currentPhaseTab?'active':''}"
+      onclick="switchPhaseTab('${participant}','${ph}')">${PHASE_ICONS[ph]} ${PHASE_LABELS[ph]}${badge}</button>`;
+  }).join('');
+
+  view.innerHTML = `
+    <div class="team-header">
+      <div>
+        <div class="team-name-big">${participant}</div>
+        <div class="team-stats-row">
+          <div class="team-stat"><div class="team-stat-val">#${pos}</div><div class="team-stat-lbl">Posició</div></div>
+          <div class="team-stat"><div class="team-stat-val">${total.toFixed(1)}</div><div class="team-stat-lbl">Punts totals</div></div>
+          <div class="team-stat"><div class="team-stat-val">${goals}</div><div class="team-stat-lbl">Gols</div></div>
+          <div class="team-stat"><div class="team-stat-val">${players.length}/11</div><div class="team-stat-lbl">Jugadors</div></div>
+        </div>
       </div>
     </div>
-  </div>`;
+    <div class="phase-tabs" style="overflow-x:auto;scrollbar-width:none">${phaseTabs}</div>
+    <div id="phaseContent">${renderPhaseContent(participant, currentPhaseTab)}</div>`;
+}
 
-  if (!players.length) {
-    html += '<div class="empty-state"><div class="big-icon">👟</div><p>Encara no hi ha jugadors per a aquest participant.</p></div>';
-    view.innerHTML = html; return;
-  }
-
-  for (const phase of PHASES) {
-    const jornades = PHASE_JORNADES[phase];
-    const phasePlayers = getPlayersForPhase(participant, phase);
-    const phaseTotal = phasePlayers.reduce((sum, pl) => sum + calcPlayerPhasePts(participant, v(pl,'Jugador'), phase), 0);
-    const jornHeaders = jornades.map(j => `<th>${j}</th>`).join('');
-    const rows = phasePlayers.map(pl => {
-      const name = v(pl,'Jugador');
-      const team = v(pl,'Equip');
-      const pos = (v(pl,'Posicio') || 'MIG').toUpperCase();
-      const jornCells = jornades.map(jorn => {
-        const sc = getScore(participant, name, phase, jorn);
-        if (!sc || v(sc,'Nota') === '') {
-          return `<td><span class="score-chip score-empty">—</span></td>`;
-        }
-        const note = parseFloat(v(sc,'Nota') || 0);
-        const cls = note >= 8 ? 'score-high' : note >= 6.5 ? 'score-mid' : 'score-low';
-        const g = parseInt(v(sc,'Gols') || 0);
-        const a = parseInt(v(sc,'Assistencies') || 0);
-        const gStr = g > 0 ? ` ${'⚽'.repeat(Math.min(g,3))}` : '';
-        const aStr = a > 0 ? ` ${'🅰️'.repeat(Math.min(a,3))}` : '';
-        return `<td><span class="score-chip ${cls}">${note.toFixed(1)}</span>${gStr}${aStr}</td>`;
-      }).join('');
-      const playerTotal = jornades.reduce((s, jorn) => {
-        const sc = getScore(participant, name, phase, jorn);
-        if (!sc || v(sc,'Nota') === '') return s;
-        return s + parseFloat(v(sc,'Nota')||0) + parseInt(v(sc,'Gols')||0)*5 + parseInt(v(sc,'Assistencies')||0)*3;
-      }, 0);
-      return `<tr>
-        <td>${name}<span class="pos-badge pos-${pos}">${pos}</span><br><small style="color:var(--silver);font-size:0.7rem">${team}</small></td>
-        ${jornCells}
-        <td>${playerTotal > 0 ? playerTotal.toFixed(1) : '—'}</td>
-      </tr>`;
-    }).join('');
-    html += `<div class="phase-section">
-      <div class="phase-label">${PHASE_ICONS[phase]} ${PHASE_LABELS[phase]}${phaseTotal > 0 ? ` · <strong style="color:var(--gold)">${phaseTotal.toFixed(1)} pts</strong>` : ''}</div>
-      <table class="players-table">
-        <thead><tr><th>Jugador</th>${jornHeaders}<th>Total</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
-  }
-  view.innerHTML = html;
+function switchPhaseTab(participant, phase) {
+  currentPhaseTab = phase;
+  // Update tab buttons
+  document.querySelectorAll('.phase-tab-btn').forEach(b => b.classList.remove('active'));
+  event.target.closest('.phase-tab-btn').classList.add('active');
+  document.getElementById('phaseContent').innerHTML = renderPhaseContent(participant, phase);
 }
 
 // ============================================================
@@ -620,7 +688,7 @@ function renderJornades(phase, jorn) {
 // ============================================================
 function phaseLabel(rawFase) {
   const p = changeFaseToPhase(rawFase);
-  const labels = { r16: 'Actiu des de 16ens', qf: 'Actiu des de Quarts', sf: 'Actiu des de Semis', final: 'Actiu a la Final' };
+  const labels = { r16: 'Actiu des de 16ens', r8: 'Actiu des de Vuitens', qf: 'Actiu des de Quarts', sf: 'Actiu des de Semis', final: 'Actiu a la Final' };
   return labels[p] || rawFase;
 }
 
