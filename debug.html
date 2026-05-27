@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>Debug Sheet</title>
+<style>
+  body { font-family: monospace; background: #0a0f1e; color: #f8fafc; padding: 2rem; }
+  pre { background: rgba(255,255,255,0.07); padding: 1rem; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; font-size: 0.8rem; margin-bottom: 1rem; }
+  h3 { color: #F5C842; margin: 1rem 0 0.5rem; }
+  .ok { color: #6EE89A; } .err { color: #F58080; } .warn { color: #F5C842; }
+  button { background: #1A7A3A; border: none; color: white; padding: 0.5rem 1.2rem; border-radius: 6px; cursor: pointer; margin: 0.3rem; font-size: 0.9rem; }
+</style>
+</head><body>
+<h2>🔍 Debug Google Sheet</h2>
+<button onclick="runAll()">▶ Analitzar totes les pestanyes</button>
+<div id="out"></div>
+<script>
+const SHEET_ID = '1W02L1nn1FI3shibepGLazZC_G4IgG9sytqm6fGoWQdE';
+const SHEETS = ['Participants','Jugadors','Puntuacions','Canvis'];
+
+async function fetchRaw(sheet) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheet)}`;
+  const res = await fetch(url);
+  return res.text();
+}
+
+function parse(text) {
+  const match = text.match(/^[^\(]+\((.+)\);?\s*$/s) || text.match(/setResponse\(([\s\S]+)\)/);
+  if (!match) return null;
+  return JSON.parse(match[1]);
+}
+
+async function analyzeSheet(name) {
+  const div = document.createElement('div');
+  div.innerHTML = `<h3>📋 ${name} — carregant...</h3>`;
+  document.getElementById('out').appendChild(div);
+  try {
+    const raw = await fetchRaw(name);
+    const json = parse(raw);
+    if (!json || json.status === 'error') {
+      div.innerHTML = `<h3 class="err">❌ ${name} — ERROR</h3><pre>${raw.substring(0,500)}</pre>`;
+      return;
+    }
+    const cols = (json.table?.cols || []);
+    const rows = (json.table?.rows || []);
+    const headers = cols.map((c,i) => `[${i}] label="${c.label}" id="${c.id}" type="${c.type}"`);
+    
+    // Mostra les primeres 3 files com a objectes
+    const parsed = rows.slice(0,5).map(row => {
+      const obj = {};
+      cols.forEach((c,i) => {
+        const cell = row.c?.[i];
+        obj[c.label || c.id || i] = cell?.v ?? cell?.f ?? null;
+      });
+      return obj;
+    });
+
+    div.innerHTML = `
+      <h3 class="ok">✅ ${name} — ${rows.length} files, ${cols.length} columnes</h3>
+      <b>Capçaleres:</b><pre>${headers.join('\n')}</pre>
+      <b>Primeres files (parseades):</b><pre>${JSON.stringify(parsed, null, 2)}</pre>
+    `;
+  } catch(e) {
+    div.innerHTML = `<h3 class="err">❌ ${name} — ${e.message}</h3>`;
+  }
+}
+
+async function runAll() {
+  document.getElementById('out').innerHTML = '';
+  for (const s of SHEETS) await analyzeSheet(s);
+}
+runAll();
+</script>
+</body></html>
