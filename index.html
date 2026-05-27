@@ -264,19 +264,48 @@ let currentJornada = {phase: 'grups', jorn: 'J1'};
 // LECTURA DEL GOOGLE SHEET (via gviz — no necessita API key)
 // ============================================================
 async function fetchSheet(sheetName) {
-  // cache-buster evita que el mòbil serveixi una versió antiga en caché
   const ts = Date.now();
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}&_=${ts}`;
-  const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const text = await res.text();
-  const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]+)\);?\s*$/) ||
-                text.match(/setResponse\(([\s\S]+)\)/) ||
-                text.match(/^[^\(]+\(([\s\S]+)\);?\s*$/);
-  if (!match) throw new Error('Format gviz inesperat');
-  const json = JSON.parse(match[1]);
-  if (json.status === 'error') throw new Error(json.errors?.[0]?.message || 'Error Sheet');
-  return json;
+  const sheetUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}&_=${ts}`;
+
+  // Intenta fetch directe primer, si falla (CORS mòbil) usa proxy
+  async function tryFetch(url, opts) {
+    const res = await fetch(url, opts);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.text();
+  }
+
+  function parseGviz(text) {
+    const match = text.match(/setResponse\(([\s\S]+?)\);?\s*$/) ||
+                  text.match(/^[^\(]+\(([\s\S]+)\);?\s*$/);
+    if (!match) throw new Error('Format gviz inesperat');
+    const json = JSON.parse(match[1]);
+    if (json.status === 'error') throw new Error(json.errors?.[0]?.message || 'Error Sheet');
+    return json;
+  }
+
+  // Intent 1: directe
+  try {
+    const text = await tryFetch(sheetUrl, { cache: 'no-store' });
+    return parseGviz(text);
+  } catch(e1) {
+    // Intent 2: via proxy allorigins (funciona en mòbil)
+    try {
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(sheetUrl)}`;
+      const res = await fetch(proxyUrl, { cache: 'no-store' });
+      if (!res.ok) throw new Error('proxy error');
+      const data = await res.json();
+      return parseGviz(data.contents);
+    } catch(e2) {
+      // Intent 3: cors.sh proxy alternatiu
+      try {
+        const proxy2 = `https://corsproxy.io/?${encodeURIComponent(sheetUrl)}`;
+        const text = await tryFetch(proxy2, { cache: 'no-store' });
+        return parseGviz(text);
+      } catch(e3) {
+        throw new Error('No s\'ha pogut connectar amb el Sheet (CORS). Prova amb WiFi o un altre navegador.');
+      }
+    }
+  }
 }
 
 function parseSheet(json) {
