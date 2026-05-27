@@ -282,24 +282,33 @@ function parseSheet(json) {
   const rows = json.table.rows || [];
   if (!rows.length) return [];
 
-  // Usa label si existeix, si no usa el patró de columna (A, B, C...)
-  const headers = cols.map((c, i) => {
-    const lbl = (c.label || '').trim();
-    return lbl || String.fromCharCode(65 + i);
-  });
+  // Comprova si les labels són reals o genèriques (A, B, C...)
+  const labelsOk = cols.every(c => c.label && c.label.trim() && !/^[A-Z]$/.test(c.label.trim()));
 
-  return rows.map(row => {
-    const obj = {};
-    headers.forEach((col, i) => {
-      const cell = row.c?.[i];
-      // v = valor numèric/booleà, f = valor formatat (string), null = buit
-      let val = '';
-      if (cell !== null && cell !== undefined) {
-        val = cell.v !== null && cell.v !== undefined ? cell.v : (cell.f ?? '');
-      }
-      // Neteja strings
-      obj[col] = typeof val === 'string' ? val.trim() : val;
+  function cellVal(cell) {
+    if (!cell) return '';
+    const v = cell.v !== null && cell.v !== undefined ? cell.v : (cell.f ?? '');
+    return typeof v === 'string' ? v.trim() : v;
+  }
+
+  let headers, dataRows;
+  if (labelsOk) {
+    // Cas normal: labels correctes (ex: Puntuacions)
+    headers = cols.map(c => c.label.trim());
+    dataRows = rows;
+  } else {
+    // Les labels són A/B/C — la primera fila conté les capçaleres reals
+    const firstRow = rows[0];
+    headers = cols.map((c, i) => {
+      const v = cellVal(firstRow?.c?.[i]);
+      return v ? String(v) : String.fromCharCode(65 + i);
     });
+    dataRows = rows.slice(1); // salta la fila de capçaleres
+  }
+
+  return dataRows.map(row => {
+    const obj = {};
+    headers.forEach((col, i) => { obj[col] = cellVal(row.c?.[i]); });
     return obj;
   }).filter(row => headers.some(h => {
     const v = row[h];
