@@ -154,11 +154,88 @@
   .sync-bar.done { transform: scaleX(1); transition: transform 0.2s; }
   .last-update { font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--silver); opacity: 0.6; text-align: center; padding: 0.5rem; }
 
+  /* ---- PITCH ---- */
+  .pitch-wrap { position:relative; width:100%; max-width:480px; margin:0 auto 1rem; }
+  .pitch {
+    position:relative; width:100%; padding-bottom:145%;
+    background:
+      linear-gradient(180deg,
+        #1a5c2a 0%, #1e6830 8.33%, #1a5c2a 8.33%,
+        #1a5c2a 16.66%, #1e6830 16.66%, #1e6830 25%,
+        #1a5c2a 25%, #1a5c2a 33.33%, #1e6830 33.33%,
+        #1e6830 41.66%, #1a5c2a 41.66%, #1a5c2a 50%,
+        #1e6830 50%, #1e6830 58.33%, #1a5c2a 58.33%,
+        #1a5c2a 66.66%, #1e6830 66.66%, #1e6830 75%,
+        #1a5c2a 75%, #1a5c2a 83.33%, #1e6830 83.33%,
+        #1e6830 91.66%, #1a5c2a 91.66%, #1a5c2a 100%);
+    border-radius:10px; overflow:hidden; border:2px solid rgba(255,255,255,0.15);
+  }
+  .pitch-lines {
+    position:absolute; inset:0;
+    background:
+      /* border */
+      inset(4% 3% 4% 3%) border-box,
+      /* centre line */
+      linear-gradient(rgba(255,255,255,0.25) 0 0) 0 50%/100% 1px no-repeat,
+      /* centre circle */
+      radial-gradient(circle, transparent 12%, rgba(255,255,255,0.22) 12.5%, rgba(255,255,255,0.22) 13%, transparent 13.5%) center/80px 80px no-repeat;
+    border: 3px solid transparent;
+    outline: 2px solid rgba(255,255,255,0.2);
+    outline-offset: -8px;
+    pointer-events:none;
+  }
+  .pitch-row { position:absolute; left:0; right:0; display:flex; justify-content:space-around; align-items:center; }
+  .pitch-row.row-por  { bottom:4%; }
+  .pitch-row.row-def  { bottom:22%; }
+  .pitch-row.row-mig  { bottom:46%; }
+  .pitch-row.row-dav  { bottom:68%; }
+
+  .player-pin {
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    cursor:default; width:72px;
+  }
+  .player-pin .avatar {
+    width:42px; height:42px; border-radius:50%;
+    background: linear-gradient(135deg, #1e3a5f, #2d5a8e);
+    border:2px solid rgba(255,255,255,0.3);
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.2rem; position:relative; flex-shrink:0;
+  }
+  .player-pin .avatar.has-score { border-color: var(--gold); }
+  .player-pin .avatar.score-high-av { border-color:#6EE89A; background:linear-gradient(135deg,#0d3320,#1a5c35); }
+  .player-pin .avatar.score-mid-av  { border-color:var(--gold); background:linear-gradient(135deg,#3d2e00,#6b5000); }
+  .player-pin .avatar.score-low-av  { border-color:#F58080; background:linear-gradient(135deg,#3d0f0f,#6b1a1a); }
+  .player-pin .avatar.empty-slot { opacity:0.25; border-color:rgba(255,255,255,0.15); }
+  .score-bubble {
+    position:absolute; top:-6px; right:-6px;
+    background:var(--ink); border:1px solid var(--gold);
+    color:var(--gold); font-family:'Space Mono',monospace;
+    font-size:0.5rem; font-weight:700;
+    padding:1px 3px; border-radius:4px; white-space:nowrap;
+  }
+  .player-pin .pname {
+    font-size:0.6rem; font-weight:700; color:var(--white);
+    text-align:center; line-height:1.2; max-width:72px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    background:rgba(0,0,0,0.55); padding:1px 4px; border-radius:3px;
+  }
+  .player-pin .pname.empty { color:rgba(255,255,255,0.2); }
+  .player-pin .goal-row { font-size:0.65rem; line-height:1; }
+
+  .pitch-total {
+    text-align:center; font-family:'Bebas Neue',cursive;
+    font-size:1.1rem; color:var(--gold); letter-spacing:0.1em;
+    margin-top:0.5rem;
+  }
+
   @media(max-width:600px){
     .ranking-card{grid-template-columns:2.5rem 1fr auto}
     .rank-gols{display:none}
     header{padding:1.5rem 1rem 1rem}
     main{padding:1rem 1rem 4rem}
+    .player-pin { width:58px; }
+    .player-pin .avatar { width:34px; height:34px; font-size:1rem; }
+    .player-pin .pname { font-size:0.55rem; max-width:58px; }
   }
 </style>
 </head>
@@ -521,6 +598,76 @@ function renderRanking() {
 // ============================================================
 let currentPhaseTab = 'grups';
 
+// Genera un "pin" de jugador per al camp
+function playerPin(name, pos, sc, jorn, participant, phase) {
+  if (!name) {
+    return `<div class="player-pin">
+      <div class="avatar empty-slot">👤</div>
+      <div class="pname empty">—</div>
+    </div>`;
+  }
+  const note = sc && v(sc,'Nota') !== '' ? parseFloat(v(sc,'Nota')||0) : null;
+  const g = sc ? parseInt(v(sc,'Gols')||0) : 0;
+  const a = sc ? parseInt(v(sc,'Assistencies')||0) : 0;
+  const pts = note !== null ? note + g*5 + a*3 : null;
+  const avCls = note === null ? '' : note >= 8 ? 'score-high-av' : note >= 6.5 ? 'score-mid-av' : 'score-low-av';
+  const scoreBubble = pts !== null ? `<div class="score-bubble">${pts.toFixed(1)}</div>` : '';
+  const goals = g > 0 ? `<div class="goal-row">${'⚽'.repeat(Math.min(g,3))}${a>0?'🅰️'.repeat(Math.min(a,3)):''}</div>` : (a>0?`<div class="goal-row">${'🅰️'.repeat(Math.min(a,3))}</div>`:'');
+  const shortName = name.split(' ').pop(); // cognom
+  return `<div class="player-pin">
+    <div class="avatar ${avCls}">👤${scoreBubble}</div>
+    <div class="pname">${shortName}</div>
+    ${goals}
+  </div>`;
+}
+
+function renderPitch(participant, phase, jornada) {
+  const phasePlayers = getPlayersForPhase(participant, phase);
+  // Classifica per posició
+  const byPos = { POR:[], DEF:[], MIG:[], DAV:[] };
+  for (const pl of phasePlayers) {
+    const pos = (v(pl,'Posicio')||'MIG').toUpperCase();
+    const key = ['POR','DEF','MIG','DAV'].includes(pos) ? pos : 'MIG';
+    byPos[key].push(v(pl,'Jugador'));
+  }
+
+  // 4-3-3: 1 POR, 4 DEF, 3 MIG, 3 DAV
+  const slots = { POR:1, DEF:4, MIG:3, DAV:3 };
+  function getSlots(pos) {
+    const arr = byPos[pos] || [];
+    const n = slots[pos];
+    return Array.from({length:n}, (_,i) => arr[i] || null);
+  }
+
+  function row(pos, rowClass) {
+    const names = getSlots(pos);
+    const pins = names.map(name => {
+      const sc = name ? getScore(participant, name, phase, jornada) : null;
+      return playerPin(name, pos, sc, jornada, participant, phase);
+    }).join('');
+    return `<div class="pitch-row ${rowClass}">${pins}</div>`;
+  }
+
+  // Total de la jornada/eliminatòria
+  const total = phasePlayers.reduce((s,pl) => {
+    const sc = getScore(participant, v(pl,'Jugador'), phase, jornada);
+    if (!sc || v(sc,'Nota')==='') return s;
+    return s + parseFloat(v(sc,'Nota')||0) + parseInt(v(sc,'Gols')||0)*5 + parseInt(v(sc,'Assistencies')||0)*3;
+  }, 0);
+  const totalStr = total > 0 ? `${total.toFixed(1)} pts` : 'Sense puntuació';
+
+  return `<div class="pitch-wrap">
+    <div class="pitch">
+      <div class="pitch-lines"></div>
+      ${row('DAV','row-dav')}
+      ${row('MIG','row-mig')}
+      ${row('DEF','row-def')}
+      ${row('POR','row-por')}
+    </div>
+    <div class="pitch-total">⚽ ${totalStr}</div>
+  </div>`;
+}
+
 function renderPhaseContent(participant, phase) {
   const jornades = PHASE_JORNADES[phase];
   const showJornLabel = PHASE_JORN_LABEL[phase];
@@ -530,69 +677,22 @@ function renderPhaseContent(participant, phase) {
     return '<div class="empty-state" style="padding:2rem"><div class="big-icon" style="font-size:2rem">👟</div><p>Sense jugadors per a aquesta fase.</p></div>';
   }
 
-  // Per fase de grups: pestanyes per jornada
   if (showJornLabel) {
+    // Fase de grups: pestanyes J1/J2/J3
     const activeJorn = window._activeJorn?.[participant]?.[phase] || jornades[0];
     const jornTabs = jornades.map(j => `
       <button class="phase-tab-btn ${j===activeJorn?'active':''}"
         onclick="setActiveJorn('${participant}','${phase}','${j}')">${j}</button>
     `).join('');
-
-    const sc_rows = phasePlayers.map(pl => {
-      const name = v(pl,'Jugador'), team = v(pl,'Equip');
-      const pos = (v(pl,'Posicio')||'MIG').toUpperCase();
-      const sc = getScore(participant, name, phase, activeJorn);
-      const note = sc && v(sc,'Nota') !== '' ? parseFloat(v(sc,'Nota')||0) : null;
-      const g = sc ? parseInt(v(sc,'Gols')||0) : 0;
-      const a = sc ? parseInt(v(sc,'Assistencies')||0) : 0;
-      const pts = note !== null ? (note + g*5 + a*3) : null;
-      const cls = note === null ? 'score-empty' : note >= 8 ? 'score-high' : note >= 6.5 ? 'score-mid' : 'score-low';
-      return `<tr>
-        <td>${name}<span class="pos-badge pos-${pos}">${pos}</span><br><small style="color:var(--silver);font-size:0.7rem">${team}</small></td>
-        <td><span class="score-chip ${cls}">${note !== null ? note.toFixed(1) : '—'}</span>${g>0?' '+'⚽'.repeat(Math.min(g,3)):''}${a>0?' '+'🅰️'.repeat(Math.min(a,3)):''}</td>
-        <td>${pts !== null ? pts.toFixed(1) : '—'}</td>
-      </tr>`;
-    }).join('');
-
-    const jorTotal = phasePlayers.reduce((s,pl) => {
-      const sc = getScore(participant, v(pl,'Jugador'), phase, activeJorn);
-      if (!sc || v(sc,'Nota')==='') return s;
-      return s + parseFloat(v(sc,'Nota')||0) + parseInt(v(sc,'Gols')||0)*5 + parseInt(v(sc,'Assistencies')||0)*3;
-    }, 0);
-
     return `
       <div style="display:flex;gap:0;border-bottom:1px solid var(--glass-border);margin-bottom:1rem">
         ${jornTabs}
-        <div style="margin-left:auto;padding:0.7rem 0;font-family:'Space Mono',monospace;font-size:0.65rem;color:var(--gold)">${jorTotal>0?jorTotal.toFixed(1)+' pts':''}</div>
       </div>
-      <table class="players-table">
-        <thead><tr><th>Jugador</th><th>Nota</th><th>Pts</th></tr></thead>
-        <tbody>${sc_rows}</tbody>
-      </table>`;
+      ${renderPitch(participant, phase, activeJorn)}`;
   }
 
-  // Eliminatòria (sense jornada): mostra directament, columna única "Eliminatòria"
-  const elim = jornades[0];
-  const rows = phasePlayers.map(pl => {
-    const name = v(pl,'Jugador'), team = v(pl,'Equip');
-    const pos = (v(pl,'Posicio')||'MIG').toUpperCase();
-    const sc = getScore(participant, name, phase, elim);
-    const note = sc && v(sc,'Nota') !== '' ? parseFloat(v(sc,'Nota')||0) : null;
-    const g = sc ? parseInt(v(sc,'Gols')||0) : 0;
-    const a = sc ? parseInt(v(sc,'Assistencies')||0) : 0;
-    const pts = note !== null ? (note + g*5 + a*3) : null;
-    const cls = note === null ? 'score-empty' : note >= 8 ? 'score-high' : note >= 6.5 ? 'score-mid' : 'score-low';
-    return `<tr>
-      <td>${name}<span class="pos-badge pos-${pos}">${pos}</span><br><small style="color:var(--silver);font-size:0.7rem">${team}</small></td>
-      <td><span class="score-chip ${cls}">${note !== null ? note.toFixed(1) : '—'}</span>${g>0?' '+'⚽'.repeat(Math.min(g,3)):''}${a>0?' '+'🅰️'.repeat(Math.min(a,3)):''}</td>
-      <td>${pts !== null ? pts.toFixed(1) : '—'}</td>
-    </tr>`;
-  }).join('');
-
-  return `<table class="players-table">
-    <thead><tr><th>Jugador</th><th>Nota</th><th>Pts</th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
+  // Eliminatòria: directe
+  return renderPitch(participant, phase, jornades[0]);
 }
 
 function setActiveJorn(participant, phase, jorn) {
