@@ -266,22 +266,45 @@ let currentJornada = {phase: 'grups', jorn: 'J1'};
 async function fetchSheet(sheetName) {
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
   const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const text = await res.text();
-  // gviz retorna JSONP: google.visualization.Query.setResponse({...})
-  const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
+  // gviz retorna JSONP — extreu el JSON interior de forma robusta
+  const match = text.match(/^[^\(]+\((.+)\);?\s*$/s) || text.match(/setResponse\(([\s\S]+)\)/);
+  if (!match) throw new Error('Format gviz inesperat');
+  const json = JSON.parse(match[1]);
+  if (json.status === 'error') throw new Error(json.errors?.[0]?.message || 'Error Sheet');
   return json;
 }
 
 function parseSheet(json) {
-  if (!json?.table?.rows) return [];
-  const cols = json.table.cols.map(c => c.label || '');
-  return json.table.rows.map(row => {
+  if (!json?.table) return [];
+  const cols = json.table.cols || [];
+  const rows = json.table.rows || [];
+  if (!rows.length) return [];
+
+  // Usa label si existeix, si no usa el patró de columna (A, B, C...)
+  const headers = cols.map((c, i) => {
+    const lbl = (c.label || '').trim();
+    return lbl || String.fromCharCode(65 + i);
+  });
+
+  return rows.map(row => {
     const obj = {};
-    cols.forEach((col, i) => {
-      obj[col] = row.c?.[i]?.v ?? row.c?.[i]?.f ?? '';
+    headers.forEach((col, i) => {
+      const cell = row.c?.[i];
+      // v = valor numèric/booleà, f = valor formatat (string), null = buit
+      let val = '';
+      if (cell !== null && cell !== undefined) {
+        val = cell.v !== null && cell.v !== undefined ? cell.v : (cell.f ?? '');
+      }
+      // Neteja strings
+      obj[col] = typeof val === 'string' ? val.trim() : val;
     });
     return obj;
-  }).filter(row => Object.values(row).some(v => v !== '' && v !== null));
+  }).filter(row => headers.some(h => {
+    const v = row[h];
+    return v !== '' && v !== null && v !== undefined;
+  }));
 }
 
 // ============================================================
@@ -297,10 +320,10 @@ async function loadAllData() {
   setSyncBar('loading');
   try {
     const [parts, jugadors, punts, canvis] = await Promise.all([
-      fetchSheet('Participants').then(parseSheet),
-      fetchSheet('Jugadors').then(parseSheet),
-      fetchSheet('Puntuacions').then(parseSheet),
-      fetchSheet('Canvis').then(parseSheet),
+      fetchSheet('Participants').then(parseSheet).catch(e => { console.warn('Participants:', e); return []; }),
+      fetchSheet('Jugadors').then(parseSheet).catch(e => { console.warn('Jugadors:', e); return []; }),
+      fetchSheet('Puntuacions').then(parseSheet).catch(e => { console.warn('Puntuacions:', e); return []; }),
+      fetchSheet('Canvis').then(parseSheet).catch(e => { console.warn('Canvis:', e); return []; }),
     ]);
 
     gData = { participants: parts, jugadors, puntuacions: punts, canvis };
@@ -651,11 +674,34 @@ function reloadData() {
   gData = null;
   loadAllData().then(() => {
     renderRanking();
+    // Actualitza selector equips
+    const participants = getParticipants();
+    const teamSel = document.getElementById('teamSelect');
+    if (teamSel) {
+      teamSel.innerHTML = participants.map(p => `<option value="${p}">${p}</option>`).join('');
+      if (currentTeamTab && participants.includes(currentTeamTab)) {
+        teamSel.value = currentTeamTab;
+      } else if (participants.length) {
+        currentTeamTab = participants[0];
+        teamSel.value = currentTeamTab;
+      }
+    }
     if (currentTeamTab) renderTeam(currentTeamTab);
     renderJornades(currentJornada.phase, currentJornada.jorn);
     renderCanvis();
-    showToast('✅ Dades actualitzades!');
-  }).catch(() => showToast('❌ Error de connexió amb el Sheet'));
+    // Info debug a la consola
+    console.log('✅ Dades carregades:', {
+      participants: gData.participants?.length,
+      jugadors: gData.jugadors?.length,
+      puntuacions: gData.puntuacions?.length,
+      canvis: gData.canvis?.length,
+      mostra_participants: gData.participants?.slice(0,3),
+    });
+    showToast(`✅ Actualitzat · ${gData.participants?.length || 0} participants · ${gData.jugadors?.length || 0} jugadors`);
+  }).catch(e => {
+    console.error('Error reload:', e);
+    showToast('❌ Error de connexió amb el Sheet');
+  });
 }
 
 function logoutAdmin() {
