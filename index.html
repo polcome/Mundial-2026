@@ -372,41 +372,41 @@ function getPlayers(participant) {
   return (gData.jugadors || []).filter(r => norm(v(r, 'Participant')) === pN);
 }
 
-// Retorna la plantilla activa per a una fase concreta, aplicant els canvis anteriors
-// Fase del canvi (columna Fase a Canvis) indica QUAN es fa el canvi:
-//   post-grups → canvi actiu des de r16 en endavant
-//   post-r16   → actiu des de qf
-//   post-qf    → actiu des de sf
-//   post-sf    → actiu des de final
-const CHANGE_ACTIVE_FROM = {
-  'post-grups': 'r16', 'post-grups-1': 'r16', 'post-grups-2': 'r16', 'post-grups-3': 'r16',
-  'post-r16': 'qf', 'post-16': 'qf',
-  'post-qf': 'sf', 'post-quarts': 'sf',
-  'post-sf': 'final', 'post-semis': 'final',
-};
+// Retorna la plantilla activa per a una fase concreta, aplicant els canvis
+// La columna Fase a Canvis indica A PARTIR DE QUINA FASE és actiu el canvi:
+//   r16    → actiu a 16ens, quarts, semis i final
+//   qf     → actiu a quarts, semis i final
+//   sf     → actiu a semis i final
+//   final  → actiu només a la final
+// Accepta també: post-grups (=r16), post-r16 (=qf), post-qf (=sf), post-sf (=final)
+
+function changeFaseToPhase(rawFase) {
+  const f = norm(rawFase);
+  if (f === 'r16' || f.includes('post-grups') || f.includes('grups')) return 'r16';
+  if (f === 'qf'  || f.includes('post-r16')  || f.includes('post-16')) return 'qf';
+  if (f === 'sf'  || f.includes('post-qf')   || f.includes('quarts'))  return 'sf';
+  if (f === 'final'|| f.includes('post-sf')  || f.includes('semis'))   return 'final';
+  // Si posen directament el nom de la fase
+  if (PHASES.includes(f)) return f;
+  return null;
+}
 
 function getPlayersForPhase(participant, phase) {
   const allPlayers = getPlayers(participant);
   const changes    = getChanges(participant);
   const phaseIdx   = PHASES.indexOf(phase);
-
-  // Aplica els canvis que ja estan actius per a aquesta fase
-  let roster = allPlayers.map(pl => ({ ...pl })); // còpia
+  let roster = allPlayers.map(pl => ({ ...pl }));
 
   for (const c of changes) {
-    const changeFase    = norm(v(c, 'Fase'));
-    const activeFromKey = Object.keys(CHANGE_ACTIVE_FROM).find(k => norm(k) === changeFase);
-    if (!activeFromKey) continue;
-    const activeFrom    = CHANGE_ACTIVE_FROM[activeFromKey];
+    const activeFrom    = changeFaseToPhase(v(c, 'Fase'));
+    if (!activeFrom) continue;
     const activeFromIdx = PHASES.indexOf(activeFrom);
-    if (activeFromIdx < 0 || phaseIdx < activeFromIdx) continue; // canvi encara no actiu
+    if (activeFromIdx < 0 || phaseIdx < activeFromIdx) continue;
 
     const outName = norm(v(c, 'Jugador_Surt'));
     const inName  = v(c, 'Jugador_Entra');
-    const idx = roster.findIndex(pl => norm(v(pl,'Jugador')) === outName);
-    if (idx >= 0) {
-      roster[idx] = { ...roster[idx], Jugador: inName };
-    }
+    const idx = roster.findIndex(pl => norm(v(pl, 'Jugador')) === outName);
+    if (idx >= 0) roster[idx] = { ...roster[idx], Jugador: inName };
   }
   return roster;
 }
@@ -614,6 +614,12 @@ function renderJornades(phase, jorn) {
 // ============================================================
 // RENDER CANVIS
 // ============================================================
+function phaseLabel(rawFase) {
+  const p = changeFaseToPhase(rawFase);
+  const labels = { r16: 'Actiu des de 16ens', qf: 'Actiu des de Quarts', sf: 'Actiu des de Semis', final: 'Actiu a la Final' };
+  return labels[p] || rawFase;
+}
+
 function renderCanvis() {
   const view = document.getElementById('canvisView');
   if (!gData) { view.innerHTML = '<div class="loading-state"><div class="spinner"></div></div>'; return; }
@@ -626,7 +632,7 @@ function renderCanvis() {
       <div class="phase-label">${p}</div>
       <div class="changes-grid">${changes.map(c => `
         <div class="change-card">
-          <div class="change-phase">${v(c,'Fase')}</div>
+          <div class="change-phase">${phaseLabel(v(c,'Fase'))}</div>
           <div class="change-names">
             <span class="change-out">${v(c,'Jugador_Surt')}</span>
             <span style="color:var(--silver)">→</span>
@@ -637,7 +643,7 @@ function renderCanvis() {
       </div>
     </div>`;
   }
-  if (!html) html = '<div class="empty-state"><div class="big-icon">🔄</div><p>Encara no hi ha canvis registrats.</p></div>';
+  if (!html) html = '<div class="empty-state"><div class="big-icon">🔄</div><p>Encara no hi ha canvis registrats al Sheet.</p></div>';
   view.innerHTML = html;
 }
 
