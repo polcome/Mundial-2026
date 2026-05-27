@@ -263,52 +263,51 @@ let currentJornada = {phase: 'grups', jorn: 'J1'};
 // ============================================================
 // LECTURA DEL GOOGLE SHEET (via gviz — no necessita API key)
 // ============================================================
+// APPS_SCRIPT_URL: substitueix això amb la teva URL de Google Apps Script
+// (segueix les instruccions al panell Admin per crear-la)
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtCtEcBths3dZcK1iFYbApqH7y6ePeXDp6iH4aM06bluqk_c9OrYkhN89zN1KOeRKzPQ/exec';
+
 async function fetchSheet(sheetName) {
   const ts = Date.now();
-  const sheetUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}&_=${ts}`;
 
-  // Intenta fetch directe primer, si falla (CORS mòbil) usa proxy
-  async function tryFetch(url, opts) {
-    const res = await fetch(url, opts);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.text();
-  }
-
-  function parseGviz(text) {
-    const match = text.match(/setResponse\(([\s\S]+?)\);?\s*$/) ||
-                  text.match(/^[^\(]+\(([\s\S]+)\);?\s*$/);
-    if (!match) throw new Error('Format gviz inesperat');
-    const json = JSON.parse(match[1]);
-    if (json.status === 'error') throw new Error(json.errors?.[0]?.message || 'Error Sheet');
-    return json;
-  }
-
-  // Intent 1: directe
-  try {
-    const text = await tryFetch(sheetUrl, { cache: 'no-store' });
-    return parseGviz(text);
-  } catch(e1) {
-    // Intent 2: via proxy allorigins (funciona en mòbil)
+  // Si tenim Apps Script URL, usem-la (millor opció, funciona a tot arreu)
+  if (APPS_SCRIPT_URL) {
     try {
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(sheetUrl)}`;
-      const res = await fetch(proxyUrl, { cache: 'no-store' });
-      if (!res.ok) throw new Error('proxy error');
+      const url = `${APPS_SCRIPT_URL}?sheet=${encodeURIComponent(sheetName)}&_=${ts}`;
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      return parseGviz(data.contents);
-    } catch(e2) {
-      // Intent 3: cors.sh proxy alternatiu
-      try {
-        const proxy2 = `https://corsproxy.io/?${encodeURIComponent(sheetUrl)}`;
-        const text = await tryFetch(proxy2, { cache: 'no-store' });
-        return parseGviz(text);
-      } catch(e3) {
-        throw new Error('No s\'ha pogut connectar amb el Sheet (CORS). Prova amb WiFi o un altre navegador.');
-      }
+      if (data.error) throw new Error(data.error);
+      return { _appsScript: true, rows: data.rows, headers: data.headers };
+    } catch(e) {
+      console.warn('Apps Script error, intentant gviz...', e);
     }
   }
+
+  // Fallback: gviz directe
+  const sheetUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}&_=${ts}`;
+  const res = await fetch(sheetUrl, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const text = await res.text();
+  const match = text.match(/setResponse\(([\s\S]+?)\);?\s*$/) ||
+                text.match(/^[^\(]+\(([\s\S]+)\);?\s*$/);
+  if (!match) throw new Error('Format gviz inesperat');
+  const json = JSON.parse(match[1]);
+  if (json.status === 'error') throw new Error(json.errors?.[0]?.message || 'Error Sheet');
+  return json;
 }
 
 function parseSheet(json) {
+  // Format Apps Script: ja ve processat
+  if (json?._appsScript) {
+    return json.rows.map(row => {
+      const obj = {};
+      json.headers.forEach((h, i) => { obj[h] = row[i] ?? ''; });
+      return obj;
+    }).filter(row => Object.values(row).some(v => v !== '' && v !== null));
+  }
+
+  // Format gviz
   if (!json?.table) return [];
   const cols = json.table.cols || [];
   const rows = json.table.rows || [];
@@ -320,25 +319,17 @@ function parseSheet(json) {
     return typeof v === 'string' ? v.trim() : v;
   }
 
-  // Gviz de vegades retorna labels correctes, de vegades A/B/C
-  // Estratègia: sempre agafem la primera fila com a capçaleres reals
-  // i les combinem amb les labels del gviz (preferint les de la fila)
   const firstRowVals = cols.map((c, i) => cellVal(rows[0]?.c?.[i]));
   const gvizLabels   = cols.map(c => (c.label || '').trim());
-
-  // Detecta si la primera fila és capçalera: tots els valors són strings
-  // i cap és un número ni sembla una dada real
   const firstRowIsHeader = firstRowVals.every(v =>
     v === '' || (typeof v === 'string' && isNaN(parseFloat(v)))
   ) && firstRowVals.some(v => v !== '');
 
   let headers, dataRows;
   if (firstRowIsHeader) {
-    // Usa la primera fila com a capçaleres (el cas habitual amb gviz)
     headers  = cols.map((c, i) => firstRowVals[i] || gvizLabels[i] || String.fromCharCode(65 + i));
     dataRows = rows.slice(1);
   } else {
-    // Les labels del gviz ja són correctes (cas rar)
     headers  = gvizLabels.map((l, i) => l || String.fromCharCode(65 + i));
     dataRows = rows;
   }
@@ -698,9 +689,45 @@ function renderAdminPanel() {
   <div class="info-banner">
     <span class="icon">📋</span>
     <div>
-      <strong>Com funciona:</strong> Edita directament el <a href="https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit" target="_blank" style="color:var(--gold)">Google Sheet</a> i prem "Recarregar dades" per actualitzar la web. Tots els amics veuran els canvis automàticament en recarregar la pàgina.
+      <strong>Com funciona:</strong> Edita directament el <a href="https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit" target="_blank" style="color:var(--gold)">Google Sheet</a> i prem "Recarregar dades" per actualitzar la web.
     </div>
   </div>
+
+  ${!APPS_SCRIPT_URL ? `<div style="background:rgba(224,52,52,0.15);border:1px solid rgba(224,52,52,0.3);border-radius:10px;padding:1.2rem 1.3rem;margin-bottom:1.5rem">
+    <div style="font-family:'Space Mono',monospace;font-size:0.7rem;color:#F58080;letter-spacing:0.1em;margin-bottom:0.8rem">⚠️ CONFIGURACIÓ NECESSÀRIA PER MÒBIL</div>
+    <p style="font-size:0.82rem;color:var(--silver);margin-bottom:1rem;line-height:1.6">Per funcionar en mòbil cal crear un <strong style="color:var(--white)">Google Apps Script</strong> (gratis, 2 minuts):</p>
+    <ol style="font-size:0.82rem;color:var(--silver);line-height:2;padding-left:1.2rem">
+      <li>Obre el <a href="https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit" target="_blank" style="color:var(--gold)">Google Sheet</a></li>
+      <li>Menú → <strong style="color:var(--white)">Extensions → Apps Script</strong></li>
+      <li>Esborra el contingut i enganxa el codi de sota</li>
+      <li>Clica <strong style="color:var(--white)">💾 Desa</strong> (icona disquet)</li>
+      <li>Clica <strong style="color:var(--white)">▶ Implementa → Nova implementació</strong></li>
+      <li>Tipus: <strong style="color:var(--white)">Aplicació web</strong> · Accés: <strong style="color:var(--white)">Qualsevol</strong></li>
+      <li>Clica <strong style="color:var(--white)">Implementa</strong> → copia la URL</li>
+      <li>Edita el fitxer HTML, busca <code style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px">APPS_SCRIPT_URL = ''</code> i posa la URL</li>
+    </ol>
+    <details style="margin-top:1rem">
+      <summary style="color:var(--gold);cursor:pointer;font-size:0.82rem">📋 Mostra el codi Apps Script</summary>
+      <pre style="margin-top:0.8rem;font-size:0.72rem;background:rgba(0,0,0,0.3);padding:1rem;border-radius:8px;overflow-x:auto;color:#B8C5D6">function doGet(e) {
+  var sheet = e.parameter.sheet || 'Participants';
+  var ss = SpreadsheetApp.openById('${SHEET_ID}');
+  var ws = ss.getSheetByName(sheet);
+  if (!ws) return json({error: 'Pestanya no trobada: ' + sheet});
+  var data = ws.getDataRange().getValues();
+  if (data.length < 2) return json({headers: data[0] || [], rows: []});
+  var headers = data[0];
+  var rows = data.slice(1).filter(r => r.some(c => c !== '' && c !== null));
+  return json({headers: headers, rows: rows});
+}
+function json(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}</pre>
+    </details>
+  </div>` : `<div style="background:rgba(40,160,78,0.15);border:1px solid rgba(40,160,78,0.3);border-radius:10px;padding:1rem 1.3rem;margin-bottom:1.5rem;font-size:0.82rem;color:var(--silver)">
+    ✅ <strong style="color:#6EE89A">Apps Script configurat</strong> — funciona en mòbil i ordinador.
+  </div>`}
 
   <div style="display:flex;gap:0.8rem;flex-wrap:wrap;margin-bottom:2rem">
     <button class="btn-gold" onclick="reloadData()">🔄 Recarregar dades del Sheet</button>
