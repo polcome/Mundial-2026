@@ -463,6 +463,53 @@ function setSyncBar(state) {
 function norm(s) { return (s ?? '').toString().trim().toLowerCase().replace(/\s+/g, ' '); }
 function v(row, key) { return (row[key] ?? '').toString().trim(); }
 
+// Emoji flag per nom de selecció
+const FLAG_MAP = {
+  'espanya':'🇪🇸','spain':'🇪🇸','españa':'🇪🇸',
+  'franca':'🇫🇷','france':'🇫🇷','frança':'🇫🇷',
+  'anglaterra':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','england':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','inglaterra':'🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+  'alemanya':'🇩🇪','germany':'🇩🇪','alemania':'🇩🇪',
+  'brasil':'🇧🇷','brazil':'🇧🇷',
+  'argentina':'🇦🇷',
+  'portugal':'🇵🇹',
+  'belgica':'🇧🇪','belgium':'🇧🇪','bèlgica':'🇧🇪',
+  'holanda':'🇳🇱','netherlands':'🇳🇱','países bajos':'🇳🇱','paisos baixos':'🇳🇱',
+  'italia':'🇮🇹','italy':'🇮🇹','itàlia':'🇮🇹',
+  'croacia':'🇭🇷','croatia':'🇭🇷','croàcia':'🇭🇷',
+  'marroc':'🇲🇦','morocco':'🇲🇦','marruecos':'🇲🇦',
+  'senegal':'🇸🇳',
+  'rd congo':'🇨🇩','congo':'🇨🇩',
+  'nigeria':'🇳🇬',
+  'ghana':'🇬🇭',
+  'camerun':'🇨🇲','cameroon':'🇨🇲','camerún':'🇨🇲',
+  'mexico':'🇲🇽','mèxic':'🇲🇽','méxico':'🇲🇽',
+  'usa':'🇺🇸','estats units':'🇺🇸','united states':'🇺🇸','eeuu':'🇺🇸',
+  'canada':'🇨🇦','canadà':'🇨🇦',
+  'colombia':'🇨🇴',
+  'uruguay':'🇺🇾',
+  'equador':'🇪🇨','ecuador':'🇪🇨',
+  'japó':'🇯🇵','japan':'🇯🇵','japon':'🇯🇵','japón':'🇯🇵',
+  'corea del sud':'🇰🇷','south korea':'🇰🇷','corea':'🇰🇷',
+  'australia':'🇦🇺','austràlia':'🇦🇺',
+  'suissa':'🇨🇭','switzerland':'🇨🇭','suiza':'🇨🇭','suïssa':'🇨🇭',
+  'austria':'🇦🇹','àustria':'🇦🇹',
+  'dinamarca':'🇩🇰','denmark':'🇩🇰',
+  'suecia':'🇸🇪','sweden':'🇸🇪','suècia':'🇸🇪',
+  'noruega':'🇳🇴','norway':'🇳🇴',
+  'polònia':'🇵🇱','poland':'🇵🇱','polonia':'🇵🇱',
+  'ukraine':'🇺🇦','ucraïna':'🇺🇦','ucrania':'🇺🇦',
+  'turquia':'🇹🇷','turkey':'🇹🇷',
+  'servia':'🇷🇸','serbia':'🇷🇸','sèrbia':'🇷🇸',
+  'egipte':'🇪🇬','egypt':'🇪🇬',
+  'iran':'🇮🇷',
+  'aràbia saudita':'🇸🇦','arabia saudi':'🇸🇦','saudi arabia':'🇸🇦',
+  'qatar':'🇶🇦',
+};
+function getFlag(country) {
+  if (!country) return '';
+  return FLAG_MAP[norm(country)] || '';
+}
+
 function getParticipants() {
   if (!gData) return [];
   return (gData.participants || []).map(r => v(r, 'Nom')).filter(Boolean);
@@ -627,9 +674,13 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   const avCls = note === null ? '' : note >= 8 ? 'score-high-av' : note >= 6.5 ? 'score-mid-av' : 'score-low-av';
   const scoreBubble = pts !== null ? `<div class="score-bubble">${pts.toFixed(1)}</div>` : '';
   const goals = g > 0 ? `<div class="goal-row">${'⚽'.repeat(Math.min(g,3))}${a>0?'🅰️'.repeat(Math.min(a,3)):''}</div>` : (a>0?`<div class="goal-row">${'🅰️'.repeat(Math.min(a,3))}</div>`:'');
-  const shortName = name.split(' ').pop(); // cognom
+  const shortName = name.split(' ').pop();
+  // Get flag from players data
+  const plData = (gData?.jugadors||[]).find(r => norm(v(r,'Jugador')) === norm(name));
+  const flag = plData ? getFlag(v(plData,'Equip')) : '';
+  const flagBadge = flag ? `<div style="position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);font-size:0.7rem;background:rgba(0,0,0,0.7);border-radius:3px;padding:0 2px;line-height:1.4">${flag}</div>` : '';
   return `<div class="player-pin">
-    <div class="avatar ${avCls}">👤${scoreBubble}</div>
+    <div class="avatar ${avCls}">👤${scoreBubble}${flagBadge}</div>
     <div class="pname">${shortName}</div>
     ${goals}
   </div>`;
@@ -645,8 +696,8 @@ function renderPitch(participant, phase, jornada) {
     byPos[key].push(v(pl,'Jugador'));
   }
 
-  // 4-3-3: 1 POR, 4 DEF, 3 MIG, 3 DAV
-  const slots = { POR:1, DEF:4, MIG:3, DAV:3 };
+  // 1-3-4-3: 1 POR, 3 DEF, 4 MIG, 3 DAV
+  const slots = { POR:1, DEF:3, MIG:4, DAV:3 };
   function getSlots(pos) {
     const arr = byPos[pos] || [];
     const n = slots[pos];
@@ -681,9 +732,10 @@ function renderPitch(participant, phase, jornada) {
     const cls2 = note2 === null ? 'score-empty' : note2 >= 8 ? 'score-high' : note2 >= 6.5 ? 'score-mid' : 'score-low';
     const posClass = `pos-${pos2}`;
     const bonusStr = (g2>0||a2>0) ? `${g2>0?'⚽×'+g2:''}${a2>0?' 🅰️×'+a2:''}` : '—';
+    const flag2 = getFlag(v(pl,'Equip'));
     return `<div class="pitch-list-row">
       <div class="pitch-list-name">${name}<span class="pos-badge ${posClass}" style="margin-left:6px">${pos2}</span>
-        <small>${v(pl,'Equip')}</small>
+        <small>${flag2} ${v(pl,'Equip')}</small>
       </div>
       <div class="pitch-list-note"><span class="score-chip ${cls2}">${note2 !== null ? note2.toFixed(1) : '—'}</span></div>
       <div class="pitch-list-bonus">${bonusStr}</div>
@@ -907,31 +959,39 @@ function renderAdminPanel() {
     <div class="admin-card">
       <h3>⚡ Valors vàlids</h3>
       <p style="font-size:0.82rem;color:var(--silver);line-height:1.7">
-        <strong style="color:var(--gold)">Fase:</strong> grups / r16 / qf / sf / final<br>
-        <strong style="color:var(--gold)">Jornada:</strong> J1 / J2 / J3<br>
+        <strong style="color:var(--gold)">Fase:</strong> grups / r16 / r8 / qf / sf / final<br>
+        <strong style="color:var(--gold)">Jornada (grups):</strong> J1 / J2 / J3<br>
+        <strong style="color:var(--gold)">Jornada (elim.):</strong> E1<br>
         <strong style="color:var(--gold)">Posicio:</strong> POR / DEF / MIG / DAV<br>
-        <strong style="color:var(--gold)">Nota:</strong> Número decimal (ex: 7.2)<br>
-        <strong style="color:var(--gold)">Gols:</strong> Número enter (ex: 2)<br>
-        <strong style="color:var(--gold)">Assistencies:</strong> Número enter (ex: 1)<br><br>
+        <strong style="color:var(--gold)">Nota:</strong> Decimal SofaScore (ex: 7.2)<br>
+        <strong style="color:var(--gold)">Gols / Assistencies:</strong> Número enter<br><br>
         <strong>Sistema de punts:</strong><br>
-        Nota SofaScore + (Gols × 5) + (Assists × 3)
+        Nota SofaScore + (Gols × 5) + (Assists × 3)<br><br>
+        <strong>Canvis — columna Fase:</strong><br>
+        r16 · r8 · qf · sf · final<br>
+        <span style="font-size:0.75rem;opacity:0.7">(indica a partir de quina fase és actiu)</span>
       </p>
     </div>
     <div class="admin-card">
-      <h3>🔐 Canviar contrasenya admin</h3>
-      <p style="font-size:0.82rem;color:var(--silver);margin-bottom:0.8rem">Edita el fitxer HTML, busca la línia <code style="font-size:0.75rem;background:rgba(255,255,255,0.07);padding:2px 6px;border-radius:4px">ADMIN_PASSWORD</code> i canvia el valor.</p>
-      <div class="form-row">
-        <label>Pass actual:</label>
-        <code style="font-size:0.85rem;background:rgba(255,255,255,0.07);padding:4px 10px;border-radius:6px;color:var(--gold)">${ADMIN_PASSWORD}</code>
-      </div>
-      <p style="font-size:0.75rem;color:var(--silver);opacity:0.7;margin-top:0.5rem">⚠️ Suficient per als amics. No guardis dades bancàries aquí.</p>
+      <h3>🔐 Accés admin</h3>
+      <p style="font-size:0.82rem;color:var(--silver);margin-bottom:0.8rem">
+        Contrasenya actual: <code style="font-size:0.85rem;background:rgba(255,255,255,0.07);padding:4px 10px;border-radius:6px;color:var(--gold)">${ADMIN_PASSWORD}</code>
+      </p>
+      <p style="font-size:0.82rem;color:var(--silver);margin-bottom:0.8rem">Per canviar-la, edita el fitxer a GitHub i busca la línia <code style="background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:3px">ADMIN_PASSWORD</code>.</p>
+      <a href="https://github.com/polcome/Mundial-2026" target="_blank" class="btn-primary btn-sm" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.4rem">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        Obrir repositori GitHub
+      </a>
     </div>
     <div class="admin-card">
-      <h3>📤 Compartir amb els amics</h3>
+      <h3>🌐 URL de la web</h3>
       <p style="font-size:0.82rem;color:var(--silver);line-height:1.6;margin-bottom:0.8rem">
-        Comparteix el fitxer <strong style="color:var(--gold)">mundial_v2.html</strong> per WhatsApp, Drive o email. Qualsevol que el tingui veurà les dades del Sheet en temps real sense contrasenya.
+        Comparteix aquesta URL amb els amics. Podran veure la classificació en temps real sense cap contrasenya.
       </p>
-      <button class="btn-gold btn-sm" onclick="copyShareInstructions()">📋 Copiar instruccions</button>
+      <div style="background:rgba(255,255,255,0.07);border-radius:8px;padding:0.7rem 1rem;font-family:'Space Mono',monospace;font-size:0.72rem;color:var(--gold);word-break:break-all;margin-bottom:0.8rem">
+        https://polcome.github.io/Mundial-2026/
+      </div>
+      <button class="btn-gold btn-sm" onclick="navigator.clipboard.writeText('https://polcome.github.io/Mundial-2026/').then(()=>showToast('✅ URL copiada!'))">📋 Copiar URL</button>
     </div>
   </div>
 
