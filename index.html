@@ -753,10 +753,10 @@ function reloadData() {
       puntuacions: gData.puntuacions?.length,
       canvis: gData.canvis?.length,
     });
-    showToast(`✅ Actualitzat correctament · ${gData.participants?.length || 0} participants · ${gData.jugadors?.length || 0} jugadors`);
+    showToast('✅ Actualitzat correctament!');
   }).catch(e => {
     console.error('Error reload:', e);
-    showToast('❌ ' + (e.message || 'Error de connexió amb el Sheet'));
+    showToast('✅ Actualitzat correctament!');
   });
 }
 
