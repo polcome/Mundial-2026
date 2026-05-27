@@ -337,6 +337,10 @@ async function loadAllData() {
     document.getElementById('lastUpdate').textContent =
       `↻ Última actualització: ${new Date().toLocaleTimeString('ca-ES')}`;
 
+    // Considera èxit si hem carregat almenys els participants
+    if (!gData.participants?.length && !gData.jugadors?.length) {
+      throw new Error('Cap dada carregada — comprova que el Sheet és públic i té les 4 pestanyes');
+    }
     return gData;
   } catch(e) {
     setSyncBar('');
@@ -749,10 +753,10 @@ function reloadData() {
       puntuacions: gData.puntuacions?.length,
       canvis: gData.canvis?.length,
     });
-    showToast(`✅ Actualitzat · ${gData.participants?.length || 0} participants · ${gData.jugadors?.length || 0} jugadors`);
+    showToast(`✅ Actualitzat correctament · ${gData.participants?.length || 0} participants · ${gData.jugadors?.length || 0} jugadors`);
   }).catch(e => {
     console.error('Error reload:', e);
-    showToast('❌ Error de connexió amb el Sheet');
+    showToast('❌ ' + (e.message || 'Error de connexió amb el Sheet'));
   });
 }
 
