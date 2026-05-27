@@ -191,51 +191,65 @@
   .pitch-row.row-dav  { bottom:68%; }
 
   .player-pin {
-    display:flex; flex-direction:column; align-items:center; gap:3px;
-    cursor:default; width:72px;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    cursor:default; width:88px;
   }
   .player-pin .avatar {
-    width:42px; height:42px; border-radius:50%;
+    width:58px; height:58px; border-radius:50%;
     background: linear-gradient(135deg, #1e3a5f, #2d5a8e);
-    border:2px solid rgba(255,255,255,0.3);
+    border:3px solid rgba(255,255,255,0.3);
     display:flex; align-items:center; justify-content:center;
-    font-size:1.2rem; position:relative; flex-shrink:0;
+    font-size:1.6rem; position:relative; flex-shrink:0;
   }
-  .player-pin .avatar.has-score { border-color: var(--gold); }
   .player-pin .avatar.score-high-av { border-color:#6EE89A; background:linear-gradient(135deg,#0d3320,#1a5c35); }
   .player-pin .avatar.score-mid-av  { border-color:var(--gold); background:linear-gradient(135deg,#3d2e00,#6b5000); }
   .player-pin .avatar.score-low-av  { border-color:#F58080; background:linear-gradient(135deg,#3d0f0f,#6b1a1a); }
-  .player-pin .avatar.empty-slot { opacity:0.25; border-color:rgba(255,255,255,0.15); }
+  .player-pin .avatar.empty-slot { opacity:0.2; border-color:rgba(255,255,255,0.1); }
   .score-bubble {
-    position:absolute; top:-6px; right:-6px;
-    background:var(--ink); border:1px solid var(--gold);
+    position:absolute; top:-7px; right:-7px;
+    background:var(--ink); border:1.5px solid var(--gold);
     color:var(--gold); font-family:'Space Mono',monospace;
-    font-size:0.5rem; font-weight:700;
-    padding:1px 3px; border-radius:4px; white-space:nowrap;
+    font-size:0.6rem; font-weight:700;
+    padding:2px 5px; border-radius:5px; white-space:nowrap;
   }
   .player-pin .pname {
-    font-size:0.6rem; font-weight:700; color:var(--white);
-    text-align:center; line-height:1.2; max-width:72px;
+    font-size:0.72rem; font-weight:700; color:var(--white);
+    text-align:center; line-height:1.2; max-width:88px;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-    background:rgba(0,0,0,0.55); padding:1px 4px; border-radius:3px;
+    background:rgba(0,0,0,0.6); padding:2px 5px; border-radius:4px;
   }
-  .player-pin .pname.empty { color:rgba(255,255,255,0.2); }
-  .player-pin .goal-row { font-size:0.65rem; line-height:1; }
+  .player-pin .pname.empty { color:rgba(255,255,255,0.15); }
+  .player-pin .goal-row { font-size:0.8rem; line-height:1; }
 
   .pitch-total {
     text-align:center; font-family:'Bebas Neue',cursive;
-    font-size:1.1rem; color:var(--gold); letter-spacing:0.1em;
-    margin-top:0.5rem;
+    font-size:1.2rem; color:var(--gold); letter-spacing:0.1em;
+    margin-top:0.6rem;
   }
+
+  /* Player list under pitch */
+  .pitch-list { margin-top:1.2rem; display:flex; flex-direction:column; gap:4px; }
+  .pitch-list-row {
+    display:grid; grid-template-columns:1fr auto auto auto;
+    align-items:center; gap:0.6rem;
+    background:var(--glass); border:1px solid var(--glass-border);
+    border-radius:8px; padding:0.55rem 0.8rem;
+    font-size:0.85rem;
+  }
+  .pitch-list-name { font-weight:600; }
+  .pitch-list-name small { display:block; font-size:0.65rem; color:var(--silver); font-weight:400; }
+  .pitch-list-note { font-family:'Space Mono',monospace; font-size:0.8rem; text-align:center; min-width:2.5rem; }
+  .pitch-list-bonus { font-size:0.75rem; text-align:center; min-width:3rem; color:var(--silver); }
+  .pitch-list-total { font-family:'Bebas Neue',cursive; font-size:1.1rem; color:var(--gold); text-align:right; min-width:3rem; }
 
   @media(max-width:600px){
     .ranking-card{grid-template-columns:2.5rem 1fr auto}
     .rank-gols{display:none}
     header{padding:1.5rem 1rem 1rem}
     main{padding:1rem 1rem 4rem}
-    .player-pin { width:58px; }
-    .player-pin .avatar { width:34px; height:34px; font-size:1rem; }
-    .player-pin .pname { font-size:0.55rem; max-width:58px; }
+    .player-pin { width:68px; }
+    .player-pin .avatar { width:46px; height:46px; font-size:1.3rem; }
+    .player-pin .pname { font-size:0.65rem; max-width:68px; }
   }
 </style>
 </head>
@@ -656,6 +670,27 @@ function renderPitch(participant, phase, jornada) {
   }, 0);
   const totalStr = total > 0 ? `${total.toFixed(1)} pts` : 'Sense puntuació';
 
+  // Player list
+  const listRows = phasePlayers.map(pl => {
+    const name = v(pl,'Jugador'), pos2 = (v(pl,'Posicio')||'MIG').toUpperCase();
+    const sc2 = getScore(participant, name, phase, jornada);
+    const note2 = sc2 && v(sc2,'Nota') !== '' ? parseFloat(v(sc2,'Nota')||0) : null;
+    const g2 = sc2 ? parseInt(v(sc2,'Gols')||0) : 0;
+    const a2 = sc2 ? parseInt(v(sc2,'Assistencies')||0) : 0;
+    const pts2 = note2 !== null ? note2 + g2*5 + a2*3 : null;
+    const cls2 = note2 === null ? 'score-empty' : note2 >= 8 ? 'score-high' : note2 >= 6.5 ? 'score-mid' : 'score-low';
+    const posClass = `pos-${pos2}`;
+    const bonusStr = (g2>0||a2>0) ? `${g2>0?'⚽×'+g2:''}${a2>0?' 🅰️×'+a2:''}` : '—';
+    return `<div class="pitch-list-row">
+      <div class="pitch-list-name">${name}<span class="pos-badge ${posClass}" style="margin-left:6px">${pos2}</span>
+        <small>${v(pl,'Equip')}</small>
+      </div>
+      <div class="pitch-list-note"><span class="score-chip ${cls2}">${note2 !== null ? note2.toFixed(1) : '—'}</span></div>
+      <div class="pitch-list-bonus">${bonusStr}</div>
+      <div class="pitch-list-total">${pts2 !== null ? pts2.toFixed(1) : '—'}</div>
+    </div>`;
+  }).join('');
+
   return `<div class="pitch-wrap">
     <div class="pitch">
       <div class="pitch-lines"></div>
@@ -665,7 +700,8 @@ function renderPitch(participant, phase, jornada) {
       ${row('POR','row-por')}
     </div>
     <div class="pitch-total">⚽ ${totalStr}</div>
-  </div>`;
+  </div>
+  <div class="pitch-list">${listRows}</div>`;
 }
 
 function renderPhaseContent(participant, phase) {
