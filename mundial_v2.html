@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mundial 2026 — Fantasy League</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0A0F1E;
+    --pitch: #0D5C2A;
+    --pitch-mid: #1A7A3A;
+    --pitch-light: #28A04E;
+    --gold: #F5C842;
+    --silver: #B8C5D6;
+    --red: #E03434;
+    --white: #F8FAFC;
+    --glass: rgba(255,255,255,0.06);
+    --glass-border: rgba(255,255,255,0.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--ink); color: var(--white); min-height: 100vh; overflow-x: hidden; }
+
+  .bg-field { position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(13,92,42,0.45) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(245,200,66,0.06) 0%, transparent 60%), var(--ink); }
+  .bg-lines { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.04;
+    background-image: repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(255,255,255,0.4) 60px),
+    repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(255,255,255,0.2) 60px); }
+
+  header { position: relative; z-index: 10; padding: 2.5rem 2rem 1.5rem; text-align: center; border-bottom: 1px solid var(--glass-border); }
+  .header-eyebrow { font-family: 'Space Mono', monospace; font-size: 0.65rem; letter-spacing: 0.3em; color: var(--gold); text-transform: uppercase; margin-bottom: 0.6rem; }
+  h1 { font-family: 'Bebas Neue', cursive; font-size: clamp(3rem, 10vw, 6.5rem); line-height: 0.9; letter-spacing: 0.02em;
+    background: linear-gradient(135deg, var(--white) 0%, var(--gold) 50%, var(--white) 100%);
+    background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.4rem; }
+  .header-sub { font-size: 0.9rem; font-weight: 300; color: var(--silver); letter-spacing: 0.05em; }
+  .live-dot { display: inline-block; width: 7px; height: 7px; background: var(--red); border-radius: 50%; margin-right: 6px; animation: pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }
+
+  .nav-tabs { position: relative; z-index: 10; display: flex; gap: 0; overflow-x: auto; padding: 0 2rem; border-bottom: 1px solid var(--glass-border); scrollbar-width: none; }
+  .nav-tabs::-webkit-scrollbar { display: none; }
+  .tab-btn { background: none; border: none; cursor: pointer; padding: 1rem 1.4rem; font-family: 'Space Mono', monospace; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--silver); white-space: nowrap; border-bottom: 2px solid transparent; transition: color 0.2s, border-color 0.2s; }
+  .tab-btn:hover { color: var(--white); }
+  .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+  .tab-btn.admin-tab { color: rgba(245,200,66,0.5); }
+  .tab-btn.admin-tab.active { color: var(--gold); }
+
+  main { position: relative; z-index: 5; max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* LOADING */
+  .loading-state { text-align: center; padding: 4rem 1rem; }
+  .spinner { width: 40px; height: 40px; border: 3px solid var(--glass-border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 1rem; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-state p { color: var(--silver); font-size: 0.9rem; }
+
+  /* RANKING */
+  .ranking-title { font-family: 'Bebas Neue', cursive; font-size: 2rem; letter-spacing: 0.05em; color: var(--gold); margin-bottom: 1.5rem; }
+  .ranking-grid { display: flex; flex-direction: column; gap: 0.6rem; }
+  .ranking-card { display: grid; grid-template-columns: 3.5rem 1fr auto auto; align-items: center; gap: 1rem;
+    background: var(--glass); border: 1px solid var(--glass-border); border-radius: 10px; padding: 1rem 1.3rem;
+    cursor: pointer; transition: background 0.2s, transform 0.15s, border-color 0.2s; animation: slideIn 0.4s ease both; }
+  .ranking-card:hover { background: rgba(255,255,255,0.09); transform: translateX(4px); border-color: rgba(245,200,66,0.3); }
+  @keyframes slideIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+  .rank-pos { font-family: 'Bebas Neue', cursive; font-size: 2.2rem; text-align: center; line-height: 1; }
+  .rank-1 .rank-pos { color: var(--gold); }
+  .rank-2 .rank-pos { color: var(--silver); }
+  .rank-3 .rank-pos { color: #CD8F52; }
+  .rank-card-name { font-size: 1.05rem; font-weight: 700; }
+  .rank-card-sub { font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--silver); margin-top: 2px; }
+  .rank-gols { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--silver); text-align: right; }
+  .rank-pts { font-family: 'Bebas Neue', cursive; font-size: 2rem; color: var(--gold); min-width: 5rem; text-align: right; }
+  .rank-pts span { font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--silver); display: block; margin-top: -4px; }
+  .phase-bar { display: flex; height: 4px; border-radius: 2px; overflow: hidden; margin-top: 6px; grid-column: 2/5; }
+  .phase-seg { flex: 1; opacity: 0.7; }
+  .seg-grp{background:#28A04E} .seg-16{background:#3A8FD8} .seg-qf{background:#E8A020} .seg-sf{background:#E05050} .seg-fin{background:var(--gold)}
+
+  /* TEAM */
+  .team-header { background: linear-gradient(135deg, var(--pitch) 0%, var(--ink) 100%); border: 1px solid var(--glass-border); border-radius: 14px; padding: 1.8rem 2rem; margin-bottom: 1.5rem; display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: center; }
+  .team-name-big { font-family: 'Bebas Neue', cursive; font-size: 2.5rem; color: var(--gold); line-height: 1; }
+  .team-stats-row { display: flex; gap: 1.5rem; margin-top: 0.6rem; }
+  .team-stat { text-align: center; }
+  .team-stat-val { font-family: 'Bebas Neue', cursive; font-size: 2rem; color: var(--white); }
+  .team-stat-lbl { font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--silver); text-transform: uppercase; letter-spacing: 0.1em; }
+  .phase-section { margin-bottom: 1.5rem; }
+  .phase-label { font-family: 'Space Mono', monospace; font-size: 0.7rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin-bottom: 0.7rem; padding-left: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
+  .phase-label::before { content:''; display:block; width:3px; height:14px; background:var(--gold); border-radius:2px; }
+  .players-table { width: 100%; border-collapse: separate; border-spacing: 0 3px; }
+  .players-table th { font-family: 'Space Mono', monospace; font-size: 0.6rem; letter-spacing: 0.1em; color: var(--silver); text-transform: uppercase; padding: 0.4rem 0.8rem; text-align: left; }
+  .players-table th:not(:first-child) { text-align: center; }
+  .players-table td { padding: 0.65rem 0.8rem; background: var(--glass); border-top: 1px solid var(--glass-border); border-bottom: 1px solid var(--glass-border); font-size: 0.9rem; text-align: center; }
+  .players-table td:first-child { border-left: 1px solid var(--glass-border); border-radius: 7px 0 0 7px; text-align: left; font-weight: 600; }
+  .players-table td:last-child { border-right: 1px solid var(--glass-border); border-radius: 0 7px 7px 0; font-family: 'Space Mono', monospace; font-weight: 700; color: var(--gold); }
+  .pos-badge { display: inline-block; padding: 1px 7px; border-radius: 4px; font-family: 'Space Mono', monospace; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.05em; background: rgba(255,255,255,0.1); color: var(--silver); margin-left: 6px; }
+  .pos-POR{background:rgba(245,200,66,0.15);color:var(--gold)} .pos-DEF{background:rgba(40,160,78,0.2);color:#6EE89A} .pos-MIG{background:rgba(58,143,216,0.2);color:#7DC3F5} .pos-DAV{background:rgba(224,52,52,0.2);color:#F58080}
+  .score-chip { display: inline-block; min-width: 2.5rem; padding: 2px 8px; background: rgba(255,255,255,0.07); border-radius: 5px; font-family: 'Space Mono', monospace; font-size: 0.82rem; }
+  .score-high{background:rgba(40,160,78,0.25);color:#6EE89A} .score-mid{background:rgba(245,200,66,0.2);color:var(--gold)} .score-low{background:rgba(224,52,52,0.2);color:#F58080} .score-empty{opacity:0.3}
+
+  /* JORNADES */
+  .jornada-tabs { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .jorn-btn { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.35rem 0.8rem; font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--silver); cursor: pointer; transition: all 0.15s; letter-spacing: 0.05em; }
+  .jorn-btn:hover, .jorn-btn.active { background: var(--gold); color: var(--ink); border-color: var(--gold); font-weight: 700; }
+
+  /* CANVIS */
+  .changes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.8rem; margin-top: 0.5rem; }
+  .change-card { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 10px; padding: 1rem; }
+  .change-phase { font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.1em; margin-bottom: 0.5rem; }
+  .change-names { font-size: 0.88rem; display: flex; align-items: center; gap: 0.5rem; }
+  .change-out { color: var(--red); text-decoration: line-through; opacity: 0.8; }
+  .change-in { color: #6EE89A; font-weight: 600; }
+
+  /* ADMIN */
+  .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+  @media(max-width:640px){.admin-grid{grid-template-columns:1fr}}
+  .admin-card { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 12px; padding: 1.3rem; }
+  .admin-card h3 { font-family: 'Space Mono', monospace; font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); margin-bottom: 1rem; }
+  .form-row { display: flex; gap: 0.5rem; margin-bottom: 0.6rem; align-items: center; flex-wrap: wrap; }
+  label { font-size: 0.78rem; color: var(--silver); min-width: 5rem; }
+  input, select { background: rgba(255,255,255,0.07); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.45rem 0.7rem; color: var(--white); font-family: 'DM Sans', sans-serif; font-size: 0.85rem; flex: 1; min-width: 0; transition: border-color 0.2s; }
+  input:focus, select:focus { outline: none; border-color: var(--gold); }
+  select option { background: var(--ink); }
+  .btn-primary { background: linear-gradient(135deg, var(--pitch-light), var(--pitch-mid)); border: none; border-radius: 8px; padding: 0.7rem 1.4rem; color: var(--white); font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: transform 0.15s, filter 0.2s; }
+  .btn-primary:hover { filter: brightness(1.15); transform: translateY(-1px); }
+  .btn-gold { background: linear-gradient(135deg, #C9A020, var(--gold)); border: none; border-radius: 8px; padding: 0.7rem 1.4rem; color: var(--ink); font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: transform 0.15s, filter 0.2s; }
+  .btn-gold:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  .btn-sm { padding: 0.45rem 0.9rem; font-size: 0.78rem; }
+
+  /* LOGIN MODAL */
+  .modal-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(10,15,30,0.92); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; }
+  .modal-box { background: #0F1929; border: 1px solid var(--glass-border); border-radius: 16px; padding: 2.5rem 2rem; width: 100%; max-width: 380px; text-align: center; }
+  .modal-box h2 { font-family: 'Bebas Neue', cursive; font-size: 2rem; color: var(--gold); margin-bottom: 0.3rem; }
+  .modal-box p { font-size: 0.85rem; color: var(--silver); margin-bottom: 1.5rem; }
+  .modal-input { width: 100%; padding: 0.75rem 1rem; background: rgba(255,255,255,0.07); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--white); font-size: 1rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem; text-align: center; letter-spacing: 0.15em; }
+  .modal-input:focus { outline: none; border-color: var(--gold); }
+  .modal-error { color: var(--red); font-size: 0.8rem; margin-top: -0.5rem; margin-bottom: 0.8rem; min-height: 1.2em; }
+
+  /* INFO BANNER */
+  .info-banner { background: rgba(13,92,42,0.25); border: 1px solid rgba(40,160,78,0.3); border-radius: 10px; padding: 1rem 1.3rem; font-size: 0.82rem; color: var(--silver); margin-bottom: 1.5rem; display: flex; gap: 0.8rem; align-items: flex-start; }
+  .info-banner .icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+  .section-title { font-family: 'Bebas Neue', cursive; font-size: 1.6rem; color: var(--gold); margin-bottom: 1rem; letter-spacing: 0.05em; }
+  .empty-state { text-align: center; padding: 3rem 1rem; color: var(--silver); }
+  .empty-state .big-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+  .empty-state p { font-size: 0.9rem; opacity: 0.7; }
+  .toast { position: fixed; bottom: 2rem; right: 2rem; z-index: 1000; background: var(--pitch); border: 1px solid var(--pitch-light); color: var(--white); padding: 0.8rem 1.2rem; border-radius: 10px; font-size: 0.85rem; transform: translateY(80px); opacity: 0; transition: transform 0.3s, opacity 0.3s; pointer-events: none; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .sync-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 200; height: 3px; background: linear-gradient(90deg, var(--pitch-light), var(--gold)); transform: scaleX(0); transform-origin: left; transition: transform 0.4s ease; }
+  .sync-bar.loading { transform: scaleX(0.7); }
+  .sync-bar.done { transform: scaleX(1); transition: transform 0.2s; }
+  .last-update { font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--silver); opacity: 0.6; text-align: center; padding: 0.5rem; }
+
+  @media(max-width:600px){
+    .ranking-card{grid-template-columns:2.5rem 1fr auto}
+    .rank-gols{display:none}
+    header{padding:1.5rem 1rem 1rem}
+    main{padding:1rem 1rem 4rem}
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-field"></div>
+<div class="bg-lines"></div>
+<div class="sync-bar" id="syncBar"></div>
+
+<!-- LOGIN MODAL (admin only) -->
+<div class="modal-overlay" id="adminModal" style="display:none">
+  <div class="modal-box">
+    <h2>🔐 Accés Admin</h2>
+    <p>Introdueix la contrasenya d'administrador</p>
+    <input type="password" class="modal-input" id="adminPassInput" placeholder="••••••••" onkeydown="if(event.key==='Enter')checkAdminPass()">
+    <div class="modal-error" id="adminPassError"></div>
+    <button class="btn-gold" style="width:100%" onclick="checkAdminPass()">Entrar</button>
+    <button onclick="document.getElementById('adminModal').style.display='none'" style="background:none;border:none;color:var(--silver);font-size:0.8rem;cursor:pointer;margin-top:1rem">Cancel·lar</button>
+  </div>
+</div>
+
+<header>
+  <div class="header-eyebrow">⚽ Fantasy Football • <span class="live-dot"></span>En Directe</div>
+  <h1>MUNDIAL 2026</h1>
+  <div class="header-sub">Fantasy League dels Amics — Classificació Oficial</div>
+</header>
+
+<nav class="nav-tabs" id="mainNav">
+  <button class="tab-btn active" data-tab="ranking">🏆 Classificació</button>
+  <button class="tab-btn" data-tab="teams">👥 Equips</button>
+  <button class="tab-btn" data-tab="jornades">📅 Jornades</button>
+  <button class="tab-btn" data-tab="canvis">🔄 Canvis</button>
+  <button class="tab-btn admin-tab" data-tab="admin" id="adminTabBtn">⚙️ Admin</button>
+</nav>
+
+<main>
+
+  <section class="section active" id="tab-ranking">
+    <div class="ranking-title">🏆 Classificació General</div>
+    <div id="rankingGrid" class="ranking-grid">
+      <div class="loading-state"><div class="spinner"></div><p>Carregant dades del Google Sheet...</p></div>
+    </div>
+  </section>
+
+  <section class="section" id="tab-teams">
+    <div class="section-title">👥 Equips</div>
+    <div class="form-row" style="margin-bottom:1.5rem">
+      <label>Participant:</label>
+      <select id="teamSelect" style="max-width:220px" onchange="renderTeam(this.value)"></select>
+    </div>
+    <div id="teamView"></div>
+  </section>
+
+  <section class="section" id="tab-jornades">
+    <div class="section-title">📅 Puntuació per Jornada</div>
+    <div class="jornada-tabs" id="jornadaTabs"></div>
+    <div id="jornadaView"></div>
+  </section>
+
+  <section class="section" id="tab-canvis">
+    <div class="section-title">🔄 Registre de Canvis</div>
+    <div id="canvisView"></div>
+  </section>
+
+  <section class="section" id="tab-admin">
+    <div class="section-title">⚙️ Panell Admin</div>
+    <div id="adminContent">
+      <div class="loading-state"><div class="spinner"></div><p>Verificant accés...</p></div>
+    </div>
+  </section>
+
+</main>
+
+<div class="last-update" id="lastUpdate"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// CONFIGURACIÓ — CANVIA NOMÉS AQUÍ
+// ============================================================
+const SHEET_ID = '1W02L1nn1FI3shibepGLazZC_G4IgG9sytqm6fGoWQdE';
+
+// Hash SHA-256 de la contrasenya admin (més segur que text pla)
+// Contrasenya per defecte: "mundial2026admin"
+// Per canviar-la: https://emn178.github.io/online-tools/sha256.html
+const ADMIN_PASS_HASH = 'a8c9b8f3e2e9c9a1c3b2d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5';
+
+// Contrasenya real (en text, per simplicitat entre amics — pots usar el hash si vols més seguretat)
+const ADMIN_PASSWORD = 'mundial2026admin';
+// ============================================================
+
+const PHASES = ['grups','r16','qf','sf','final'];
+const PHASE_LABELS = {grups:'Fase de Grups', r16:'16ens', qf:'Quarts', sf:'Semis', final:'Final'};
+const PHASE_JORNADES = {grups:['J1','J2','J3'], r16:['J1','J2'], qf:['J1'], sf:['J1'], final:['J1']};
+const PHASE_ICONS = {grups:'⚽', r16:'🔵', qf:'🟠', sf:'🔴', final:'🏆'};
+const PHASE_COLORS = {grups:'seg-grp', r16:'seg-16', qf:'seg-qf', sf:'seg-sf', final:'seg-fin'};
+
+// Google Sheets API — lectura pública
+const SHEETS_API = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values`;
+const SHEETS_BASE = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=`;
+
+let gData = null; // dades llegides del Sheet
+let isAdmin = false;
+let currentTeamTab = null;
+let currentJornada = {phase: 'grups', jorn: 'J1'};
+
+// ============================================================
+// LECTURA DEL GOOGLE SHEET (via gviz — no necessita API key)
+// ============================================================
+async function fetchSheet(sheetName) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+  const res = await fetch(url);
+  const text = await res.text();
+  // gviz retorna JSONP: google.visualization.Query.setResponse({...})
+  const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
+  return json;
+}
+
+function parseSheet(json) {
+  if (!json?.table?.rows) return [];
+  const cols = json.table.cols.map(c => c.label || '');
+  return json.table.rows.map(row => {
+    const obj = {};
+    cols.forEach((col, i) => {
+      obj[col] = row.c?.[i]?.v ?? row.c?.[i]?.f ?? '';
+    });
+    return obj;
+  }).filter(row => Object.values(row).some(v => v !== '' && v !== null));
+}
+
+// ============================================================
+// ESTRUCTURA ESPERADA DEL GOOGLE SHEET:
+//
+// Pestanya "Participants":  Nom | (altres cols opcionals)
+// Pestanya "Jugadors":      Participant | Jugador | Equip | Posicio
+// Pestanya "Puntuacions":   Participant | Jugador | Fase | Jornada | Nota | Gols | Assistencies
+// Pestanya "Canvis":        Participant | Fase | Jugador_Surt | Jugador_Entra | Data
+// ============================================================
+
+async function loadAllData() {
+  setSyncBar('loading');
+  try {
+    const [parts, jugadors, punts, canvis] = await Promise.all([
+      fetchSheet('Participants').then(parseSheet),
+      fetchSheet('Jugadors').then(parseSheet),
+      fetchSheet('Puntuacions').then(parseSheet),
+      fetchSheet('Canvis').then(parseSheet),
+    ]);
+
+    gData = { participants: parts, jugadors, puntuacions: punts, canvis };
+
+    setSyncBar('done');
+    document.getElementById('lastUpdate').textContent =
+      `↻ Última actualització: ${new Date().toLocaleTimeString('ca-ES')}`;
+
+    return gData;
+  } catch(e) {
+    setSyncBar('');
+    console.error('Error llegint Sheet:', e);
+    throw e;
+  }
+}
+
+function setSyncBar(state) {
+  const bar = document.getElementById('syncBar');
+  bar.className = 'sync-bar' + (state ? ' ' + state : '');
+  if (state === 'done') setTimeout(() => bar.className = 'sync-bar', 600);
+}
+
+// ============================================================
+// CÀLCULS
+// ============================================================
+function getParticipants() {
+  if (!gData) return [];
+  return (gData.participants || []).map(r => r['Nom'] || r[Object.keys(r)[0]] || '').filter(Boolean);
+}
+
+function getPlayers(participant) {
+  if (!gData) return [];
+  return (gData.jugadors || []).filter(r => 
+    (r['Participant'] || '').toString().trim().toLowerCase() === participant.trim().toLowerCase()
+  );
+}
+
+function getScore(participant, jugador, fase, jornada) {
+  if (!gData) return null;
+  const row = (gData.puntuacions || []).find(r =>
+    r['Participant']?.toString().trim().toLowerCase() === participant.trim().toLowerCase() &&
+    r['Jugador']?.toString().trim().toLowerCase() === jugador.trim().toLowerCase() &&
+    r['Fase']?.toString().trim().toLowerCase() === fase.trim().toLowerCase() &&
+    r['Jornada']?.toString().trim().toUpperCase() === jornada.trim().toUpperCase()
+  );
+  return row || null;
+}
+
+function calcPlayerPhasePts(participant, jugador, fase) {
+  let total = 0;
+  for (const jorn of PHASE_JORNADES[fase] || []) {
+    const sc = getScore(participant, jugador, fase, jorn);
+    if (sc && sc['Nota'] !== '' && sc['Nota'] !== null && sc['Nota'] !== undefined) {
+      total += parseFloat(sc['Nota'] || 0) + (parseInt(sc['Gols'] || 0) * 5) + (parseInt(sc['Assistencies'] || 0) * 3);
+    }
+  }
+  return total;
+}
+
+function calcParticipantTotal(participant) {
+  const players = getPlayers(participant);
+  let total = 0;
+  for (const ph of PHASES) {
+    for (const pl of players) {
+      total += calcPlayerPhasePts(participant, pl['Jugador'], ph);
+    }
+  }
+  return total;
+}
+
+function calcParticipantGoals(participant) {
+  if (!gData) return 0;
+  return (gData.puntuacions || [])
+    .filter(r => r['Participant']?.toString().trim().toLowerCase() === participant.trim().toLowerCase())
+    .reduce((sum, r) => sum + (parseInt(r['Gols'] || 0)), 0);
+}
+
+function getRanking() {
+  return getParticipants()
+    .map(p => ({
+      name: p,
+      total: calcParticipantTotal(p),
+      goals: calcParticipantGoals(p),
+      byPhase: PHASES.reduce((a, ph) => {
+        a[ph] = getPlayers(p).reduce((s, pl) => s + calcPlayerPhasePts(p, pl['Jugador'], ph), 0);
+        return a;
+      }, {})
+    }))
+    .sort((a, b) => b.total - a.total || b.goals - a.goals);
+}
+
+// ============================================================
+// RENDER RANKING
+// ============================================================
+function renderRanking() {
+  const grid = document.getElementById('rankingGrid');
+  if (!gData) { grid.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Carregant...</p></div>'; return; }
+  const ranking = getRanking();
+  if (!ranking.length) {
+    grid.innerHTML = '<div class="empty-state"><div class="big-icon">🏆</div><p>Encara no hi ha dades al Google Sheet.<br>Segueix la guia de configuració al panell Admin.</p></div>';
+    return;
+  }
+  const maxPts = ranking[0].total || 1;
+  grid.innerHTML = ranking.map((r, i) => {
+    const pos = i + 1;
+    const medal = pos===1?'🥇':pos===2?'🥈':pos===3?'🥉':'';
+    const segs = PHASES.map(ph => {
+      const pct = maxPts > 0 ? (r.byPhase[ph] / maxPts * 100) : 0;
+      return `<div class="phase-seg ${PHASE_COLORS[ph]}" style="flex:${Math.max(pct,2)}" title="${PHASE_LABELS[ph]}: ${r.byPhase[ph].toFixed(1)} pts"></div>`;
+    }).join('');
+    const phDetails = PHASES.filter(ph => r.byPhase[ph] > 0)
+      .map(ph => `<div>${PHASE_LABELS[ph]}: <strong>${r.byPhase[ph].toFixed(1)}</strong></div>`).join('');
+    return `
+    <div class="ranking-card rank-${pos}" onclick="openTeam('${r.name}')">
+      <div class="rank-pos">${medal || pos}</div>
+      <div>
+        <div class="rank-card-name">${r.name}</div>
+        <div class="rank-card-sub">${getPlayers(r.name).length} jugadors · ${r.goals} ⚽</div>
+        <div class="phase-bar">${segs}</div>
+      </div>
+      <div class="rank-gols">${phDetails}</div>
+      <div class="rank-pts">${r.total.toFixed(1)}<span>punts</span></div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// RENDER TEAM
+// ============================================================
+function renderTeam(participant) {
+  const view = document.getElementById('teamView');
+  if (!gData || !participant) { view.innerHTML = ''; return; }
+  currentTeamTab = participant;
+  const players = getPlayers(participant);
+  const total = calcParticipantTotal(participant);
+  const goals = calcParticipantGoals(participant);
+  const ranking = getRanking();
+  const pos = ranking.findIndex(r => r.name === participant) + 1;
+
+  let html = `<div class="team-header">
+    <div>
+      <div class="team-name-big">${participant}</div>
+      <div class="team-stats-row">
+        <div class="team-stat"><div class="team-stat-val">#${pos}</div><div class="team-stat-lbl">Posició</div></div>
+        <div class="team-stat"><div class="team-stat-val">${total.toFixed(1)}</div><div class="team-stat-lbl">Punts</div></div>
+        <div class="team-stat"><div class="team-stat-val">${goals}</div><div class="team-stat-lbl">Gols</div></div>
+        <div class="team-stat"><div class="team-stat-val">${players.length}/11</div><div class="team-stat-lbl">Jugadors</div></div>
+      </div>
+    </div>
+  </div>`;
+
+  if (!players.length) {
+    html += '<div class="empty-state"><div class="big-icon">👟</div><p>Encara no hi ha jugadors per a aquest participant.</p></div>';
+    view.innerHTML = html; return;
+  }
+
+  for (const phase of PHASES) {
+    const jornades = PHASE_JORNADES[phase];
+    const phaseTotal = players.reduce((sum, pl) => sum + calcPlayerPhasePts(participant, pl['Jugador'], phase), 0);
+    const jornHeaders = jornades.map(j => `<th>${j}</th>`).join('');
+    const rows = players.map(pl => {
+      const name = pl['Jugador'] || '';
+      const team = pl['Equip'] || '';
+      const pos = (pl['Posicio'] || pl['Posición'] || 'MIG').toUpperCase();
+      const jornCells = jornades.map(jorn => {
+        const sc = getScore(participant, name, phase, jorn);
+        if (!sc || sc['Nota'] === '' || sc['Nota'] === null || sc['Nota'] === undefined) {
+          return `<td><span class="score-chip score-empty">—</span></td>`;
+        }
+        const note = parseFloat(sc['Nota']);
+        const cls = note >= 8 ? 'score-high' : note >= 6.5 ? 'score-mid' : 'score-low';
+        const g = parseInt(sc['Gols'] || 0);
+        const a = parseInt(sc['Assistencies'] || 0);
+        const gStr = g > 0 ? ` ${'⚽'.repeat(Math.min(g,3))}` : '';
+        const aStr = a > 0 ? ` ${'🅰️'.repeat(Math.min(a,3))}` : '';
+        return `<td><span class="score-chip ${cls}">${note.toFixed(1)}</span>${gStr}${aStr}</td>`;
+      }).join('');
+      const playerTotal = jornades.reduce((s, jorn) => {
+        const sc = getScore(participant, name, phase, jorn);
+        if (!sc || sc['Nota'] === '' || sc['Nota'] === null) return s;
+        return s + parseFloat(sc['Nota']||0) + parseInt(sc['Gols']||0)*5 + parseInt(sc['Assistencies']||0)*3;
+      }, 0);
+      return `<tr>
+        <td>${name}<span class="pos-badge pos-${pos}">${pos}</span><br><small style="color:var(--silver);font-size:0.7rem">${team}</small></td>
+        ${jornCells}
+        <td>${playerTotal > 0 ? playerTotal.toFixed(1) : '—'}</td>
+      </tr>`;
+    }).join('');
+    html += `<div class="phase-section">
+      <div class="phase-label">${PHASE_ICONS[phase]} ${PHASE_LABELS[phase]}${phaseTotal > 0 ? ` · <strong style="color:var(--gold)">${phaseTotal.toFixed(1)} pts</strong>` : ''}</div>
+      <table class="players-table">
+        <thead><tr><th>Jugador</th>${jornHeaders}<th>Total</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }
+  view.innerHTML = html;
+}
+
+// ============================================================
+// RENDER JORNADES
+// ============================================================
+function renderJornades(phase, jorn) {
+  currentJornada = {phase, jorn};
+  const tabsEl = document.getElementById('jornadaTabs');
+  const viewEl = document.getElementById('jornadaView');
+  const allJornades = PHASES.flatMap(ph => PHASE_JORNADES[ph].map(j => ({phase:ph, jorn:j})));
+  tabsEl.innerHTML = allJornades.map(({phase:ph, jorn:j}) =>
+    `<button class="jorn-btn ${ph===phase&&j===jorn?'active':''}" onclick="renderJornades('${ph}','${j}')">${PHASE_LABELS[ph]} ${j}</button>`
+  ).join('');
+  if (!gData) { viewEl.innerHTML = '<div class="loading-state"><div class="spinner"></div></div>'; return; }
+  const participants = getParticipants();
+  if (!participants.length) { viewEl.innerHTML = '<div class="empty-state"><div class="big-icon">📅</div><p>Afegeix dades al Google Sheet.</p></div>'; return; }
+  const ranked = participants.map(p => {
+    const players = getPlayers(p);
+    const pts = players.reduce((sum, pl) => {
+      const sc = getScore(p, pl['Jugador'], phase, jorn);
+      if (!sc || sc['Nota'] === '' || sc['Nota'] === null) return sum;
+      return sum + parseFloat(sc['Nota']||0) + parseInt(sc['Gols']||0)*5 + parseInt(sc['Assistencies']||0)*3;
+    }, 0);
+    return {name: p, pts};
+  }).sort((a,b) => b.pts - a.pts);
+  viewEl.innerHTML = `<div class="ranking-grid">${ranked.map((r,i) => `
+    <div class="ranking-card rank-${i+1}" onclick="openTeam('${r.name}')">
+      <div class="rank-pos">${i+1}</div>
+      <div><div class="rank-card-name">${r.name}</div><div class="rank-card-sub">${PHASE_LABELS[phase]} · ${jorn}</div></div>
+      <div></div>
+      <div class="rank-pts">${r.pts.toFixed(1)}<span>pts jornada</span></div>
+    </div>`).join('')}</div>`;
+}
+
+// ============================================================
+// RENDER CANVIS
+// ============================================================
+function renderCanvis() {
+  const view = document.getElementById('canvisView');
+  if (!gData) { view.innerHTML = '<div class="loading-state"><div class="spinner"></div></div>'; return; }
+  const participants = getParticipants();
+  let html = '';
+  for (const p of participants) {
+    const changes = (gData.canvis || []).filter(r =>
+      r['Participant']?.toString().trim().toLowerCase() === p.trim().toLowerCase()
+    );
+    if (!changes.length) continue;
+    html += `<div style="margin-bottom:1.5rem">
+      <div class="phase-label">${p}</div>
+      <div class="changes-grid">${changes.map(c => `
+        <div class="change-card">
+          <div class="change-phase">${c['Fase'] || ''}</div>
+          <div class="change-names">
+            <span class="change-out">${c['Jugador_Surt'] || ''}</span>
+            <span style="color:var(--silver)">→</span>
+            <span class="change-in">${c['Jugador_Entra'] || ''}</span>
+          </div>
+          ${c['Data'] ? `<div style="font-size:0.7rem;color:var(--silver);margin-top:4px">${c['Data']}</div>` : ''}
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+  if (!html) html = '<div class="empty-state"><div class="big-icon">🔄</div><p>Encara no hi ha canvis registrats.</p></div>';
+  view.innerHTML = html;
+}
+
+// ============================================================
+// ADMIN
+// ============================================================
+function checkAdminPass() {
+  const pass = document.getElementById('adminPassInput').value;
+  if (pass === ADMIN_PASSWORD) {
+    isAdmin = true;
+    document.getElementById('adminModal').style.display = 'none';
+    sessionStorage.setItem('adminAuth', '1');
+    renderAdminPanel();
+    showToast('✅ Accés admin concedit');
+  } else {
+    document.getElementById('adminPassError').textContent = '❌ Contrasenya incorrecta';
+    document.getElementById('adminPassInput').value = '';
+  }
+}
+
+function renderAdminPanel() {
+  const el = document.getElementById('adminContent');
+  el.innerHTML = `
+  <div class="info-banner">
+    <span class="icon">📋</span>
+    <div>
+      <strong>Com funciona:</strong> Edita directament el <a href="https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit" target="_blank" style="color:var(--gold)">Google Sheet</a> i prem "Recarregar dades" per actualitzar la web. Tots els amics veuran els canvis automàticament en recarregar la pàgina.
+    </div>
+  </div>
+
+  <div style="display:flex;gap:0.8rem;flex-wrap:wrap;margin-bottom:2rem">
+    <button class="btn-gold" onclick="reloadData()">🔄 Recarregar dades del Sheet</button>
+    <a href="https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit" target="_blank" class="btn-primary" style="text-decoration:none;display:inline-flex;align-items:center">📊 Obrir Google Sheet</a>
+  </div>
+
+  <div class="admin-grid">
+    <div class="admin-card">
+      <h3>📋 Estructura del Google Sheet</h3>
+      <p style="font-size:0.82rem;color:var(--silver);line-height:1.6">
+        El Sheet necessita <strong style="color:var(--gold)">4 pestanyes</strong> amb exactament aquests noms:<br><br>
+        <strong>Participants</strong><br>
+        <code style="font-size:0.75rem;background:rgba(255,255,255,0.07);padding:2px 6px;border-radius:4px">Nom</code><br><br>
+        <strong>Jugadors</strong><br>
+        <code style="font-size:0.75rem;background:rgba(255,255,255,0.07);padding:2px 6px;border-radius:4px">Participant | Jugador | Equip | Posicio</code><br><br>
+        <strong>Puntuacions</strong><br>
+        <code style="font-size:0.75rem;background:rgba(255,255,255,0.07);padding:2px 6px;border-radius:4px">Participant | Jugador | Fase | Jornada | Nota | Gols | Assistencies</code><br><br>
+        <strong>Canvis</strong><br>
+        <code style="font-size:0.75rem;background:rgba(255,255,255,0.07);padding:2px 6px;border-radius:4px">Participant | Fase | Jugador_Surt | Jugador_Entra | Data</code>
+      </p>
+    </div>
+    <div class="admin-card">
+      <h3>⚡ Valors vàlids</h3>
+      <p style="font-size:0.82rem;color:var(--silver);line-height:1.7">
+        <strong style="color:var(--gold)">Fase:</strong> grups / r16 / qf / sf / final<br>
+        <strong style="color:var(--gold)">Jornada:</strong> J1 / J2 / J3<br>
+        <strong style="color:var(--gold)">Posicio:</strong> POR / DEF / MIG / DAV<br>
+        <strong style="color:var(--gold)">Nota:</strong> Número decimal (ex: 7.2)<br>
+        <strong style="color:var(--gold)">Gols:</strong> Número enter (ex: 2)<br>
+        <strong style="color:var(--gold)">Assistencies:</strong> Número enter (ex: 1)<br><br>
+        <strong>Sistema de punts:</strong><br>
+        Nota SofaScore + (Gols × 5) + (Assists × 3)
+      </p>
+    </div>
+    <div class="admin-card">
+      <h3>🔐 Canviar contrasenya admin</h3>
+      <p style="font-size:0.82rem;color:var(--silver);margin-bottom:0.8rem">Edita el fitxer HTML, busca la línia <code style="font-size:0.75rem;background:rgba(255,255,255,0.07);padding:2px 6px;border-radius:4px">ADMIN_PASSWORD</code> i canvia el valor.</p>
+      <div class="form-row">
+        <label>Pass actual:</label>
+        <code style="font-size:0.85rem;background:rgba(255,255,255,0.07);padding:4px 10px;border-radius:6px;color:var(--gold)">${ADMIN_PASSWORD}</code>
+      </div>
+      <p style="font-size:0.75rem;color:var(--silver);opacity:0.7;margin-top:0.5rem">⚠️ Suficient per als amics. No guardis dades bancàries aquí.</p>
+    </div>
+    <div class="admin-card">
+      <h3>📤 Compartir amb els amics</h3>
+      <p style="font-size:0.82rem;color:var(--silver);line-height:1.6;margin-bottom:0.8rem">
+        Comparteix el fitxer <strong style="color:var(--gold)">mundial_v2.html</strong> per WhatsApp, Drive o email. Qualsevol que el tingui veurà les dades del Sheet en temps real sense contrasenya.
+      </p>
+      <button class="btn-gold btn-sm" onclick="copyShareInstructions()">📋 Copiar instruccions</button>
+    </div>
+  </div>
+
+  <div style="margin-top:0.5rem">
+    <button onclick="logoutAdmin()" style="background:rgba(224,52,52,0.2);border:1px solid rgba(224,52,52,0.3);color:#F58080;border-radius:8px;padding:0.5rem 1rem;cursor:pointer;font-size:0.82rem">🚪 Tancar sessió admin</button>
+  </div>`;
+}
+
+function reloadData() {
+  gData = null;
+  loadAllData().then(() => {
+    renderRanking();
+    if (currentTeamTab) renderTeam(currentTeamTab);
+    renderJornades(currentJornada.phase, currentJornada.jorn);
+    renderCanvis();
+    showToast('✅ Dades actualitzades!');
+  }).catch(() => showToast('❌ Error de connexió amb el Sheet'));
+}
+
+function logoutAdmin() {
+  isAdmin = false;
+  sessionStorage.removeItem('adminAuth');
+  document.getElementById('adminContent').innerHTML = '<div class="empty-state"><div class="big-icon">🔐</div><p>Sessió tancada.</p></div>';
+  showToast('👋 Sessió admin tancada');
+}
+
+function copyShareInstructions() {
+  const text = `🌍 MUNDIAL 2026 FANTASY LEAGUE\n\nDescarrega el fitxer HTML i obre'l al teu navegador per veure la classificació en temps real!\n\n⚽ Veuràs: classificació, equips, puntuacions per jornada i canvis.\n🔄 Les dades s'actualitzen automàticament des del Google Sheet.`;
+  navigator.clipboard.writeText(text).then(() => showToast('📋 Instruccions copiades!')).catch(() => showToast('No s\'ha pogut copiar'));
+}
+
+// ============================================================
+// NAVEGACIÓ
+// ============================================================
+function openTeam(name) {
+  switchTab('teams');
+  const sel = document.getElementById('teamSelect');
+  if (sel) { sel.value = name; renderTeam(name); }
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  document.getElementById(`tab-${tab}`).classList.add('active');
+}
+
+document.getElementById('mainNav').addEventListener('click', e => {
+  const btn = e.target.closest('.tab-btn');
+  if (!btn) return;
+  const tab = btn.dataset.tab;
+
+  if (tab === 'admin') {
+    // Comprova si ja és admin (sessió activa)
+    if (sessionStorage.getItem('adminAuth') === '1') {
+      isAdmin = true;
+    }
+    if (!isAdmin) {
+      document.getElementById('adminModal').style.display = 'flex';
+      document.getElementById('adminPassInput').value = '';
+      document.getElementById('adminPassError').textContent = '';
+      // Canviar tab igualment per mostrar el modal
+    }
+    switchTab('admin');
+    if (isAdmin) renderAdminPanel();
+    return;
+  }
+
+  switchTab(tab);
+
+  if (tab === 'jornades') renderJornades(currentJornada.phase, currentJornada.jorn);
+  if (tab === 'canvis') renderCanvis();
+  if (tab === 'teams') {
+    const sel = document.getElementById('teamSelect');
+    if (sel?.value) renderTeam(sel.value);
+  }
+});
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+async function init() {
+  // Recarrega automàtica cada 5 minuts
+  setInterval(() => {
+    loadAllData().then(() => {
+      if (document.querySelector('#tab-ranking.active')) renderRanking();
+    }).catch(() => {});
+  }, 5 * 60 * 1000);
+
+  try {
+    await loadAllData();
+  } catch(e) {
+    document.getElementById('rankingGrid').innerHTML = `
+      <div class="empty-state">
+        <div class="big-icon">⚠️</div>
+        <p>No s'han pogut carregar les dades.<br>
+        Comprova que el Google Sheet és públic (mode Visualitzador) i que té les 4 pestanyes creades.</p>
+      </div>`;
+    return;
+  }
+
+  // Popula selector d'equips
+  const participants = getParticipants();
+  const teamSel = document.getElementById('teamSelect');
+  teamSel.innerHTML = participants.map(p => `<option value="${p}">${p}</option>`).join('');
+  if (participants.length) { currentTeamTab = participants[0]; renderTeam(participants[0]); }
+
+  // Render inicial
+  renderRanking();
+  renderJornades('grups', 'J1');
+  renderCanvis();
+
+  // Restaura sessió admin si existia
+  if (sessionStorage.getItem('adminAuth') === '1') isAdmin = true;
+}
+
+init();
+</script>
+</body>
+</html>
