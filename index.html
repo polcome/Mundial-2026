@@ -107,6 +107,31 @@
   .jorn-btn { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.35rem 0.8rem; font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--silver); cursor: pointer; transition: all 0.15s; letter-spacing: 0.05em; }
   .jorn-btn:hover, .jorn-btn.active { background: var(--gold); color: var(--ink); border-color: var(--gold); font-weight: 700; }
 
+  /* RULETA */
+  .ruleta-login-box { background:#0F1929; border:1px solid var(--glass-border); border-radius:20px; padding:2rem 1.5rem; max-width:380px; margin:2rem auto; text-align:center; }
+  .ruleta-login-box h2 { font-family:'Bebas Neue',cursive; font-size:2rem; color:var(--gold); margin-bottom:0.3rem; }
+  .ruleta-login-box p { font-size:0.82rem; color:var(--silver); margin-bottom:1.2rem; }
+  .drum-container { position:relative; height:90px; overflow:hidden; border-radius:12px; background:rgba(0,0,0,0.4); border:2px solid var(--glass-border); margin-bottom:1.5rem; }
+  .drum-container::before,.drum-container::after { content:''; position:absolute; left:0; right:0; height:28px; z-index:5; pointer-events:none; }
+  .drum-container::before { top:0; background:linear-gradient(to bottom, rgba(10,15,30,0.95), transparent); }
+  .drum-container::after  { bottom:0; background:linear-gradient(to top, rgba(10,15,30,0.95), transparent); }
+  .drum-highlight { position:absolute; left:0; right:0; top:50%; transform:translateY(-50%); height:34px; border-top:2px solid var(--gold); border-bottom:2px solid var(--gold); background:rgba(245,200,66,0.08); z-index:4; pointer-events:none; }
+  .drum-track { position:absolute; top:0; left:0; right:0; }
+  .drum-item { height:90px; display:flex; align-items:center; justify-content:center; gap:0.8rem; padding:0 1rem; }
+  .drum-item .d-avatar { width:44px; height:44px; border-radius:50%; object-fit:cover; border:2px solid rgba(255,255,255,0.2); flex-shrink:0; }
+  .drum-item .d-avatar-ph { width:44px; height:44px; border-radius:50%; background:linear-gradient(135deg,#1e3a5f,#2d5a8e); display:flex; align-items:center; justify-content:center; font-size:1.3rem; flex-shrink:0; border:2px solid rgba(255,255,255,0.15); }
+  .drum-item .d-name { font-weight:700; font-size:1rem; color:var(--white); line-height:1.1; }
+  .drum-item .d-sub { font-size:0.72rem; color:var(--silver); margin-top:2px; }
+  .ruleta-result { background:linear-gradient(135deg,rgba(245,200,66,0.15),rgba(245,200,66,0.05)); border:2px solid var(--gold); border-radius:20px; padding:2rem 1.5rem; text-align:center; animation:popIn 0.4s ease; max-width:420px; margin:0 auto; }
+  .ruleta-result .c-badge { font-family:'Bebas Neue',cursive; font-size:0.9rem; letter-spacing:0.2em; color:var(--gold); background:rgba(245,200,66,0.15); border:1px solid rgba(245,200,66,0.4); padding:3px 12px; border-radius:20px; display:inline-block; margin-bottom:1rem; }
+  .ruleta-result .c-avatar { width:90px; height:90px; border-radius:50%; object-fit:cover; border:3px solid var(--gold); margin:0 auto 1rem; display:block; box-shadow:0 0 30px rgba(245,200,66,0.3); }
+  .ruleta-result .c-avatar-ph { width:90px; height:90px; border-radius:50%; background:linear-gradient(135deg,#1e3a5f,#2d5a8e); display:flex; align-items:center; justify-content:center; font-size:2.5rem; margin:0 auto 1rem; border:3px solid var(--gold); box-shadow:0 0 30px rgba(245,200,66,0.3); }
+  .ruleta-result .c-name { font-family:'Bebas Neue',cursive; font-size:2.2rem; color:var(--white); line-height:1; margin-bottom:0.3rem; }
+  .ruleta-result .c-sub { font-size:0.85rem; color:var(--silver); margin-bottom:1rem; }
+  .test-banner { background:rgba(224,52,52,0.15); border:1px solid rgba(224,52,52,0.35); border-radius:10px; padding:0.8rem 1.2rem; margin-bottom:1.5rem; font-size:0.8rem; color:#F58080; display:flex; gap:0.6rem; align-items:flex-start; }
+  .spin-btn { font-size:1rem; padding:1rem 2rem; border-radius:12px; width:100%; }
+  .captain-badge { position:absolute; top:-6px; left:-6px; z-index:15; background:var(--gold); color:var(--ink); font-family:'Bebas Neue',cursive; font-size:0.65rem; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid var(--ink); box-shadow:0 0 8px rgba(245,200,66,0.5); }
+
   /* PHOTO MODAL & PLAYER CARD MODAL */
   .photo-modal { position:fixed; inset:0; z-index:500; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; cursor:pointer; animation:fadeIn 0.2s ease; }
   @keyframes fadeIn { from{opacity:0} to{opacity:1} }
@@ -362,6 +387,7 @@
   <button class="tab-btn" data-tab="jornades">📅 Jornades</button>
   <button class="tab-btn" data-tab="jugadors">⚽ Jugadors</button>
   <button class="tab-btn" data-tab="canvis">🔄 Canvis</button>
+  <button class="tab-btn" data-tab="ruleta">⭐ Capità</button>
   <button class="tab-btn admin-tab" data-tab="admin" id="adminTabBtn">⚙️ Admin</button>
 </nav>
 
@@ -419,6 +445,10 @@
   <section class="section" id="tab-canvis">
     <div class="section-title">🔄 Registre de Canvis</div>
     <div id="canvisView"></div>
+  </section>
+
+  <section class="section" id="tab-ruleta">
+    <div id="ruletaTabContent"></div>
   </section>
 
   <section class="section" id="tab-admin">
@@ -616,20 +646,21 @@ function golPts(pos) {
 }
 
 // Càlcul complet d'un jugador per a una jornada/eliminatòria
-function calcScoreRow(sc, pos) {
+function calcScoreRow(sc, pos, jugador, fase, jornada) {
   if (!sc || v(sc,'Nota') === '') return null;
-  const nota     = notaToPts(parseNota(v(sc,'Nota')));
-  const gols     = parseInt(v(sc,'Gols') || 0);
-  const assists  = parseInt(v(sc,'Assistencies') || 0);
-  const penalti  = parseInt(v(sc,'Penalti') || 0);
+  const nota       = notaToPts(parseNota(v(sc,'Nota')));
+  const gols       = parseInt(v(sc,'Gols') || 0);
+  const assists    = parseInt(v(sc,'Assistencies') || 0);
+  const penalti    = parseInt(v(sc,'Penalti') || 0);
   const doblegroga = parseInt(v(sc,'DobleGroga') || 0);
-  const vermella = parseInt(v(sc,'Vermella') || 0);
-  return nota
-    + gols * golPts(pos)
-    + assists * 2
-    + penalti * 3
-    + doblegroga * (-3)
-    + vermella * (-6);
+  const vermella   = parseInt(v(sc,'Vermella') || 0);
+  const base = nota + gols * golPts(pos) + assists * 2 + penalti * 3 + doblegroga * (-3) + vermella * (-6);
+  // Capità puntua el doble durant la seva jornada assignada
+  const isCapita = rSpinResult && jugador && fase && jornada &&
+    norm(jugador) === norm(rSpinResult) &&
+    norm(fase)    === norm(R_FASE) &&
+    norm(jornada) === norm(R_JORNADA);
+  return isCapita ? base * 2 : base;
 }
 
 // Emoji flag per nom de selecció
@@ -825,7 +856,7 @@ function calcPlayerPhasePts(participant, jugador, fase) {
   let total = 0;
   for (const jorn of PHASE_JORNADES[fase] || []) {
     const sc = getScore(participant, jugador, fase, jorn);
-    const pts = calcScoreRow(sc, pos);
+    const pts = calcScoreRow(sc, pos, jugador, fase, jorn);
     if (pts !== null) total += pts;
   }
   return total;
@@ -925,7 +956,7 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   const note = parseNota(v(sc,'Nota'));
   const g = sc ? parseInt(v(sc,'Gols')||0) : 0;
   const a = sc ? parseInt(v(sc,'Assistencies')||0) : 0;
-  const pts = calcScoreRow(sc, pos); // usa sistema Mister
+  const pts = calcScoreRow(sc, pos, name, phase, jorn); // usa sistema Mister
   const avCls = note === null ? '' : note >= 8 ? 'score-high-av' : note >= 6.5 ? 'score-mid-av' : 'score-low-av';
 
   const pen  = sc ? parseInt(v(sc,'Penalti')||0) : 0;
@@ -948,6 +979,9 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   // La foto va al fons (z-index 1), el 👤 de fallback a z-index 0 (queda amagat si hi ha foto)
   // scoreBubble i flagBadge van a z-index 10 per sobre de tot
   const scoreBubbleZ = pts !== null ? `<div style="position:absolute;top:-7px;right:-7px;z-index:10;background:var(--ink);border:1.5px solid var(--gold);color:var(--gold);font-family:'Space Mono',monospace;font-size:0.6rem;font-weight:700;padding:2px 5px;border-radius:5px;white-space:nowrap">${pts}</div>` : '';
+  // Captain badge — shown if this player is the captain for current jornada
+  const isCapita = gData && rSpinResult && norm(name) === norm(rSpinResult) && jorn === R_JORNADA && phase === R_FASE;
+  const captainBadgeZ = isCapita ? `<div style="position:absolute;top:-7px;left:-7px;z-index:10;background:var(--gold);color:var(--ink);font-family:'Bebas Neue',cursive;font-size:0.65rem;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid var(--ink);box-shadow:0 0 8px rgba(245,200,66,0.6)">C</div>` : '';
   const flagBadgeZ = cs ? `<div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);z-index:10;background:${cs.color};color:#fff;font-size:0.58rem;font-weight:800;padding:1px 5px;border-radius:4px;font-family:'Space Mono',monospace;white-space:nowrap;border:1px solid rgba(255,255,255,0.3)">${cs.abbr}</div>` : '';
 
   const innerHtml = photoUrl
@@ -959,7 +993,7 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   const safeParticipant = (participant||_activeParticipant).replace(/'/g, "\'");
   const safeName = name.replace(/'/g, "\'");
   return `<div class="player-pin" onclick="openPlayerCard('${safeName}','${safeParticipant}','${phase}','${jorn}')" style="cursor:pointer">
-    <div class="avatar ${avCls}" style="overflow:visible;position:relative;transition:transform 0.15s" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform=''">${innerHtml}${scoreBubbleZ}${flagBadgeZ}</div>
+    <div class="avatar ${avCls}" style="overflow:visible;position:relative;transition:transform 0.15s" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform=''">${innerHtml}${scoreBubbleZ}${flagBadgeZ}${captainBadgeZ}</div>
     <div class="pname">${shortName}</div>
     ${goals}
   </div>`;
@@ -998,7 +1032,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
   const total = phasePlayers.reduce((s,pl) => {
     let sc = getScore(participant, v(pl,'Jugador'), phase, jornada);
     if (!sc && tryJ1Fallback && jornada === 'E1') sc = getScore(participant, v(pl,'Jugador'), phase, 'J1');
-    const pts = calcScoreRow(sc, v(pl,'Posicio'));
+    const pts = calcScoreRow(sc, v(pl,'Posicio'), v(pl,'Jugador'), phase, jornada);
     return s + (pts || 0);
   }, 0);
   const totalStr = total > 0 ? `${total.toFixed(0)} pts` : 'Sense puntuació';
@@ -1014,7 +1048,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
     const pen2 = sc2 ? parseInt(v(sc2,'Penalti')||0) : 0;
     const groga2 = sc2 ? parseInt(v(sc2,'DobleGroga')||0) : 0;
     const verm2 = sc2 ? parseInt(v(sc2,'Vermella')||0) : 0;
-    const pts2 = calcScoreRow(sc2, pos2);
+    const pts2 = calcScoreRow(sc2, pos2, name, phase, jornada);
     const cls2 = note2 === null ? 'score-empty' : note2 >= 8 ? 'score-high' : note2 >= 6.5 ? 'score-mid' : 'score-low';
     const posClass = `pos-${pos2}`;
     const flag2 = getFlag(v(pl,'Equip'));
@@ -1267,7 +1301,7 @@ function openPlayerCard(name, participant, phase, jornada) {
   const penals  = sc ? parseInt(v(sc,'Penalti')||0)         : 0;
   const dgroga  = sc ? parseInt(v(sc,'DobleGroga')||0)      : 0;
   const verm    = sc ? parseInt(v(sc,'Vermella')||0)        : 0;
-  const pts     = calcScoreRow(sc, posicio);
+  const pts     = calcScoreRow(sc, posicio, name, phase, jornada);
   const notaPts = nota !== null ? notaToPts(nota) : null;
   const notaCls = nota === null ? 'score-empty' : nota >= 8 ? 'score-high' : nota >= 6.5 ? 'score-mid' : 'score-low';
 
@@ -1362,7 +1396,7 @@ function renderJugadorsTab() {
           const pen = parseInt(v(sc,'Penalti')||0);
           const dg = parseInt(v(sc,'DobleGroga')||0);
           const vm = parseInt(v(sc,'Vermella')||0);
-          const pts = calcScoreRow(sc, posicio);
+          const pts = calcScoreRow(sc, posicio, name, ph, jorn);
           if (nota !== null) { notaSum += nota; notaCount++; }
           phPts += pts||0; phGols += g; phAssists += a; phPenals += pen; phDG += dg; phV += vm;
           jornDetails.push({ jorn, nota, g, a, pen, dg, vm, pts });
@@ -1707,6 +1741,7 @@ document.getElementById('mainNav').addEventListener('click', e => {
 
   if (tab === 'jornades') renderJornades(currentJornada.phase, currentJornada.jorn);
   if (tab === 'jugadors') { populateJugadorsFilters(); renderJugadorsTab(); }
+  if (tab === 'ruleta') renderRuletaTab();
   if (tab === 'canvis') renderCanvis();
   if (tab === 'teams') {
     const sel = document.getElementById('teamSelect');
@@ -1721,6 +1756,243 @@ function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ============================================================
+// RULETA DE CAPITÀ
+// ============================================================
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxGNYJreI3LUDahUbGYZGfP7WgTc--0q_onvp88tBJpZV2fmJ2CxvrTbQakrFxDGcMKzw/exec';
+
+const R_PASSWORDS = {
+  'NTNP':    'ntnp2026',
+  'MBEMBA':  'mbemba2026',
+  'PAPI':    'papi2026',
+  'TETPEÑA': 'tetpena2026',
+};
+
+const R_FASE    = 'grups';
+const R_JORNADA = 'J1';
+const R_LABEL   = 'Fase de Grups — Jornada 1';
+const R_MODE_PROVES = true; // canvia a false per producció
+
+let rParticipant = '';
+let rSpinResult  = null;
+let rSpinning    = false;
+
+async function rPost(params) {
+  const url = SCRIPT_URL + '?' + new URLSearchParams({...params, _: Date.now()}).toString();
+  const res = await fetch(url, {cache:'no-store'});
+  const text = await res.text();
+  try { return JSON.parse(text); } catch(e) { return {ok:true}; }
+}
+
+function renderRuletaTab() {
+  const el = document.getElementById('ruletaTabContent');
+  if (!el) return;
+
+  // Si no hi ha sessió, mostra login
+  const saved = sessionStorage.getItem('ruleta_auth');
+  if (saved && R_PASSWORDS[saved]) {
+    rParticipant = saved;
+    rLoadRuleta();
+    return;
+  }
+
+  const participants = getParticipants();
+  const opts = participants.map(p => `<option value="${p}">${p}</option>`).join('');
+
+  el.innerHTML = `
+    <div class="ruleta-login-box">
+      <div style="font-size:2.5rem;margin-bottom:0.5rem">🎰</div>
+      <h2>RULETA DE CAPITÀ</h2>
+      <p>Selecciona el teu equip i introdueix la teva contrasenya per girar la ruleta</p>
+      <select id="rLoginSel" class="login-input" style="background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);border-radius:8px;padding:0.7rem 1rem;color:var(--white);font-size:0.9rem;width:100%;margin-bottom:0.8rem;cursor:pointer">
+        <option value="">Selecciona el teu equip...</option>${opts}
+      </select>
+      <input type="password" id="rLoginPass" class="login-input" placeholder="Contrasenya"
+        style="background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);border-radius:8px;padding:0.7rem 1rem;color:var(--white);font-size:0.9rem;width:100%;margin-bottom:0.5rem;text-align:center;letter-spacing:0.15em"
+        onkeydown="if(event.key==='Enter')rDoLogin()">
+      <div id="rLoginErr" style="color:#F58080;font-size:0.8rem;min-height:1.2em;margin-bottom:0.5rem"></div>
+      <button class="btn-gold" style="width:100%;border:none;border-radius:10px;padding:0.8rem;font-weight:700;font-size:0.9rem;cursor:pointer;background:linear-gradient(135deg,#C9A020,var(--gold));color:var(--ink)" onclick="rDoLogin()">Entrar ⚽</button>
+    </div>`;
+}
+
+function rDoLogin() {
+  const p    = document.getElementById('rLoginSel').value;
+  const pass = document.getElementById('rLoginPass').value;
+  const err  = document.getElementById('rLoginErr');
+  if (!p) { err.textContent = 'Selecciona el teu equip'; return; }
+  if (!R_PASSWORDS[p]) { err.textContent = 'Equip sense contrasenya configurada'; return; }
+  if (pass !== R_PASSWORDS[p]) { err.textContent = '❌ Contrasenya incorrecta'; return; }
+  rParticipant = p;
+  sessionStorage.setItem('ruleta_auth', p);
+  rLoadRuleta();
+}
+
+async function rLoadRuleta() {
+  const el = document.getElementById('ruletaTabContent');
+  if (!el) return;
+  el.innerHTML = `<div style="text-align:center;padding:3rem"><div class="spinner"></div><p style="color:var(--silver);margin-top:0.5rem">Carregant...</p></div>`;
+
+  // Jugadors de l'equip (de la fase activa)
+  const rPlayers = getPlayersForPhase(rParticipant, R_FASE);
+
+  // Capità actual del Sheet
+  let rCapita = null;
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Capitans&_=${Date.now()}`;
+    const res = await fetch(url, {cache:'no-store'});
+    const text = await res.text();
+    const start = text.indexOf('('), end = text.lastIndexOf(')');
+    const json = JSON.parse(text.slice(start+1, end));
+    const rows = parseSheet(json);
+    const found = rows.find(r =>
+      norm(v(r,'Participant')) === norm(rParticipant) &&
+      norm(v(r,'Fase'))        === norm(R_FASE) &&
+      norm(v(r,'Jornada'))     === norm(R_JORNADA)
+    );
+    if (found) rCapita = v(found,'Capita');
+  } catch(e) { console.warn('Error llegint Capitans:', e); }
+
+  rSpinResult = rCapita || null;
+  rRenderMain(rPlayers);
+}
+
+function rRenderMain(rPlayers) {
+  const el = document.getElementById('ruletaTabContent');
+  if (!el) return;
+
+  const testBanner = R_MODE_PROVES ? `
+    <div class="test-banner">⚠️ <div><strong>MODE DE PROVES</strong> — Pots girar tantes vegades com vulguis i resetar. En producció, 1 sol intent.</div></div>` : '';
+
+  const infoRows = `
+    <div style="display:flex;flex-direction:column;gap:0.4rem;margin-bottom:1.2rem;max-width:480px;margin-left:auto;margin-right:auto">
+      <div style="display:flex;justify-content:space-between;background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;padding:0.6rem 1rem;font-size:0.82rem">
+        <span style="color:var(--silver)">📅 Fase activa</span>
+        <span style="font-family:'Space Mono',monospace;font-size:0.75rem">${R_LABEL}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;padding:0.6rem 1rem;font-size:0.82rem">
+        <span style="color:var(--silver)">👥 Jugadors disponibles</span>
+        <span style="font-family:'Space Mono',monospace;font-size:0.75rem">${rPlayers.length} jugadors</span>
+      </div>
+    </div>`;
+
+  let mainContent = '';
+
+  if (rSpinResult) {
+    // Mostra resultat
+    const plData = rPlayers.find(pl => norm(v(pl,'Jugador')) === norm(rSpinResult))
+      || (gData?.jugadors||[]).find(r => norm(v(r,'Jugador')) === norm(rSpinResult));
+    const foto   = plData ? v(plData,'Foto')    : '';
+    const equip  = plData ? v(plData,'Equip')   : '';
+    const posicio= plData ? v(plData,'Posicio')  : '';
+    const avatarHtml = foto
+      ? `<img class="c-avatar" src="${foto}" onerror="this.outerHTML='<div class=c-avatar-ph>👤</div>'">`
+      : `<div class="c-avatar-ph">👤</div>`;
+
+    mainContent = `
+      <div class="ruleta-result">
+        <div class="c-badge">⭐ CAPITÀ DE LA ${R_JORNADA}</div>
+        ${avatarHtml}
+        <div class="c-name">${rSpinResult}</div>
+        <div class="c-sub">${equip} · ${posicio}</div>
+        <div style="font-size:0.82rem;color:var(--silver);background:rgba(0,0,0,0.2);border-radius:8px;padding:0.7rem 1rem;margin-bottom:1rem">
+          Aquest jugador <strong style="color:var(--gold)">puntua el doble</strong> durant la ${R_JORNADA} de ${R_LABEL}.
+        </div>
+      </div>
+      ${R_MODE_PROVES ? `<div style="display:flex;gap:0.6rem;max-width:480px;margin:1rem auto 0">
+        <button onclick="rResetCapita()" style="flex:1;background:rgba(224,52,52,0.2);border:1px solid rgba(224,52,52,0.3);color:#F58080;border-radius:8px;padding:0.55rem 1rem;cursor:pointer;font-size:0.8rem;font-weight:700">🗑️ Reset</button>
+        <button onclick="rLoadRuleta()" style="flex:1;background:var(--glass);border:1px solid var(--glass-border);color:var(--silver);border-radius:8px;padding:0.55rem 1rem;cursor:pointer;font-size:0.8rem">🔄 Recarregar</button>
+      </div>` : ''}`;
+  } else {
+    // Mostra ruleta
+    const drumItems = [];
+    for (let i = 0; i < 5; i++) drumItems.push(...rPlayers);
+    const drumHtml = drumItems.map(pl => {
+      const foto = v(pl,'Foto');
+      const av = foto
+        ? `<img class="d-avatar" src="${foto}" onerror="this.outerHTML='<div class=d-avatar-ph>👤</div>'">`
+        : `<div class="d-avatar-ph">👤</div>`;
+      return `<div class="drum-item">${av}<div><div class="d-name">${v(pl,'Jugador')}</div><div class="d-sub">${v(pl,'Equip')} · ${v(pl,'Posicio')}</div></div></div>`;
+    }).join('');
+
+    mainContent = `
+      <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:20px;padding:2rem 1.5rem;max-width:480px;margin:0 auto;text-align:center">
+        <p style="font-family:'Space Mono',monospace;font-size:0.65rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1.5rem">🎰 Gira la ruleta per escollir el teu Capità</p>
+        <div class="drum-container" id="rDrumContainer">
+          <div class="drum-highlight"></div>
+          <div class="drum-track" id="rDrumTrack">${drumHtml}</div>
+        </div>
+        <button id="rSpinBtn" onclick="rDoSpin()" class="btn-gold spin-btn" style="border:none;font-family:'DM Sans',sans-serif;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#C9A020,var(--gold));color:var(--ink)">🎰 GIRAR!</button>
+      </div>`;
+  }
+
+  el.innerHTML = `
+    <div class="section-title">⭐ Ruleta de Capità</div>
+    <div style="text-align:center;margin-bottom:0.5rem;color:var(--silver);font-size:0.85rem">Equip: <strong style="color:var(--white)">${rParticipant}</strong>
+      <button onclick="rLogout()" style="background:none;border:none;color:rgba(255,255,255,0.3);font-size:0.75rem;cursor:pointer;text-decoration:underline;margin-left:0.8rem">Canviar</button>
+    </div>
+    ${testBanner}
+    ${infoRows}
+    ${mainContent}`;
+}
+
+function rDoSpin() {
+  if (rSpinning) return;
+  const rPlayers = getPlayersForPhase(rParticipant, R_FASE);
+  if (!rPlayers.length) return;
+  rSpinning = true;
+
+  const btn = document.getElementById('rSpinBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '🌀 Girant...'; }
+
+  const track = document.getElementById('rDrumTrack');
+  const container = document.getElementById('rDrumContainer');
+
+  const itemH    = 90;
+  const nPlayers = rPlayers.length;
+  const winnerIdx = Math.floor(Math.random() * nPlayers);
+  const winner    = rPlayers[winnerIdx];
+
+  const landingItem = 3 * nPlayers + winnerIdx;
+  const finalY      = landingItem * itemH - (itemH / 2 - itemH / 2);
+
+  track.style.transition = 'none';
+  track.style.transform  = 'translateY(0)';
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    track.style.transition = 'transform 4.5s cubic-bezier(0.15,0.85,0.15,1.0)';
+    track.style.transform  = `translateY(-${finalY}px)`;
+  }));
+
+  setTimeout(() => {
+    rSpinning = false;
+    rSaveCapita(v(winner,'Jugador'), rPlayers);
+  }, 4700);
+}
+
+async function rSaveCapita(jugador, rPlayers) {
+  document.getElementById('ruletaTabContent').innerHTML += '';
+  try {
+    await rPost({action:'set_capita', participant:rParticipant, fase:R_FASE, jornada:R_JORNADA, capita:jugador});
+  } catch(e) { console.warn('Error guardant capità:', e); }
+  rSpinResult = jugador;
+  rRenderMain(rPlayers);
+}
+
+async function rResetCapita() {
+  if (!confirm('Esborrar el capità actual? (mode proves)')) return;
+  try { await rPost({action:'reset_capita', participant:rParticipant, fase:R_FASE, jornada:R_JORNADA}); }
+  catch(e) { console.warn('Error reset:', e); }
+  rSpinResult = null;
+  rLoadRuleta();
+}
+
+function rLogout() {
+  sessionStorage.removeItem('ruleta_auth');
+  rParticipant = '';
+  rSpinResult  = null;
+  renderRuletaTab();
 }
 
 // ============================================================
@@ -1751,6 +2023,29 @@ async function init() {
   const teamSel = document.getElementById('teamSelect');
   teamSel.innerHTML = participants.map(p => `<option value="${p}">${p}</option>`).join('');
   if (participants.length) { selectTeam(participants[0]); }
+
+  // Carrega capità actiu (per dobles punts i badge)
+  try {
+    const capUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Capitans&_=${Date.now()}`;
+    const capRes = await fetch(capUrl, {cache:'no-store'});
+    const capText = await capRes.text();
+    const capStart = capText.indexOf('('), capEnd = capText.lastIndexOf(')');
+    const capJson = JSON.parse(capText.slice(capStart+1, capEnd));
+    const capRows = parseSheet(capJson);
+    // Si hi ha sessió activa, carrega el capità d'aquell participant
+    const savedAuth = sessionStorage.getItem('ruleta_auth');
+    if (savedAuth) {
+      const found = capRows.find(r =>
+        norm(v(r,'Participant')) === norm(savedAuth) &&
+        norm(v(r,'Fase'))        === norm(R_FASE) &&
+        norm(v(r,'Jornada'))     === norm(R_JORNADA)
+      );
+      if (found) rSpinResult = v(found,'Capita');
+      rParticipant = savedAuth;
+    }
+    // Guarda tots els capitans per mostrar badges a tots els equips
+    window._allCapitans = capRows;
+  } catch(e) { console.warn('No s'han pogut carregar capitans:', e); }
 
   // Render inicial
   renderRanking();
