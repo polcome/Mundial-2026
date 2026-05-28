@@ -335,7 +335,7 @@
     <div class="section-title">👥 Equips</div>
     <div class="form-row" style="margin-bottom:1.5rem">
       <label>Participant:</label>
-      <select id="teamSelect" style="max-width:220px" onchange="renderTeam(this.value)"></select>
+      <select id="teamSelect" style="max-width:220px" onchange="const p=this.value;if(!_teamState[p])_teamState[p]={phase:'grups',jorn:'J1'};renderTeam(p)"></select>
     </div>
     <div id="teamView"></div>
   </section>
@@ -806,7 +806,12 @@ function renderRanking() {
 // ============================================================
 // RENDER TEAM
 // ============================================================
-let currentPhaseTab = 'grups';
+// Per-participant state
+const _teamState = {};
+function getTeamState(p) {
+  if (!_teamState[p]) _teamState[p] = { phase: 'grups', jorn: 'J1' };
+  return _teamState[p];
+}
 
 // Genera un "pin" de jugador per al camp
 function playerPin(name, pos, sc, jorn, participant, phase) {
@@ -996,28 +1001,22 @@ function renderPhaseContent(participant, phase) {
     return '<div class="empty-state" style="padding:2rem"><div class="big-icon" style="font-size:2rem">👟</div><p>Sense jugadors per a aquesta fase.</p></div>';
   }
 
-  // Fase de grups: mostra pestanyes J1/J2/J3
+  const state = getTeamState(participant);
   if (phase === 'grups') {
-    const activeJorn = window._activeJorn?.[participant]?.['grups'] || 'J1';
-    const jornTabs = ['J1','J2','J3'].map(j => `
-      <button class="phase-tab-btn ${j===activeJorn?'active':''}"
-        onclick="setActiveJorn('${participant}','grups','${j}')">${j}</button>
-    `).join('');
-    return `
-      <div style="display:flex;gap:0;border-bottom:1px solid var(--glass-border);margin-bottom:1rem">
-        ${jornTabs}
-      </div>
+    const activeJorn = state.jorn || 'J1';
+    const jornTabs = ['J1','J2','J3'].map(j =>
+      `<button class="jorn-tab-btn" style="background:none;border:none;cursor:pointer;padding:0.7rem 1rem;font-family:'Space Mono',monospace;font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:${j===activeJorn?'var(--gold)':'var(--silver)'};border-bottom:2px solid ${j===activeJorn?'var(--gold)':'transparent'};transition:all 0.2s"
+        onclick="setActiveJorn('${participant}','${j}')">${j}</button>`
+    ).join('');
+    return `<div style="display:flex;gap:0;border-bottom:1px solid var(--glass-border);margin-bottom:1rem">${jornTabs}</div>
       ${renderPitch(participant, 'grups', activeJorn)}`;
   }
-
-  // Eliminatòria: accepta E1 o J1 al Sheet
   return renderPitch(participant, phase, 'E1', true);
 }
 
-function setActiveJorn(participant, phase, jorn) {
-  if (!window._activeJorn) window._activeJorn = {};
-  if (!window._activeJorn[participant]) window._activeJorn[participant] = {};
-  window._activeJorn[participant][phase] = jorn;
+function setActiveJorn(participant, jorn) {
+  const st = getTeamState(participant);
+  st.jorn = jorn;
   renderTeam(participant);
 }
 
@@ -1038,11 +1037,12 @@ function renderTeam(participant) {
   }
 
   // Phase tabs with pts badges
+  const state = getTeamState(participant);
   const phaseTabs = PHASES.map(ph => {
     const phTotal = getPlayersForPhase(participant, ph).reduce((s,pl) => s + calcPlayerPhasePts(participant, v(pl,'Jugador'), ph), 0);
     const badge = phTotal > 0 ? `<span class="pts-badge">${phTotal.toFixed(0)}</span>` : '';
-    const isActive = ph === currentPhaseTab;
-    return `<button class="phase-tab-btn${isActive?' active':''}" data-phase="${ph}"
+    const isActive = ph === state.phase;
+    return `<button class="phase-tab-btn${isActive?' active':''}"
       onclick="switchPhaseTab('${participant}','${ph}')">${PHASE_ICONS[ph]} ${PHASE_LABELS[ph]}${badge}</button>`;
   }).join('');
 
@@ -1058,12 +1058,12 @@ function renderTeam(participant) {
         </div>
       </div>
     </div>
-    <div id="phaseTabs" class="phase-tabs" style="overflow-x:auto;scrollbar-width:none">${phaseTabs}</div>
-    <div id="phaseContent">${renderPhaseContent(participant, currentPhaseTab)}</div>`;
+    <div class="phase-tabs" style="overflow-x:auto;scrollbar-width:none">${phaseTabs}</div>
+    <div id="phaseContent">${renderPhaseContent(participant, state.phase)}</div>`;
 }
 
 function switchPhaseTab(participant, phase) {
-  currentPhaseTab = phase;
+  getTeamState(participant).phase = phase;
   renderTeam(participant);
 }
 
