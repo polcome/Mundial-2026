@@ -1018,8 +1018,7 @@ function setActiveJorn(participant, phase, jorn) {
   if (!window._activeJorn) window._activeJorn = {};
   if (!window._activeJorn[participant]) window._activeJorn[participant] = {};
   window._activeJorn[participant][phase] = jorn;
-  // Re-render only the phase content
-  document.getElementById('phaseContent').innerHTML = renderPhaseContent(participant, phase);
+  renderTeam(participant);
 }
 
 function renderTeam(participant) {
@@ -1065,16 +1064,7 @@ function renderTeam(participant) {
 
 function switchPhaseTab(participant, phase) {
   currentPhaseTab = phase;
-  // Update phase tab active states
-  const tabsEl = document.getElementById('phaseTabs');
-  if (tabsEl) {
-    tabsEl.querySelectorAll('button[data-phase]').forEach(b => {
-      b.classList.toggle('active', b.dataset.phase === phase);
-    });
-  }
-  // Update content
-  const el = document.getElementById('phaseContent');
-  if (el) el.innerHTML = renderPhaseContent(participant, phase);
+  renderTeam(participant);
 }
 
 // ============================================================
