@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mundial 2026 — Ruleta de Capità</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0A0F1E; --gold: #F5C842; --silver: #B8C5D6;
+    --white: #F8FAFC; --red: #E03434; --green: #28A04E;
+    --glass: rgba(255,255,255,0.06); --glass-border: rgba(255,255,255,0.12);
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'DM Sans',sans-serif; background:var(--ink); color:var(--white); min-height:100vh; overflow-x:hidden; }
+
+  .bg { position:fixed; inset:0; z-index:0; pointer-events:none;
+    background: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(13,92,42,0.4) 0%, transparent 70%), var(--ink); }
+
+  /* ---- LOGIN ---- */
+  .login-wrap { position:relative; z-index:10; display:flex; align-items:center; justify-content:center; min-height:100vh; padding:1rem; }
+  .login-box { background:#0F1929; border:1px solid var(--glass-border); border-radius:20px; padding:2.5rem 2rem; width:100%; max-width:380px; text-align:center; }
+  .login-box h1 { font-family:'Bebas Neue',cursive; font-size:2.5rem; color:var(--gold); margin-bottom:0.3rem; }
+  .login-box p { font-size:0.85rem; color:var(--silver); margin-bottom:1.5rem; }
+  .login-input { width:100%; padding:0.8rem 1rem; background:rgba(255,255,255,0.07); border:1px solid var(--glass-border); border-radius:8px; color:var(--white); font-family:'DM Sans',sans-serif; font-size:1rem; margin-bottom:0.8rem; text-align:center; letter-spacing:0.1em; }
+  .login-input:focus { outline:none; border-color:var(--gold); }
+  .btn { border:none; border-radius:10px; padding:0.8rem 1.5rem; font-family:'DM Sans',sans-serif; font-weight:700; font-size:0.9rem; cursor:pointer; transition:filter 0.2s, transform 0.15s; width:100%; }
+  .btn:hover { filter:brightness(1.15); transform:translateY(-1px); }
+  .btn-gold { background:linear-gradient(135deg,#C9A020,var(--gold)); color:var(--ink); }
+  .btn-green { background:linear-gradient(135deg,#1E7A3A,var(--green)); color:var(--white); }
+  .btn-red { background:rgba(224,52,52,0.25); border:1px solid rgba(224,52,52,0.4); color:#F58080; }
+  .btn-gray { background:rgba(255,255,255,0.08); border:1px solid var(--glass-border); color:var(--silver); }
+  .error-msg { color:#F58080; font-size:0.8rem; min-height:1.2em; margin-bottom:0.5rem; }
+
+  /* ---- MAIN ---- */
+  .main-wrap { position:relative; z-index:10; max-width:560px; margin:0 auto; padding:2rem 1.5rem 4rem; }
+
+  header { text-align:center; margin-bottom:2rem; }
+  .eyebrow { font-family:'Space Mono',monospace; font-size:0.65rem; letter-spacing:0.3em; color:var(--gold); text-transform:uppercase; margin-bottom:0.5rem; }
+  header h1 { font-family:'Bebas Neue',cursive; font-size:clamp(2rem,8vw,4rem); background:linear-gradient(135deg,var(--white) 0%,var(--gold) 50%,var(--white) 100%); background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; line-height:1; }
+  .participant-name { font-size:1rem; color:var(--silver); margin-top:0.3rem; }
+
+  /* ---- RULETA ---- */
+  .ruleta-card { background:var(--glass); border:1px solid var(--glass-border); border-radius:20px; padding:2rem 1.5rem; margin-bottom:1.5rem; text-align:center; }
+  .ruleta-card h2 { font-family:'Space Mono',monospace; font-size:0.7rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--gold); margin-bottom:1.5rem; }
+
+  /* Drum/slot machine style */
+  .drum-container { position:relative; height:90px; overflow:hidden; border-radius:12px; background:rgba(0,0,0,0.4); border:2px solid var(--glass-border); margin-bottom:1.5rem; }
+  .drum-container::before, .drum-container::after {
+    content:''; position:absolute; left:0; right:0; height:28px; z-index:5; pointer-events:none;
+  }
+  .drum-container::before { top:0; background:linear-gradient(to bottom, rgba(10,15,30,0.95), transparent); }
+  .drum-container::after  { bottom:0; background:linear-gradient(to top, rgba(10,15,30,0.95), transparent); }
+  /* Center highlight */
+  .drum-highlight { position:absolute; left:0; right:0; top:50%; transform:translateY(-50%); height:34px; border-top:2px solid var(--gold); border-bottom:2px solid var(--gold); background:rgba(245,200,66,0.08); z-index:4; pointer-events:none; }
+
+  .drum-track { position:absolute; top:0; left:0; right:0; transition:none; }
+  .drum-item { height:90px; display:flex; align-items:center; justify-content:center; gap:0.8rem; padding:0 1rem; }
+  .drum-item .d-avatar { width:44px; height:44px; border-radius:50%; object-fit:cover; border:2px solid rgba(255,255,255,0.2); flex-shrink:0; }
+  .drum-item .d-avatar-placeholder { width:44px; height:44px; border-radius:50%; background:linear-gradient(135deg,#1e3a5f,#2d5a8e); display:flex; align-items:center; justify-content:center; font-size:1.3rem; flex-shrink:0; border:2px solid rgba(255,255,255,0.15); }
+  .drum-item .d-info { text-align:left; }
+  .drum-item .d-name { font-family:'DM Sans',sans-serif; font-weight:700; font-size:1rem; color:var(--white); line-height:1.1; }
+  .drum-item .d-sub { font-size:0.72rem; color:var(--silver); margin-top:2px; }
+
+  .spin-btn { font-size:1rem; padding:1rem 2rem; border-radius:12px; }
+
+  /* ---- RESULTAT ---- */
+  .result-card { background:linear-gradient(135deg, rgba(245,200,66,0.15), rgba(245,200,66,0.05)); border:2px solid var(--gold); border-radius:20px; padding:2rem 1.5rem; text-align:center; animation:popIn 0.4s ease; }
+  @keyframes popIn { from{transform:scale(0.85);opacity:0} to{transform:scale(1);opacity:1} }
+  .result-card .c-badge { font-family:'Bebas Neue',cursive; font-size:0.9rem; letter-spacing:0.2em; color:var(--gold); background:rgba(245,200,66,0.15); border:1px solid rgba(245,200,66,0.4); padding:3px 12px; border-radius:20px; display:inline-block; margin-bottom:1rem; }
+  .result-card .c-avatar { width:90px; height:90px; border-radius:50%; object-fit:cover; border:3px solid var(--gold); margin:0 auto 1rem; display:block; box-shadow:0 0 30px rgba(245,200,66,0.3); }
+  .result-card .c-avatar-ph { width:90px; height:90px; border-radius:50%; background:linear-gradient(135deg,#1e3a5f,#2d5a8e); display:flex; align-items:center; justify-content:center; font-size:2.5rem; margin:0 auto 1rem; border:3px solid var(--gold); box-shadow:0 0 30px rgba(245,200,66,0.3); }
+  .result-card .c-name { font-family:'Bebas Neue',cursive; font-size:2.2rem; color:var(--white); line-height:1; margin-bottom:0.3rem; }
+  .result-card .c-sub { font-size:0.85rem; color:var(--silver); margin-bottom:1.2rem; }
+  .result-card .c-info { font-size:0.82rem; color:var(--silver); background:rgba(0,0,0,0.2); border-radius:8px; padding:0.7rem 1rem; margin-bottom:1.2rem; }
+  .result-card .c-info strong { color:var(--gold); }
+
+  /* ---- STATUS MSGS ---- */
+  .status-card { background:var(--glass); border:1px solid var(--glass-border); border-radius:16px; padding:2rem 1.5rem; text-align:center; }
+  .status-card .big-icon { font-size:3rem; margin-bottom:0.8rem; }
+  .status-card h3 { font-family:'Bebas Neue',cursive; font-size:1.6rem; color:var(--gold); margin-bottom:0.5rem; }
+  .status-card p { font-size:0.85rem; color:var(--silver); line-height:1.6; }
+
+  /* ---- TEST MODE BANNER ---- */
+  .test-banner { background:rgba(224,52,52,0.15); border:1px solid rgba(224,52,52,0.35); border-radius:10px; padding:0.8rem 1.2rem; margin-bottom:1.5rem; font-size:0.8rem; color:#F58080; display:flex; gap:0.6rem; align-items:flex-start; }
+
+  /* ---- INFO ---- */
+  .info-row { display:flex; justify-content:space-between; align-items:center; background:var(--glass); border:1px solid var(--glass-border); border-radius:10px; padding:0.7rem 1rem; margin-bottom:0.6rem; font-size:0.82rem; }
+  .info-row .label { color:var(--silver); }
+  .info-row .value { font-family:'Space Mono',monospace; font-size:0.75rem; color:var(--white); }
+
+  .logout-btn { background:none; border:none; color:rgba(255,255,255,0.3); font-size:0.75rem; cursor:pointer; text-decoration:underline; display:block; text-align:center; margin-top:1.5rem; }
+  .logout-btn:hover { color:var(--silver); }
+
+  .spinning .drum-highlight { border-color:var(--gold); box-shadow:0 0 15px rgba(245,200,66,0.4); }
+</style>
+</head>
+<body>
+<div class="bg"></div>
+
+<!-- LOGIN -->
+<div class="login-wrap" id="loginWrap">
+  <div class="login-box">
+    <div style="font-size:2.5rem;margin-bottom:0.5rem">🎰</div>
+    <h1>RULETA</h1>
+    <p>Introdueix el teu nom i contrasenya per girar la ruleta i escollir el teu capità</p>
+    <select class="login-input" id="loginSelect" style="cursor:pointer">
+      <option value="">Selecciona el teu equip...</option>
+    </select>
+    <input type="password" class="login-input" id="loginPass" placeholder="Contrasenya" onkeydown="if(event.key==='Enter')doLogin()">
+    <div class="error-msg" id="loginError"></div>
+    <button class="btn btn-gold" onclick="doLogin()">Entrar ⚽</button>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div class="main-wrap" id="mainWrap" style="display:none">
+  <header>
+    <div class="eyebrow">🌍 Mundial 2026 Fantasy</div>
+    <h1>RULETA DE CAPITÀ</h1>
+    <div class="participant-name" id="headerName"></div>
+  </header>
+
+  <div class="test-banner" id="testBanner">
+    ⚠️ <div><strong>MODE DE PROVES</strong> — Pots girar tantes vegades com vulguis i resetar el capità. En producció, serà 1 sol intent.</div>
+  </div>
+
+  <div id="phaseInfo"></div>
+  <div id="ruletaContent"></div>
+
+  <button class="logout-btn" onclick="doLogout()">Tancar sessió</button>
+</div>
+
+<script>
+// ============================================================
+// CONFIGURACIÓ
+// ============================================================
+const SHEET_ID   = '1W02L1nn1FI3shibepGLazZC_G4IgG9sytqm6fGoWQdE';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby6xdQm4fYKtDdnN3NyeLMmVdWtPlzoYJznQMwE8H8DfAa7sgtTxdqV3pR0so8k5C31IQ/exec';
+
+// Contrasenyes per participant (canvia-les!)
+const PASSWORDS = {
+  'NTNP':    'ntnp2026',
+  'MBEMBA':  'mbemba2026',
+  'PAPI':    'papi2026',
+  'TETPEÑA': 'tetpena2026',
+  // Afegeix la resta aquí: 'NOM': 'contrasenya'
+};
+
+// Fase i jornada activa (en mode proves, canvia aquí manualment)
+const FASE_ACTIVA   = 'grups';
+const JORNADA_ACTIVA = 'J2';
+const FASE_LABEL    = 'Fase de Grups — Jornada 2';
+
+// Mode proves: true = sempre permès girar (sense restricció de temps)
+const MODE_PROVES = true;
+
+// ============================================================
+// ESTAT
+// ============================================================
+let currentParticipant = '';
+let players = [];
+let spinResult = null;
+let isSpinning = false;
+
+// ============================================================
+// UTILS
+// ============================================================
+function norm(s) { return (s??'').toString().trim().toLowerCase(); }
+function v(row, key) { return (row[key]??'').toString().trim(); }
+
+async function fetchSheet(sheetName) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}&_=${Date.now()}`;
+  const res = await fetch(url, {cache:'no-store'});
+  const text = await res.text();
+  const start = text.indexOf('('), end = text.lastIndexOf(')');
+  const json = JSON.parse(text.slice(start+1, end));
+  if (json.status === 'error') throw new Error(json.errors?.[0]?.message);
+  return json;
+}
+
+function parseSheet(json) {
+  if (!json?.table) return [];
+  const cols = json.table.cols || [];
+  const rows = json.table.rows || [];
+  if (!rows.length) return [];
+  function cellVal(cell) {
+    if (!cell) return '';
+    const vv = (cell.v !== null && cell.v !== undefined) ? cell.v : (cell.f ?? '');
+    return typeof vv === 'string' ? vv.trim() : vv;
+  }
+  const firstRowVals = cols.map((c,i) => cellVal(rows[0]?.c?.[i]));
+  const gvizLabels   = cols.map(c => (c.label||'').trim());
+  const nonEmpty = firstRowVals.filter(v => v !== '' && v !== null);
+  const firstIsHeader = nonEmpty.length > 0 && nonEmpty.every(v => typeof v === 'string' && isNaN(parseFloat(v)));
+  let headers, dataRows;
+  if (firstIsHeader) {
+    headers = cols.map((c,i) => firstRowVals[i] || gvizLabels[i] || String.fromCharCode(65+i));
+    dataRows = rows.slice(1);
+  } else {
+    headers = gvizLabels.map((l,i) => l || String.fromCharCode(65+i));
+    dataRows = rows;
+  }
+  return dataRows.map(row => {
+    const obj = {};
+    headers.forEach((col,i) => { obj[col] = cellVal(row.c?.[i]); });
+    return obj;
+  }).filter(row => headers.some(h => row[h] !== '' && row[h] !== null));
+}
+
+async function postToScript(body) {
+  const res = await fetch(SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify(body),
+    headers: {'Content-Type':'application/json'}
+  });
+  return res.json();
+}
+
+// ============================================================
+// LOGIN
+// ============================================================
+async function initLogin() {
+  // Carrega participants del Sheet
+  try {
+    const json = await fetchSheet('Participants');
+    const parts = parseSheet(json).map(r => r['Nom'] || r[Object.keys(r)[0]] || '').filter(Boolean);
+    const sel = document.getElementById('loginSelect');
+    parts.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p; opt.textContent = p;
+      sel.appendChild(opt);
+    });
+  } catch(e) { console.warn('No s\'han pogut carregar participants:', e); }
+}
+
+function doLogin() {
+  const participant = document.getElementById('loginSelect').value;
+  const pass = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginError');
+
+  if (!participant) { errEl.textContent = 'Selecciona el teu equip'; return; }
+  if (!PASSWORDS[participant]) { errEl.textContent = 'Participant sense contrasenya configurada'; return; }
+  if (pass !== PASSWORDS[participant]) { errEl.textContent = '❌ Contrasenya incorrecta'; return; }
+
+  currentParticipant = participant;
+  sessionStorage.setItem('ruleta_auth', participant);
+  document.getElementById('loginWrap').style.display = 'none';
+  document.getElementById('mainWrap').style.display = 'block';
+  document.getElementById('headerName').textContent = participant;
+  loadRuleta();
+}
+
+function doLogout() {
+  sessionStorage.removeItem('ruleta_auth');
+  currentParticipant = '';
+  document.getElementById('loginWrap').style.display = 'flex';
+  document.getElementById('mainWrap').style.display = 'none';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginError').textContent = '';
+}
+
+// ============================================================
+// CARREGA DADES
+// ============================================================
+async function loadRuleta() {
+  document.getElementById('ruletaContent').innerHTML = '<div style="text-align:center;padding:3rem"><div style="width:36px;height:36px;border:3px solid rgba(255,255,255,0.1);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 1rem"></div><p style="color:var(--silver)">Carregant jugadors...</p></div>';
+
+  try {
+    // Carrega jugadors de l'equip
+    const json = await fetchSheet('Jugadors');
+    const allJugadors = parseSheet(json);
+    players = allJugadors.filter(r => norm(v(r,'Participant')) === norm(currentParticipant));
+
+    // Carrega capità actual si existeix
+    const capJson = await fetchSheet('Capitans');
+    const capitans = parseSheet(capJson);
+    const existing = capitans.find(r =>
+      norm(v(r,'Participant')) === norm(currentParticipant) &&
+      norm(v(r,'Fase')) === norm(FASE_ACTIVA) &&
+      norm(v(r,'Jornada')) === norm(JORNADA_ACTIVA)
+    );
+    spinResult = existing ? v(existing,'Capita') : null;
+
+    renderRuleta();
+  } catch(e) {
+    document.getElementById('ruletaContent').innerHTML = `<div class="status-card"><div class="big-icon">⚠️</div><h3>Error</h3><p>${e.message}</p></div>`;
+  }
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function renderRuleta() {
+  // Phase info
+  document.getElementById('phaseInfo').innerHTML = `
+    <div class="info-row"><span class="label">📅 Fase activa</span><span class="value">${FASE_LABEL}</span></div>
+    <div class="info-row" style="margin-bottom:1.5rem"><span class="label">👥 Jugadors disponibles</span><span class="value">${players.length} jugadors</span></div>`;
+
+  if (!players.length) {
+    document.getElementById('ruletaContent').innerHTML = `<div class="status-card"><div class="big-icon">👟</div><h3>Sense jugadors</h3><p>No s'han trobat jugadors per a ${currentParticipant}.</p></div>`;
+    return;
+  }
+
+  if (spinResult) {
+    renderResult();
+    return;
+  }
+
+  renderSpinner();
+}
+
+function renderSpinner() {
+  const content = document.getElementById('ruletaContent');
+  content.innerHTML = `
+    <div class="ruleta-card">
+      <h2>🎰 Gira la ruleta per escollir el teu Capità</h2>
+      <div class="drum-container" id="drumContainer">
+        <div class="drum-highlight"></div>
+        <div class="drum-track" id="drumTrack"></div>
+      </div>
+      <button class="btn btn-gold spin-btn" id="spinBtn" onclick="doSpin()">🎰 GIRAR!</button>
+    </div>
+    ${MODE_PROVES ? `<div style="margin-top:1rem"><button class="btn btn-gray" onclick="loadRuleta()" style="font-size:0.78rem;padding:0.5rem 1rem">🔄 Recarregar</button></div>` : ''}`;
+
+  buildDrum();
+}
+
+function buildDrum() {
+  const track = document.getElementById('drumTrack');
+  if (!track) return;
+
+  // Build items for the drum (repeat players for illusion of infinite scroll)
+  const repeated = [];
+  for (let i = 0; i < 5; i++) repeated.push(...players);
+
+  track.innerHTML = repeated.map(pl => {
+    const foto = v(pl,'Foto');
+    const avatarHtml = foto
+      ? `<img class="d-avatar" src="${foto}" onerror="this.outerHTML='<div class=d-avatar-placeholder>👤</div>'">`
+      : `<div class="d-avatar-placeholder">👤</div>`;
+    return `<div class="drum-item">${avatarHtml}<div class="d-info"><div class="d-name">${v(pl,'Jugador')}</div><div class="d-sub">${v(pl,'Equip')} · ${v(pl,'Posicio')}</div></div></div>`;
+  }).join('');
+}
+
+// ============================================================
+// SPIN LOGIC
+// ============================================================
+function doSpin() {
+  if (isSpinning || !players.length) return;
+  isSpinning = true;
+
+  const btn = document.getElementById('spinBtn');
+  btn.disabled = true;
+  btn.textContent = '🌀 Girant...';
+
+  const track = document.getElementById('drumTrack');
+  const container = document.getElementById('drumContainer');
+  container.classList.add('spinning');
+
+  // Pick random winner
+  const winnerIdx = Math.floor(Math.random() * players.length);
+  const winner = players[winnerIdx];
+
+  // Calculate scroll position
+  // Each item is 90px. We want to land on winner in the middle group (group 2 of 5)
+  const itemHeight = 90;
+  const startOffset = players.length; // start from group 1
+  const targetItem  = startOffset + winnerIdx;
+  const targetY     = targetItem * itemHeight;
+
+  // Add extra spins for drama (5 full rotations + target)
+  const totalItems  = players.length * 5;
+  const spinExtra   = players.length * 3; // 3 extra full rotations
+  const finalY      = (spinExtra * itemHeight) + (winnerIdx * itemHeight);
+  // Center it: offset by half container to center item
+  const centerOffset = (itemHeight * 2); // 2 items above center = center
+
+  // Animate
+  track.style.transition = 'none';
+  track.style.transform = `translateY(0)`;
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      track.style.transition = `transform 4s cubic-bezier(0.17, 0.67, 0.12, 1.0)`;
+      track.style.transform = `translateY(-${finalY - centerOffset}px)`;
+    });
+  });
+
+  setTimeout(() => {
+    isSpinning = false;
+    container.classList.remove('spinning');
+    saveCapita(v(winner,'Jugador'));
+  }, 4200);
+}
+
+// ============================================================
+// SAVE & RESET
+// ============================================================
+async function saveCapita(jugador) {
+  document.getElementById('ruletaContent').innerHTML = `<div class="status-card"><div class="big-icon">💾</div><h3>Guardant...</h3><p>Registrant el capità al servidor...</p></div>`;
+
+  try {
+    const result = await postToScript({
+      action: 'set_capita',
+      participant: currentParticipant,
+      fase: FASE_ACTIVA,
+      jornada: JORNADA_ACTIVA,
+      capita: jugador
+    });
+
+    if (result.error) throw new Error(result.error);
+    spinResult = jugador;
+    renderResult();
+  } catch(e) {
+    // Si falla el servidor, mostra igualment (mode proves)
+    spinResult = jugador;
+    renderResult(true);
+    console.error('Error guardant capità:', e);
+  }
+}
+
+function renderResult(serverError) {
+  const player = players.find(pl => norm(v(pl,'Jugador')) === norm(spinResult));
+  const foto   = player ? v(player,'Foto') : '';
+  const equip  = player ? v(player,'Equip') : '';
+  const posicio= player ? v(player,'Posicio') : '';
+
+  const avatarHtml = foto
+    ? `<img class="c-avatar" src="${foto}" onerror="this.outerHTML='<div class=c-avatar-ph>👤</div>'">`
+    : `<div class="c-avatar-ph">👤</div>`;
+
+  const serverWarn = serverError
+    ? `<div style="color:#F58080;font-size:0.75rem;margin-top:0.5rem">⚠️ Error guardant al servidor. El resultat és vàlid però potser no s'ha enregistrat.</div>`
+    : '';
+
+  document.getElementById('ruletaContent').innerHTML = `
+    <div class="result-card">
+      <div class="c-badge">⭐ CAPITÀ DE LA ${JORNADA_ACTIVA}</div>
+      ${avatarHtml}
+      <div class="c-name">${spinResult}</div>
+      <div class="c-sub">${equip} · ${posicio}</div>
+      <div class="c-info">
+        Aquest jugador <strong>puntua el doble</strong> durant la ${JORNADA_ACTIVA} de la ${FASE_LABEL}.
+      </div>
+      ${serverWarn}
+    </div>
+    ${MODE_PROVES ? `
+    <div style="margin-top:1rem;display:flex;gap:0.6rem">
+      <button class="btn btn-red" onclick="resetCapita()" style="font-size:0.8rem;padding:0.55rem 1rem">🗑️ Reset (mode proves)</button>
+      <button class="btn btn-gray" onclick="loadRuleta()" style="font-size:0.8rem;padding:0.55rem 1rem">🔄 Recarregar</button>
+    </div>` : ''}`;
+}
+
+async function resetCapita() {
+  if (!confirm('⚠️ Esborrar el capità actual? (mode proves)')) return;
+  try {
+    await postToScript({
+      action: 'reset_capita',
+      participant: currentParticipant,
+      fase: FASE_ACTIVA,
+      jornada: JORNADA_ACTIVA
+    });
+  } catch(e) { console.warn('Error reset:', e); }
+  spinResult = null;
+  renderRuleta();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+// Check existing session
+const savedAuth = sessionStorage.getItem('ruleta_auth');
+if (savedAuth && PASSWORDS[savedAuth]) {
+  currentParticipant = savedAuth;
+  document.getElementById('loginWrap').style.display = 'none';
+  document.getElementById('mainWrap').style.display = 'block';
+  document.getElementById('headerName').textContent = savedAuth;
+  loadRuleta();
+} else {
+  initLogin();
+}
+</script>
+</body>
+</html>
