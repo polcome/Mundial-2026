@@ -499,11 +499,18 @@ function setSyncBar(state) {
 // ============================================================
 function norm(s) { return (s ?? '').toString().trim().toLowerCase().replace(/\s+/g, ' '); }
 function v(row, key) { return (row[key] ?? '').toString().trim(); }
+function parseNota(raw) {
+  // Handles: "8.5", "8,5", 8.5, "8" (integer from sheet), ""
+  if (raw === '' || raw === null || raw === undefined) return null;
+  const s = String(raw).trim().replace(',', '.');
+  const n = parseFloat(s);
+  return isNaN(n) ? null : n;
+}
 
 // Converteix nota SofaScore a punts per trams (sistema Mister)
 function notaToPts(nota) {
-  const n = parseFloat(String(nota).replace(',', '.'));
-  if (isNaN(n)) return 0;
+  const n = parseNota(nota);
+  if (n === null || isNaN(n)) return 0;
   if (n >= 9.3) return 12;
   if (n >= 8.6) return 11;
   if (n >= 8.0) return 10;
@@ -536,7 +543,7 @@ function golPts(pos) {
 // Càlcul complet d'un jugador per a una jornada/eliminatòria
 function calcScoreRow(sc, pos) {
   if (!sc || v(sc,'Nota') === '') return null;
-  const nota     = notaToPts(String(v(sc,'Nota')).replace(',','.'));
+  const nota     = notaToPts(parseNota(v(sc,'Nota')));
   const gols     = parseInt(v(sc,'Gols') || 0);
   const assists  = parseInt(v(sc,'Assistencies') || 0);
   const penalti  = parseInt(v(sc,'Penalti') || 0);
@@ -809,7 +816,7 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
       <div class="pname empty">—</div>
     </div>`;
   }
-  const note = sc && v(sc,'Nota') !== '' ? parseFloat(String(v(sc,'Nota')||0).replace(',','.')) : null;
+  const note = parseNota(v(sc,'Nota'));
   const g = sc ? parseInt(v(sc,'Gols')||0) : 0;
   const a = sc ? parseInt(v(sc,'Assistencies')||0) : 0;
   const pts = calcScoreRow(sc, pos); // usa sistema Mister
@@ -887,7 +894,7 @@ function renderPitch(participant, phase, jornada) {
   const listRows = phasePlayers.map((pl, plIdx) => {
     const name = v(pl,'Jugador'), pos2 = (v(pl,'Posicio')||'MIG').toUpperCase();
     const sc2 = getScore(participant, name, phase, jornada);
-    const note2 = sc2 && v(sc2,'Nota') !== '' ? parseFloat(String(v(sc2,'Nota')||0).replace(',','.')) : null;
+    const note2 = parseNota(v(sc2,'Nota'));
     const g2 = sc2 ? parseInt(v(sc2,'Gols')||0) : 0;
     const a2 = sc2 ? parseInt(v(sc2,'Assistencies')||0) : 0;
     const pen2 = sc2 ? parseInt(v(sc2,'Penalti')||0) : 0;
