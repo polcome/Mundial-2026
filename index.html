@@ -436,6 +436,10 @@
         <option value="gols">Ordenar per Gols</option>
         <option value="assists">Ordenar per Assistències</option>
         <option value="penals">Ordenar per Penals</option>
+        <option value="grogues">Ordenar per Dobles Grogues</option>
+        <option value="vermelles">Ordenar per Vermelles</option>
+        <option value="equip_fantasy">Ordenar per Equip Fantasy</option>
+        <option value="seleccio">Ordenar per Selecció</option>
         <option value="nom">Ordenar per Nom</option>
       </select>
     </div>
@@ -603,7 +607,7 @@ function setSyncBar(state) {
 // CÀLCULS
 // ============================================================
 function norm(s) { return (s ?? '').toString().trim().toLowerCase().replace(/\s+/g, ' '); }
-function v(row, key) { return (row[key] ?? '').toString().trim(); }
+function v(row, key) { if (!row) return ''; return (row[key] ?? '').toString().trim(); }
 function parseNota(raw) {
   // Handles: "8.5", "8,5", 8.5, "8" (integer from sheet), ""
   if (raw === '' || raw === null || raw === undefined) return null;
@@ -1439,12 +1443,16 @@ function renderJugadorsTab() {
 
   // Sort
   const sortFns = {
-    pts:    (a,b) => b.totalPts - a.totalPts,
-    nota:   (a,b) => b.notaMitjana - a.notaMitjana,
-    gols:   (a,b) => b.totalGols - a.totalGols,
-    assists:(a,b) => b.totalAssists - a.totalAssists,
-    penals: (a,b) => b.totalPenals - a.totalPenals,
-    nom:    (a,b) => a.name.localeCompare(b.name),
+    pts:          (a,b) => b.totalPts - a.totalPts,
+    nota:         (a,b) => b.notaMitjana - a.notaMitjana,
+    gols:         (a,b) => b.totalGols - a.totalGols,
+    assists:      (a,b) => b.totalAssists - a.totalAssists,
+    penals:       (a,b) => b.totalPenals - a.totalPenals,
+    grogues:      (a,b) => b.totalDobleGroga - a.totalDobleGroga,
+    vermelles:    (a,b) => b.totalVermella - a.totalVermella,
+    equip_fantasy:(a,b) => a.participant.localeCompare(b.participant),
+    seleccio:     (a,b) => a.equip.localeCompare(b.equip),
+    nom:          (a,b) => a.name.localeCompare(b.name),
   };
   rows.sort(sortFns[sortBy] || sortFns.pts);
 
