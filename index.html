@@ -918,7 +918,7 @@ function renderPitch(participant, phase, jornada) {
     let detailLines = '';
     if (note2 !== null) {
       const nc = notaPts >= 0 ? 'pos' : 'neg';
-      detailLines += `<div class="detail-line"><span class="dl-label">📊 Nota SofaScore <strong style="color:var(--white)">${note2.toFixed(0)}</strong></span><span class="dl-pts ${nc}">${notaPts >= 0 ? '+' : ''}${notaPts} pts</span></div>`;
+      detailLines += `<div class="detail-line"><span class="dl-label">📊 Nota SofaScore <strong style="color:var(--white)">${note2.toFixed(1)}</strong></span><span class="dl-pts ${nc}">${notaPts >= 0 ? '+' : ''}${notaPts} pts</span></div>`;
     }
     if (g2 > 0) {
       const gp = g2 * golPts(pos2);
