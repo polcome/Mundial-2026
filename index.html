@@ -230,17 +230,23 @@
   /* Player list under pitch */
   .pitch-list { margin-top:1.2rem; display:flex; flex-direction:column; gap:4px; }
   .pitch-list-row {
-    display:grid; grid-template-columns:1fr auto auto auto;
-    align-items:center; gap:0.6rem;
+    display:grid; grid-template-columns:1fr auto;
+    align-items:center; gap:0.5rem 1rem;
     background:var(--glass); border:1px solid var(--glass-border);
-    border-radius:8px; padding:0.55rem 0.8rem;
-    font-size:0.85rem; flex-wrap:wrap;
+    border-radius:8px; padding:0.65rem 0.9rem;
+    font-size:0.85rem;
   }
   .pitch-list-name { font-weight:600; }
-  .pitch-list-name small { display:block; font-size:0.65rem; color:var(--silver); font-weight:400; }
-  .pitch-list-note { font-family:'Space Mono',monospace; font-size:0.8rem; text-align:center; min-width:2.5rem; }
-  .pitch-list-bonus { font-size:0.75rem; text-align:center; min-width:3rem; color:var(--silver); }
-  .pitch-list-total { font-family:'Bebas Neue',cursive; font-size:1.1rem; color:var(--gold); text-align:right; min-width:3rem; }
+  .pitch-list-name small { display:block; font-size:0.65rem; color:var(--silver); font-weight:400; margin-top:1px; }
+  .pitch-list-right {
+    display:flex; flex-direction:column; align-items:flex-end; gap:3px;
+  }
+  .pitch-list-total { font-family:'Bebas Neue',cursive; font-size:1.3rem; color:var(--gold); line-height:1; }
+  .pitch-list-meta {
+    display:flex; align-items:center; gap:5px; flex-wrap:wrap; justify-content:flex-end;
+  }
+  .pitch-list-note { font-family:'Space Mono',monospace; font-size:0.75rem; }
+  .pitch-list-bonus { font-size:0.72rem; color:var(--silver); }
   .pitch-list-row { cursor:pointer; }
   .pitch-list-row:hover { background:rgba(255,255,255,0.09); }
   .pitch-detail {
@@ -914,12 +920,17 @@ function renderPitch(participant, phase, jornada) {
     }
 
     return `<div class="pitch-list-row" onclick="toggleDetail('${detailId}')">
-      <div class="pitch-list-name">${name}<span class="pos-badge ${posClass}" style="margin-left:6px">${pos2}</span>
+      <div class="pitch-list-name">
+        ${name}<span class="pos-badge ${posClass}" style="margin-left:6px">${pos2}</span>
         <small>${flag2} ${v(pl,'Equip')}</small>
       </div>
-      <div class="pitch-list-note"><span class="score-chip ${cls2}">${note2 !== null ? note2.toFixed(0) : '—'}</span></div>
-      <div class="pitch-list-bonus">${bonusStr}</div>
-      <div class="pitch-list-total">${pts2 !== null ? pts2.toFixed(0) : '—'}</div>
+      <div class="pitch-list-right">
+        <div class="pitch-list-total">${pts2 !== null ? pts2.toFixed(0) : '—'}</div>
+        <div class="pitch-list-meta">
+          <span class="pitch-list-note"><span class="score-chip ${cls2}">${note2 !== null ? note2.toFixed(1) : '—'}</span></span>
+          ${bonusStr !== '—' ? `<span class="pitch-list-bonus">${bonusStr}</span>` : ''}
+        </div>
+      </div>
       <div class="pitch-detail" id="${detailId}">${detailLines}</div>
     </div>`;
   }).join('');
