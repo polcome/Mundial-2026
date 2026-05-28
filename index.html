@@ -234,13 +234,38 @@
     align-items:center; gap:0.6rem;
     background:var(--glass); border:1px solid var(--glass-border);
     border-radius:8px; padding:0.55rem 0.8rem;
-    font-size:0.85rem;
+    font-size:0.85rem; flex-wrap:wrap;
   }
   .pitch-list-name { font-weight:600; }
   .pitch-list-name small { display:block; font-size:0.65rem; color:var(--silver); font-weight:400; }
   .pitch-list-note { font-family:'Space Mono',monospace; font-size:0.8rem; text-align:center; min-width:2.5rem; }
   .pitch-list-bonus { font-size:0.75rem; text-align:center; min-width:3rem; color:var(--silver); }
   .pitch-list-total { font-family:'Bebas Neue',cursive; font-size:1.1rem; color:var(--gold); text-align:right; min-width:3rem; }
+  .pitch-list-row { cursor:pointer; }
+  .pitch-list-row:hover { background:rgba(255,255,255,0.09); }
+  .pitch-detail {
+    display:none; grid-column:1/-1;
+    background:rgba(0,0,0,0.25); border-top:1px solid var(--glass-border);
+    padding:0.7rem 0.8rem; margin-top:0.4rem; border-radius:0 0 8px 8px;
+  }
+  .pitch-detail.open { display:block; }
+  .detail-line {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:0.25rem 0; border-bottom:1px solid rgba(255,255,255,0.05);
+    font-size:0.8rem; color:var(--silver);
+  }
+  .detail-line:last-child { border-bottom:none; }
+  .detail-line .dl-label { display:flex; align-items:center; gap:0.5rem; }
+  .detail-line .dl-pts { font-family:'Space Mono',monospace; font-size:0.78rem; font-weight:700; }
+  .detail-line .dl-pts.pos { color:#6EE89A; }
+  .detail-line .dl-pts.neg { color:#F58080; }
+  .detail-line .dl-pts.neu { color:var(--silver); }
+  .detail-total-line {
+    display:flex; justify-content:space-between; margin-top:0.5rem;
+    padding-top:0.5rem; border-top:1px solid rgba(255,255,255,0.15);
+    font-weight:700; color:var(--white); font-size:0.85rem;
+  }
+  .detail-total-line span:last-child { font-family:'Bebas Neue',cursive; font-size:1.1rem; color:var(--gold); }
 
   @media(max-width:600px){
     .ranking-card{grid-template-columns:2.5rem 1fr auto}
@@ -837,18 +862,19 @@ function renderPitch(participant, phase, jornada) {
   const totalStr = total > 0 ? `${total.toFixed(1)} pts` : 'Sense puntuació';
 
   // Player list
-  const listRows = phasePlayers.map(pl => {
+  const listRows = phasePlayers.map((pl, plIdx) => {
     const name = v(pl,'Jugador'), pos2 = (v(pl,'Posicio')||'MIG').toUpperCase();
     const sc2 = getScore(participant, name, phase, jornada);
     const note2 = sc2 && v(sc2,'Nota') !== '' ? parseFloat(v(sc2,'Nota')||0) : null;
     const g2 = sc2 ? parseInt(v(sc2,'Gols')||0) : 0;
     const a2 = sc2 ? parseInt(v(sc2,'Assistencies')||0) : 0;
-    const pts2 = calcScoreRow(sc2, pos2);
-    const cls2 = note2 === null ? 'score-empty' : note2 >= 8 ? 'score-high' : note2 >= 6.5 ? 'score-mid' : 'score-low';
-    const posClass = `pos-${pos2}`;
     const pen2 = sc2 ? parseInt(v(sc2,'Penalti')||0) : 0;
     const groga2 = sc2 ? parseInt(v(sc2,'DobleGroga')||0) : 0;
     const verm2 = sc2 ? parseInt(v(sc2,'Vermella')||0) : 0;
+    const pts2 = calcScoreRow(sc2, pos2);
+    const cls2 = note2 === null ? 'score-empty' : note2 >= 8 ? 'score-high' : note2 >= 6.5 ? 'score-mid' : 'score-low';
+    const posClass = `pos-${pos2}`;
+    const flag2 = getFlag(v(pl,'Equip'));
     const bonusParts = [];
     if (g2>0) bonusParts.push('⚽×'+g2);
     if (a2>0) bonusParts.push('🅰️×'+a2);
@@ -856,14 +882,45 @@ function renderPitch(participant, phase, jornada) {
     if (groga2>0) bonusParts.push('🟨×'+groga2);
     if (verm2>0) bonusParts.push('🟥×'+verm2);
     const bonusStr = bonusParts.length ? bonusParts.join(' ') : '—';
-    const flag2 = getFlag(v(pl,'Equip'));
-    return `<div class="pitch-list-row">
+    const detailId = `detail-${participant.replace(/\s/g,'-')}-${phase}-${jornada}-${plIdx}`;
+
+    // Build detail lines
+    const notaPts = note2 !== null ? notaToPts(note2) : null;
+    let detailLines = '';
+    if (note2 !== null) {
+      const nc = notaPts >= 0 ? 'pos' : 'neg';
+      detailLines += `<div class="detail-line"><span class="dl-label">📊 Nota SofaScore <strong style="color:var(--white)">${note2.toFixed(1)}</strong></span><span class="dl-pts ${nc}">${notaPts >= 0 ? '+' : ''}${notaPts} pts</span></div>`;
+    }
+    if (g2 > 0) {
+      const gp = g2 * golPts(pos2);
+      detailLines += `<div class="detail-line"><span class="dl-label">⚽ ${g2} Gol${g2>1?'s':''} (${pos2} = ${golPts(pos2)}pts/gol)</span><span class="dl-pts pos">+${gp} pts</span></div>`;
+    }
+    if (a2 > 0) {
+      detailLines += `<div class="detail-line"><span class="dl-label">🅰️ ${a2} Assistència${a2>1?'s':''}</span><span class="dl-pts pos">+${a2*2} pts</span></div>`;
+    }
+    if (pen2 > 0) {
+      detailLines += `<div class="detail-line"><span class="dl-label">🥅 ${pen2} Gol de penal</span><span class="dl-pts pos">+${pen2*3} pts</span></div>`;
+    }
+    if (groga2 > 0) {
+      detailLines += `<div class="detail-line"><span class="dl-label">🟨 Doble groga</span><span class="dl-pts neg">-3 pts</span></div>`;
+    }
+    if (verm2 > 0) {
+      detailLines += `<div class="detail-line"><span class="dl-label">🟥 Targeta vermella</span><span class="dl-pts neg">-6 pts</span></div>`;
+    }
+    if (!detailLines) {
+      detailLines = `<div class="detail-line" style="justify-content:center;opacity:0.5">Sense puntuació registrada</div>`;
+    } else {
+      detailLines += `<div class="detail-total-line"><span>Total</span><span>${pts2 !== null ? pts2.toFixed(1) : '—'} pts</span></div>`;
+    }
+
+    return `<div class="pitch-list-row" onclick="toggleDetail('${detailId}')">
       <div class="pitch-list-name">${name}<span class="pos-badge ${posClass}" style="margin-left:6px">${pos2}</span>
         <small>${flag2} ${v(pl,'Equip')}</small>
       </div>
       <div class="pitch-list-note"><span class="score-chip ${cls2}">${note2 !== null ? note2.toFixed(1) : '—'}</span></div>
       <div class="pitch-list-bonus">${bonusStr}</div>
       <div class="pitch-list-total">${pts2 !== null ? pts2.toFixed(1) : '—'}</div>
+      <div class="pitch-detail" id="${detailId}">${detailLines}</div>
     </div>`;
   }).join('');
 
@@ -1125,6 +1182,12 @@ function renderAdminPanel() {
   <div style="margin-top:0.5rem">
     <button onclick="logoutAdmin()" style="background:rgba(224,52,52,0.2);border:1px solid rgba(224,52,52,0.3);color:#F58080;border-radius:8px;padding:0.5rem 1rem;cursor:pointer;font-size:0.82rem">🚪 Tancar sessió admin</button>
   </div>`;
+}
+
+function toggleDetail(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle('open');
 }
 
 function reloadData() {
