@@ -335,7 +335,7 @@
     <div class="section-title">👥 Equips</div>
     <div class="form-row" style="margin-bottom:1.5rem">
       <label>Participant:</label>
-      <select id="teamSelect" style="max-width:220px" onchange="const p=this.value;if(!_teamState[p])_teamState[p]={phase:'grups',jorn:'J1'};renderTeam(p)"></select>
+      <select id="teamSelect" style="max-width:220px" onchange="selectTeam(this.value)"></select>
     </div>
     <div id="teamView"></div>
   </section>
@@ -807,10 +807,10 @@ function renderRanking() {
 // RENDER TEAM
 // ============================================================
 // Per-participant state
-const _teamState = {};
+const _st = {};
 function getTeamState(p) {
-  if (!_teamState[p]) _teamState[p] = { phase: 'grups', jorn: 'J1' };
-  return _teamState[p];
+  if (!_st[p]) _st[p] = { phase: 'grups', jorn: 'J1' };
+  return _st[p];
 }
 
 // Genera un "pin" de jugador per al camp
@@ -992,80 +992,92 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
   <div class="pitch-list">${listRows}</div>`;
 }
 
-function renderPhaseContent(participant, phase) {
-  const jornades = PHASE_JORNADES[phase];
-  const showJornLabel = PHASE_JORN_LABEL[phase];
-  const phasePlayers = getPlayersForPhase(participant, phase);
+// ---- NAVEGACIÓ D'EQUIP ----
+// Estat simple: quina fase i jornada té activa cada participant
+const _st = {}; // _st[participant] = { phase, jorn }
 
-  if (!phasePlayers.length) {
-    return '<div class="empty-state" style="padding:2rem"><div class="big-icon" style="font-size:2rem">👟</div><p>Sense jugadors per a aquesta fase.</p></div>';
-  }
-
-  const state = getTeamState(participant);
-  if (phase === 'grups') {
-    const activeJorn = state.jorn || 'J1';
-    const jornTabs = ['J1','J2','J3'].map(j =>
-      `<button class="jorn-tab-btn" style="background:none;border:none;cursor:pointer;padding:0.7rem 1rem;font-family:'Space Mono',monospace;font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:${j===activeJorn?'var(--gold)':'var(--silver)'};border-bottom:2px solid ${j===activeJorn?'var(--gold)':'transparent'};transition:all 0.2s"
-        onclick="setActiveJorn('${participant}','${j}')">${j}</button>`
-    ).join('');
-    return `<div style="display:flex;gap:0;border-bottom:1px solid var(--glass-border);margin-bottom:1rem">${jornTabs}</div>
-      ${renderPitch(participant, 'grups', activeJorn)}`;
-  }
-  return renderPitch(participant, phase, 'E1', true);
+function selectTeam(participant) {
+  if (!_st[participant]) _st[participant] = { phase:'grups', jorn:'J1' };
+  // Sync selector
+  const sel = document.getElementById('teamSelect');
+  if (sel && sel.value !== participant) sel.value = participant;
+  _renderTeamFull(participant);
 }
 
-function setActiveJorn(participant, jorn) {
-  const st = getTeamState(participant);
-  st.jorn = jorn;
-  renderTeam(participant);
+function selectPhase(participant, phase) {
+  if (!_st[participant]) _st[participant] = { phase:'grups', jorn:'J1' };
+  _st[participant].phase = phase;
+  _st[participant].jorn = 'J1';
+  _renderTeamFull(participant);
 }
 
-function renderTeam(participant) {
+function selectJorn(participant, jorn) {
+  if (!_st[participant]) _st[participant] = { phase:'grups', jorn:'J1' };
+  _st[participant].jorn = jorn;
+  _renderTeamFull(participant);
+}
+
+function renderTeam(participant) { selectTeam(participant); }
+function switchPhaseTab(p, ph) { selectPhase(p, ph); }
+function setActiveJorn(p, j) { selectJorn(p, j); }
+
+function _renderTeamFull(participant) {
   const view = document.getElementById('teamView');
-  if (!gData || !participant) { view.innerHTML = ''; return; }
-  currentTeamTab = participant;
+  if (!gData || !participant) return;
+  if (!_st[participant]) _st[participant] = { phase:'grups', jorn:'J1' };
+  const st = _st[participant];
+
   const players = getPlayers(participant);
-  const total = calcParticipantTotal(participant);
-  const goals = calcParticipantGoals(participant);
+  const total   = calcParticipantTotal(participant);
+  const goals   = calcParticipantGoals(participant);
   const ranking = getRanking();
-  const pos = ranking.findIndex(r => r.name === participant) + 1;
+  const pos     = ranking.findIndex(r => r.name === participant) + 1;
 
   if (!players.length) {
     view.innerHTML = `<div class="team-header"><div><div class="team-name-big">${participant}</div></div></div>
-      <div class="empty-state"><div class="big-icon">👟</div><p>Encara no hi ha jugadors per a aquest participant.</p></div>`;
+      <div class="empty-state"><div class="big-icon">👟</div><p>Sense jugadors per a aquest participant.</p></div>`;
     return;
   }
 
-  // Phase tabs with pts badges
-  const state = getTeamState(participant);
+  // Phase tabs
   const phaseTabs = PHASES.map(ph => {
-    const phTotal = getPlayersForPhase(participant, ph).reduce((s,pl) => s + calcPlayerPhasePts(participant, v(pl,'Jugador'), ph), 0);
+    const phTotal = getPlayersForPhase(participant, ph)
+      .reduce((s,pl) => s + calcPlayerPhasePts(participant, v(pl,'Jugador'), ph), 0);
     const badge = phTotal > 0 ? `<span class="pts-badge">${phTotal.toFixed(0)}</span>` : '';
-    const isActive = ph === state.phase;
-    return `<button class="phase-tab-btn${isActive?' active':''}"
-      onclick="switchPhaseTab('${participant}','${ph}')">${PHASE_ICONS[ph]} ${PHASE_LABELS[ph]}${badge}</button>`;
+    const active = ph === st.phase ? ' active' : '';
+    return `<button class="phase-tab-btn${active}" onclick="selectPhase('${participant}','${ph}')">${PHASE_ICONS[ph]} ${PHASE_LABELS[ph]}${badge}</button>`;
   }).join('');
 
+  // Jornada tabs (only for grups)
+  let jornHtml = '';
+  if (st.phase === 'grups') {
+    jornHtml = '<div style="display:flex;gap:0;border-bottom:1px solid var(--glass-border);margin-bottom:1rem">' +
+      ['J1','J2','J3'].map(j => {
+        const active = j === st.jorn;
+        return `<button onclick="selectJorn('${participant}','${j}')" style="background:none;border:none;cursor:pointer;padding:0.7rem 1rem;font-family:'Space Mono',monospace;font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:${active?'var(--gold)':'var(--silver)'};border-bottom:2px solid ${active?'var(--gold)':'transparent'}">${j}</button>`;
+      }).join('') + '</div>';
+  }
+
+  // Pitch
+  const jornada = st.phase === 'grups' ? st.jorn : 'E1';
+  const pitchHtml = renderPitch(participant, st.phase, jornada, st.phase !== 'grups');
+
   view.innerHTML = `
-    <div class="team-header">
-      <div>
-        <div class="team-name-big">${participant}</div>
-        <div class="team-stats-row">
-          <div class="team-stat"><div class="team-stat-val">#${pos}</div><div class="team-stat-lbl">Posició</div></div>
-          <div class="team-stat"><div class="team-stat-val">${total.toFixed(0)}</div><div class="team-stat-lbl">Punts totals</div></div>
-          <div class="team-stat"><div class="team-stat-val">${goals}</div><div class="team-stat-lbl">Gols</div></div>
-          <div class="team-stat"><div class="team-stat-val">${players.length}/11</div><div class="team-stat-lbl">Jugadors</div></div>
-        </div>
+    <div class="team-header"><div>
+      <div class="team-name-big">${participant}</div>
+      <div class="team-stats-row">
+        <div class="team-stat"><div class="team-stat-val">#${pos}</div><div class="team-stat-lbl">Posició</div></div>
+        <div class="team-stat"><div class="team-stat-val">${total.toFixed(0)}</div><div class="team-stat-lbl">Punts totals</div></div>
+        <div class="team-stat"><div class="team-stat-val">${goals}</div><div class="team-stat-lbl">Gols</div></div>
+        <div class="team-stat"><div class="team-stat-val">${players.length}/11</div><div class="team-stat-lbl">Jugadors</div></div>
       </div>
-    </div>
+    </div></div>
     <div class="phase-tabs" style="overflow-x:auto;scrollbar-width:none">${phaseTabs}</div>
-    <div id="phaseContent">${renderPhaseContent(participant, state.phase)}</div>`;
+    ${jornHtml}
+    ${pitchHtml}`;
 }
 
-function switchPhaseTab(participant, phase) {
-  getTeamState(participant).phase = phase;
-  renderTeam(participant);
-}
+function renderPhaseContent(p, ph) { return ''; } // unused, kept for compat
 
 // ============================================================
 // RENDER JORNADES
@@ -1253,7 +1265,8 @@ function reloadData() {
         teamSel.value = currentTeamTab;
       }
     }
-    if (currentTeamTab) renderTeam(currentTeamTab);
+    const curSel = document.getElementById('teamSelect');
+    if (curSel?.value) selectTeam(curSel.value);
     renderJornades(currentJornada.phase, currentJornada.jorn);
     renderCanvis();
     // Info debug a la consola
@@ -1288,8 +1301,7 @@ function copyShareInstructions() {
 // ============================================================
 function openTeam(name) {
   switchTab('teams');
-  const sel = document.getElementById('teamSelect');
-  if (sel) { sel.value = name; renderTeam(name); }
+  selectTeam(name);
 }
 
 function switchTab(tab) {
@@ -1326,7 +1338,7 @@ document.getElementById('mainNav').addEventListener('click', e => {
   if (tab === 'canvis') renderCanvis();
   if (tab === 'teams') {
     const sel = document.getElementById('teamSelect');
-    if (sel?.value) renderTeam(sel.value);
+    if (sel?.value) selectTeam(sel.value);
   }
 });
 
@@ -1366,7 +1378,7 @@ async function init() {
   const participants = getParticipants();
   const teamSel = document.getElementById('teamSelect');
   teamSel.innerHTML = participants.map(p => `<option value="${p}">${p}</option>`).join('');
-  if (participants.length) { currentTeamTab = participants[0]; renderTeam(participants[0]); }
+  if (participants.length) { selectTeam(participants[0]); }
 
   // Render inicial
   renderRanking();
