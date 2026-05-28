@@ -460,7 +460,12 @@ function parseSheet(json) {
 // Pestanya "Canvis":        Participant | Fase | Jugador_Surt | Jugador_Entra | Data
 // ============================================================
 
+// Cache de càlculs costosos — es reseteja quan carreguen dades noves
+let _cache = {};
+function clearCache() { _cache = {}; }
+
 async function loadAllData() {
+  clearCache();
   setSyncBar('loading');
   try {
     const [parts, jugadors, punts, canvis] = await Promise.all([
@@ -688,6 +693,8 @@ function changeFaseToPhase(rawFase) {
 }
 
 function getPlayersForPhase(participant, phase) {
+  const k = 'roster_' + participant + '_' + phase;
+  if (_cache[k]) return _cache[k];
   const allPlayers = getPlayers(participant);
   const changes    = getChanges(participant);
   const phaseIdx   = PHASES.indexOf(phase);
@@ -704,6 +711,7 @@ function getPlayersForPhase(participant, phase) {
     const idx = roster.findIndex(pl => norm(v(pl, 'Jugador')) === outName);
     if (idx >= 0) roster[idx] = { ...roster[idx], Jugador: inName };
   }
+  _cache['roster_' + participant + '_' + phase] = roster;
   return roster;
 }
 
@@ -736,6 +744,8 @@ function calcPlayerPhasePts(participant, jugador, fase) {
 }
 
 function calcParticipantTotal(participant) {
+  const k = 'total_' + participant;
+  if (_cache[k] !== undefined) return _cache[k];
   let total = 0;
   for (const ph of PHASES) {
     const phasePlayers = getPlayersForPhase(participant, ph);
@@ -743,6 +753,7 @@ function calcParticipantTotal(participant) {
       total += calcPlayerPhasePts(participant, v(pl,'Jugador'), ph);
     }
   }
+  _cache[k] = total;
   return total;
 }
 
@@ -755,17 +766,19 @@ function calcParticipantGoals(participant) {
 }
 
 function getRanking() {
-  return getParticipants()
+  if (_cache.ranking) return _cache.ranking;
+  _cache.ranking = getParticipants()
     .map(p => ({
       name: p,
       total: calcParticipantTotal(p),
       goals: calcParticipantGoals(p),
       byPhase: PHASES.reduce((a, ph) => {
-        a[ph] = getPlayers(p).reduce((s, pl) => s + calcPlayerPhasePts(p, pl['Jugador'], ph), 0);
+        a[ph] = getPlayersForPhase(p, ph).reduce((s, pl) => s + calcPlayerPhasePts(p, v(pl,'Jugador'), ph), 0);
         return a;
       }, {})
     }))
     .sort((a, b) => b.total - a.total || b.goals - a.goals);
+  return _cache.ranking;
 }
 
 // ============================================================
