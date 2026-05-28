@@ -274,7 +274,7 @@
 <header>
   <div class="header-eyebrow">⚽ Fantasy Football • <span class="live-dot"></span>En Directe</div>
   <h1>MUNDIAL 2026</h1>
-  <div class="header-sub">Fantasy League by NTNP i SrMbemba — Classificació Oficial</div>
+  <div class="header-sub">Fantasy League dels Amics — Classificació Oficial</div>
 </header>
 
 <nav class="nav-tabs" id="mainNav">
@@ -463,6 +463,56 @@ function setSyncBar(state) {
 function norm(s) { return (s ?? '').toString().trim().toLowerCase().replace(/\s+/g, ' '); }
 function v(row, key) { return (row[key] ?? '').toString().trim(); }
 
+// Converteix nota SofaScore a punts per trams (sistema Mister)
+function notaToPts(nota) {
+  const n = parseFloat(nota);
+  if (isNaN(n)) return 0;
+  if (n >= 9.3) return 12;
+  if (n >= 8.6) return 11;
+  if (n >= 8.0) return 10;
+  if (n >= 7.8) return 9;
+  if (n >= 7.6) return 8;
+  if (n >= 7.4) return 7;
+  if (n >= 7.2) return 6;
+  if (n >= 7.0) return 5;
+  if (n >= 6.8) return 4;
+  if (n >= 6.6) return 3;
+  if (n >= 6.4) return 2;
+  if (n >= 6.2) return 1;
+  if (n >= 6.0) return 0;
+  if (n >= 5.8) return -1;
+  if (n >= 5.4) return -2;
+  if (n >= 5.0) return -3;
+  return -4;
+}
+
+// Punts per gol segons posició
+function golPts(pos) {
+  const p = (pos||'').toUpperCase();
+  if (p === 'POR') return 6;
+  if (p === 'DEF') return 5;
+  if (p === 'MIG') return 4;
+  if (p === 'DAV') return 3;
+  return 3;
+}
+
+// Càlcul complet d'un jugador per a una jornada/eliminatòria
+function calcScoreRow(sc, pos) {
+  if (!sc || v(sc,'Nota') === '') return null;
+  const nota     = notaToPts(v(sc,'Nota'));
+  const gols     = parseInt(v(sc,'Gols') || 0);
+  const assists  = parseInt(v(sc,'Assistencies') || 0);
+  const penalti  = parseInt(v(sc,'Penalti') || 0);
+  const doblegroga = parseInt(v(sc,'DobleGroga') || 0);
+  const vermella = parseInt(v(sc,'Vermella') || 0);
+  return nota
+    + gols * golPts(pos)
+    + assists * 3
+    + penalti * 3
+    + doblegroga * (-3)
+    + vermella * (-6);
+}
+
 // Emoji flag per nom de selecció
 // Colors per selecció (més fiable que emojis de bandera)
 const COUNTRY_COLORS = {
@@ -629,12 +679,14 @@ function getChanges(participant) {
 }
 
 function calcPlayerPhasePts(participant, jugador, fase) {
+  // Busca la posició del jugador per calcular punts de gol correctament
+  const plData = (gData?.jugadors||[]).find(r => norm(v(r,'Participant'))===norm(participant) && norm(v(r,'Jugador'))===norm(jugador));
+  const pos = plData ? v(plData,'Posicio') : 'DAV';
   let total = 0;
   for (const jorn of PHASE_JORNADES[fase] || []) {
     const sc = getScore(participant, jugador, fase, jorn);
-    if (sc && v(sc,'Nota') !== '') {
-      total += parseFloat(v(sc,'Nota') || 0) + (parseInt(v(sc,'Gols') || 0) * 5) + (parseInt(v(sc,'Assistencies') || 0) * 3);
-    }
+    const pts = calcScoreRow(sc, pos);
+    if (pts !== null) total += pts;
   }
   return total;
 }
@@ -723,7 +775,7 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   const note = sc && v(sc,'Nota') !== '' ? parseFloat(v(sc,'Nota')||0) : null;
   const g = sc ? parseInt(v(sc,'Gols')||0) : 0;
   const a = sc ? parseInt(v(sc,'Assistencies')||0) : 0;
-  const pts = note !== null ? note + g*5 + a*3 : null;
+  const pts = calcScoreRow(sc, pos); // usa sistema Mister
   const avCls = note === null ? '' : note >= 8 ? 'score-high-av' : note >= 6.5 ? 'score-mid-av' : 'score-low-av';
   const scoreBubble = pts !== null ? `<div class="score-bubble">${pts.toFixed(1)}</div>` : '';
   const goals = g > 0 ? `<div class="goal-row">${'⚽'.repeat(Math.min(g,3))}${a>0?'🅰️'.repeat(Math.min(a,3)):''}</div>` : (a>0?`<div class="goal-row">${'🅰️'.repeat(Math.min(a,3))}</div>`:'');
@@ -770,8 +822,8 @@ function renderPitch(participant, phase, jornada) {
   // Total de la jornada/eliminatòria
   const total = phasePlayers.reduce((s,pl) => {
     const sc = getScore(participant, v(pl,'Jugador'), phase, jornada);
-    if (!sc || v(sc,'Nota')==='') return s;
-    return s + parseFloat(v(sc,'Nota')||0) + parseInt(v(sc,'Gols')||0)*5 + parseInt(v(sc,'Assistencies')||0)*3;
+    const pts = calcScoreRow(sc, v(pl,'Posicio'));
+    return s + (pts || 0);
   }, 0);
   const totalStr = total > 0 ? `${total.toFixed(1)} pts` : 'Sense puntuació';
 
@@ -782,10 +834,19 @@ function renderPitch(participant, phase, jornada) {
     const note2 = sc2 && v(sc2,'Nota') !== '' ? parseFloat(v(sc2,'Nota')||0) : null;
     const g2 = sc2 ? parseInt(v(sc2,'Gols')||0) : 0;
     const a2 = sc2 ? parseInt(v(sc2,'Assistencies')||0) : 0;
-    const pts2 = note2 !== null ? note2 + g2*5 + a2*3 : null;
+    const pts2 = calcScoreRow(sc2, pos2);
     const cls2 = note2 === null ? 'score-empty' : note2 >= 8 ? 'score-high' : note2 >= 6.5 ? 'score-mid' : 'score-low';
     const posClass = `pos-${pos2}`;
-    const bonusStr = (g2>0||a2>0) ? `${g2>0?'⚽×'+g2:''}${a2>0?' 🅰️×'+a2:''}` : '—';
+    const pen2 = sc2 ? parseInt(v(sc2,'Penalti')||0) : 0;
+    const groga2 = sc2 ? parseInt(v(sc2,'DobleGroga')||0) : 0;
+    const verm2 = sc2 ? parseInt(v(sc2,'Vermella')||0) : 0;
+    const bonusParts = [];
+    if (g2>0) bonusParts.push('⚽×'+g2);
+    if (a2>0) bonusParts.push('🅰️×'+a2);
+    if (pen2>0) bonusParts.push('🥅×'+pen2);
+    if (groga2>0) bonusParts.push('🟨×'+groga2);
+    if (verm2>0) bonusParts.push('🟥×'+verm2);
+    const bonusStr = bonusParts.length ? bonusParts.join(' ') : '—';
     const flag2 = getFlag(v(pl,'Equip'));
     return `<div class="pitch-list-row">
       <div class="pitch-list-name">${name}<span class="pos-badge ${posClass}" style="margin-left:6px">${pos2}</span>
@@ -1019,8 +1080,11 @@ function renderAdminPanel() {
         <strong style="color:var(--gold)">Posicio:</strong> POR / DEF / MIG / DAV<br>
         <strong style="color:var(--gold)">Nota:</strong> Decimal SofaScore (ex: 7.2)<br>
         <strong style="color:var(--gold)">Gols / Assistencies:</strong> Número enter<br><br>
-        <strong>Sistema de punts:</strong><br>
-        Nota SofaScore + (Gols × 5) + (Assists × 3)<br><br>
+        <strong>Sistema de punts (Mister/SofaScore):</strong><br>
+        Nota per trams (6.0=0pts, 7.0=5pts, 9.3+=12pts)<br>
+        Gol: POR+6 / DEF+5 / MIG+4 / DAV+3<br>
+        Assistència: +3 · Penal: +3<br>
+        Doble groga: -3 · Vermella: -6<br><br>
         <strong>Canvis — columna Fase:</strong><br>
         r16 · r8 · qf · sf · final<br>
         <span style="font-size:0.75rem;opacity:0.7">(indica a partir de quina fase és actiu)</span>
