@@ -955,7 +955,10 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
     : `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.4rem;z-index:1">👤</span>`;
 
   // Pass phase/jornada via data attributes so onclick can read them
-  return `<div class="player-pin" onclick="openPlayerCard('${name}','${_activeParticipant}','${phase}','${jornada}')" style="cursor:pointer">
+  // Use escaped participant name to avoid quote issues in onclick
+  const safeParticipant = (participant||_activeParticipant).replace(/'/g, "\'");
+  const safeName = name.replace(/'/g, "\'");
+  return `<div class="player-pin" onclick="openPlayerCard('${safeName}','${safeParticipant}','${phase}','${jornada}')" style="cursor:pointer">
     <div class="avatar ${avCls}" style="overflow:visible;position:relative;transition:transform 0.15s" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform=''">${innerHtml}${scoreBubbleZ}${flagBadgeZ}</div>
     <div class="pname">${shortName}</div>
     ${goals}
@@ -1131,15 +1134,22 @@ function _renderTeamFull() {
   const view = document.getElementById('teamView');
   if (!gData || !participant) return;
 
-  const players = getPlayers(participant);
-  const total   = calcParticipantTotal(participant);
-  const goals   = calcParticipantGoals(participant);
-  const ranking = getRanking();
-  const pos     = ranking.findIndex(r => r.name === participant) + 1;
+  let players, total, goals, ranking, pos;
+  try {
+    players = getPlayers(participant);
+    total   = calcParticipantTotal(participant);
+    goals   = calcParticipantGoals(participant);
+    ranking = getRanking();
+    pos     = ranking.findIndex(r => r.name === participant) + 1;
+  } catch(e) {
+    console.error('_renderTeamFull error:', e);
+    view.innerHTML = `<div class="empty-state"><div class="big-icon">⚠️</div><p>Error carregant equip: ${e.message}</p></div>`;
+    return;
+  }
 
-  if (!players.length) {
+  if (!players || !players.length) {
     view.innerHTML = `<div class="team-header"><div><div class="team-name-big">${participant}</div></div></div>
-      <div class="empty-state"><div class="big-icon">👟</div><p>Sense jugadors per a aquest participant.</p></div>`;
+      <div class="empty-state"><div class="big-icon">👟</div><p>Sense jugadors per a aquest participant.<br><small style="opacity:0.6">Comprova que el nom al Sheet coincideix exactament.</small></p></div>`;
     return;
   }
 
@@ -1164,7 +1174,13 @@ function _renderTeamFull() {
 
   // Camp
   const jornada = _activePhase === 'grups' ? _activeJornada : 'E1';
-  const pitchHtml = renderPitch(participant, _activePhase, jornada, _activePhase !== 'grups');
+  let pitchHtml = '';
+  try {
+    pitchHtml = renderPitch(participant, _activePhase, jornada, _activePhase !== 'grups');
+  } catch(e) {
+    console.error('renderPitch error:', e);
+    pitchHtml = `<div class="empty-state"><div class="big-icon">⚠️</div><p>Error: ${e.message}</p></div>`;
+  }
 
   view.innerHTML = `
     <div class="team-header"><div>
