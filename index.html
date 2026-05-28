@@ -1045,7 +1045,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
     const name = v(pl,'Jugador'), pos2 = (v(pl,'Posicio')||'MIG').toUpperCase();
     let sc2 = getScore(participant, name, phase, jornada);
     if (!sc2 && tryJ1Fallback && jornada === 'E1') sc2 = getScore(participant, name, phase, 'J1');
-    const note2 = parseNota(v(sc2,'Nota'));
+    const note2 = sc2 ? parseNota(v(sc2,'Nota')) : null;
     const g2 = sc2 ? parseInt(v(sc2,'Gols')||0) : 0;
     const a2 = sc2 ? parseInt(v(sc2,'Assistencies')||0) : 0;
     const pen2 = sc2 ? parseInt(v(sc2,'Penalti')||0) : 0;
