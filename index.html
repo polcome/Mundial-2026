@@ -1007,38 +1007,39 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
 
 // ---- NAVEGACIÓ D'EQUIP ----
 // Estat simple: quina fase i jornada té activa cada participant
-const _st = {}; // _st[participant] = { phase, jorn }
+// Estat global simple — un sol equip actiu a la vegada
+let _activeParticipant = '';
+let _activePhase = 'grups';
+let _activeJornada = 'J1';
 
 function selectTeam(participant) {
-  if (!_st[participant]) _st[participant] = { phase:'grups', jorn:'J1' };
-  // Sync selector
+  _activeParticipant = participant;
+  _activePhase = 'grups';
+  _activeJornada = 'J1';
   const sel = document.getElementById('teamSelect');
   if (sel && sel.value !== participant) sel.value = participant;
-  _renderTeamFull(participant);
+  _renderTeamFull();
 }
 
-function selectPhase(participant, phase) {
-  if (!_st[participant]) _st[participant] = { phase:'grups', jorn:'J1' };
-  _st[participant].phase = phase;
-  _st[participant].jorn = 'J1';
-  _renderTeamFull(participant);
+function selectPhase(phase) {
+  _activePhase = phase;
+  _activeJornada = 'J1';
+  _renderTeamFull();
 }
 
-function selectJorn(participant, jorn) {
-  if (!_st[participant]) _st[participant] = { phase:'grups', jorn:'J1' };
-  _st[participant].jorn = jorn;
-  _renderTeamFull(participant);
+function selectJorn(jorn) {
+  _activeJornada = jorn;
+  _renderTeamFull();
 }
 
 function renderTeam(participant) { selectTeam(participant); }
-function switchPhaseTab(p, ph) { selectPhase(p, ph); }
-function setActiveJorn(p, j) { selectJorn(p, j); }
+function switchPhaseTab(p, ph) { selectPhase(ph); }
+function setActiveJorn(p, j) { selectJorn(j); }
 
-function _renderTeamFull(participant) {
+function _renderTeamFull() {
+  const participant = _activeParticipant;
   const view = document.getElementById('teamView');
   if (!gData || !participant) return;
-  if (!_st[participant]) _st[participant] = { phase:'grups', jorn:'J1' };
-  const st = _st[participant];
 
   const players = getPlayers(participant);
   const total   = calcParticipantTotal(participant);
@@ -1052,28 +1053,28 @@ function _renderTeamFull(participant) {
     return;
   }
 
-  // Phase tabs
+  // Phase tabs — sense passar participant als botons
   const phaseTabs = PHASES.map(ph => {
     const phTotal = getPlayersForPhase(participant, ph)
       .reduce((s,pl) => s + calcPlayerPhasePts(participant, v(pl,'Jugador'), ph), 0);
     const badge = phTotal > 0 ? `<span class="pts-badge">${phTotal.toFixed(0)}</span>` : '';
-    const active = ph === st.phase ? ' active' : '';
-    return `<button class="phase-tab-btn${active}" onclick="selectPhase('${participant}','${ph}')">${PHASE_ICONS[ph]} ${PHASE_LABELS[ph]}${badge}</button>`;
+    const active = ph === _activePhase ? ' active' : '';
+    return `<button class="phase-tab-btn${active}" onclick="selectPhase('${ph}')">${PHASE_ICONS[ph]} ${PHASE_LABELS[ph]}${badge}</button>`;
   }).join('');
 
-  // Jornada tabs (only for grups)
+  // Jornada tabs — només a grups
   let jornHtml = '';
-  if (st.phase === 'grups') {
+  if (_activePhase === 'grups') {
     jornHtml = '<div style="display:flex;gap:0;border-bottom:1px solid var(--glass-border);margin-bottom:1rem">' +
       ['J1','J2','J3'].map(j => {
-        const active = j === st.jorn;
-        return `<button onclick="selectJorn('${participant}','${j}')" style="background:none;border:none;cursor:pointer;padding:0.7rem 1rem;font-family:'Space Mono',monospace;font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:${active?'var(--gold)':'var(--silver)'};border-bottom:2px solid ${active?'var(--gold)':'transparent'}">${j}</button>`;
+        const active = j === _activeJornada;
+        return `<button onclick="selectJorn('${j}')" style="background:none;border:none;cursor:pointer;padding:0.7rem 1rem;font-family:'Space Mono',monospace;font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:${active?'var(--gold)':'var(--silver)'};border-bottom:2px solid ${active?'var(--gold)':'transparent'}">${j}</button>`;
       }).join('') + '</div>';
   }
 
-  // Pitch
-  const jornada = st.phase === 'grups' ? st.jorn : 'E1';
-  const pitchHtml = renderPitch(participant, st.phase, jornada, st.phase !== 'grups');
+  // Camp
+  const jornada = _activePhase === 'grups' ? _activeJornada : 'E1';
+  const pitchHtml = renderPitch(participant, _activePhase, jornada, _activePhase !== 'grups');
 
   view.innerHTML = `
     <div class="team-header"><div>
