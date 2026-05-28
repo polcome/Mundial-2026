@@ -2045,7 +2045,7 @@ async function init() {
     }
     // Guarda tots els capitans per mostrar badges a tots els equips
     window._allCapitans = capRows;
-  } catch(e) { console.warn('No s'han pogut carregar capitans:', e); }
+  } catch(e) { console.warn('Error carregant capitans:', e); }
 
   // Render inicial
   renderRanking();
