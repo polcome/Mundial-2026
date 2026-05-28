@@ -855,7 +855,7 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   </div>`;
 }
 
-function renderPitch(participant, phase, jornada) {
+function renderPitch(participant, phase, jornada, tryJ1Fallback) {
   const phasePlayers = getPlayersForPhase(participant, phase);
   // Classifica per posició
   const byPos = { POR:[], DEF:[], MIG:[], DAV:[] };
@@ -876,7 +876,8 @@ function renderPitch(participant, phase, jornada) {
   function row(pos, rowClass) {
     const names = getSlots(pos);
     const pins = names.map(name => {
-      const sc = name ? getScore(participant, name, phase, jornada) : null;
+      let sc = name ? getScore(participant, name, phase, jornada) : null;
+    if (!sc && tryJ1Fallback) sc = name ? getScore(participant, name, phase, 'J1') : null;
       return playerPin(name, pos, sc, jornada, participant, phase);
     }).join('');
     return `<div class="pitch-row ${rowClass}">${pins}</div>`;
@@ -884,7 +885,8 @@ function renderPitch(participant, phase, jornada) {
 
   // Total de la jornada/eliminatòria
   const total = phasePlayers.reduce((s,pl) => {
-    const sc = getScore(participant, v(pl,'Jugador'), phase, jornada);
+    let sc = getScore(participant, v(pl,'Jugador'), phase, jornada);
+    if (!sc && tryJ1Fallback) sc = getScore(participant, v(pl,'Jugador'), phase, 'J1');
     const pts = calcScoreRow(sc, v(pl,'Posicio'));
     return s + (pts || 0);
   }, 0);
@@ -893,7 +895,8 @@ function renderPitch(participant, phase, jornada) {
   // Player list
   const listRows = phasePlayers.map((pl, plIdx) => {
     const name = v(pl,'Jugador'), pos2 = (v(pl,'Posicio')||'MIG').toUpperCase();
-    const sc2 = getScore(participant, name, phase, jornada);
+    let sc2 = getScore(participant, name, phase, jornada);
+    if (!sc2 && tryJ1Fallback) sc2 = getScore(participant, name, phase, 'J1');
     const note2 = parseNota(v(sc2,'Nota'));
     const g2 = sc2 ? parseInt(v(sc2,'Gols')||0) : 0;
     const a2 = sc2 ? parseInt(v(sc2,'Assistencies')||0) : 0;
@@ -1007,8 +1010,8 @@ function renderPhaseContent(participant, phase) {
       ${renderPitch(participant, 'grups', activeJorn)}`;
   }
 
-  // Eliminatòria: 1 sol partit, sense pestanya de jornada
-  return renderPitch(participant, phase, 'E1');
+  // Eliminatòria: accepta E1 o J1 al Sheet
+  return renderPitch(participant, phase, 'E1', true);
 }
 
 function setActiveJorn(participant, phase, jorn) {
@@ -1039,7 +1042,8 @@ function renderTeam(participant) {
   const phaseTabs = PHASES.map(ph => {
     const phTotal = getPlayersForPhase(participant, ph).reduce((s,pl) => s + calcPlayerPhasePts(participant, v(pl,'Jugador'), ph), 0);
     const badge = phTotal > 0 ? `<span class="pts-badge">${phTotal.toFixed(0)}</span>` : '';
-    return `<button class="phase-tab-btn ${ph===currentPhaseTab?'active':''}"
+    const isActive = ph === currentPhaseTab;
+    return `<button class="phase-tab-btn${isActive?' active':''}" data-phase="${ph}"
       onclick="switchPhaseTab('${participant}','${ph}')">${PHASE_ICONS[ph]} ${PHASE_LABELS[ph]}${badge}</button>`;
   }).join('');
 
@@ -1061,7 +1065,13 @@ function renderTeam(participant) {
 
 function switchPhaseTab(participant, phase) {
   currentPhaseTab = phase;
-  renderTeam(participant);
+  // Update only phase tab buttons active state
+  document.querySelectorAll('[data-phase]').forEach(b => {
+    b.classList.toggle('active', b.dataset.phase === phase);
+  });
+  // Update only the content area, not the whole team
+  const el = document.getElementById('phaseContent');
+  if (el) el.innerHTML = renderPhaseContent(participant, phase);
 }
 
 // ============================================================
