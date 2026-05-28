@@ -2083,6 +2083,8 @@ async function init() {
       rParticipant = savedAuth;
     }
     console.log('Capitans carregats:', _capitansMap);
+    // Neteja la caché perquè els totals es recalculin amb els capitans
+    if (Object.keys(_capitansMap).length > 0) clearCache();
   } catch(e) { console.warn('Error carregant capitans:', e); }
 
   // Render inicial
