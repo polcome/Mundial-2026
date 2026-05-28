@@ -820,7 +820,7 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   const verm  = sc ? parseInt(v(sc,'Vermella')||0) : 0;
   const iconParts = [];
   if (g > 0)    iconParts.push('⚽'.repeat(Math.min(g,3)));
-  if (pen > 0)  iconParts.push('🥅');
+  if (pen > 0)  iconParts.push('🥅'.repeat(Math.min(pen,3)));
   if (a > 0)    iconParts.push('🅰️'.repeat(Math.min(a,3)));
   if (groga > 0) iconParts.push('🟨');
   if (verm > 0)  iconParts.push('🟥');
