@@ -107,11 +107,26 @@
   .jorn-btn { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.35rem 0.8rem; font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--silver); cursor: pointer; transition: all 0.15s; letter-spacing: 0.05em; }
   .jorn-btn:hover, .jorn-btn.active { background: var(--gold); color: var(--ink); border-color: var(--gold); font-weight: 700; }
 
-  /* PHOTO MODAL */
+  /* PHOTO MODAL & PLAYER CARD MODAL */
   .photo-modal { position:fixed; inset:0; z-index:500; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; cursor:pointer; animation:fadeIn 0.2s ease; }
   @keyframes fadeIn { from{opacity:0} to{opacity:1} }
-  .photo-modal img { max-width:90vw; max-height:80vh; border-radius:16px; box-shadow:0 0 60px rgba(0,0,0,0.8); object-fit:contain; }
+  .photo-modal img.big-photo { max-width:90vw; max-height:80vh; border-radius:16px; box-shadow:0 0 60px rgba(0,0,0,0.8); object-fit:contain; }
   .photo-modal .modal-name { position:absolute; bottom:2rem; left:50%; transform:translateX(-50%); font-family:'Bebas Neue',cursive; font-size:1.8rem; color:var(--white); letter-spacing:0.1em; text-shadow:0 2px 10px rgba(0,0,0,0.8); white-space:nowrap; }
+  .player-card-modal { background:#0F1929; border:1px solid var(--glass-border); border-radius:20px; width:320px; max-width:92vw; overflow:hidden; cursor:default; box-shadow:0 20px 60px rgba(0,0,0,0.7); animation:slideUp 0.25s ease; }
+  @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+  .player-card-modal .card-photo { width:100%; height:200px; object-fit:cover; object-position:top; display:block; }
+  .player-card-modal .card-no-photo { width:100%; height:160px; background:linear-gradient(135deg,#1e3a5f,#2d5a8e); display:flex; align-items:center; justify-content:center; font-size:4rem; }
+  .player-card-modal .card-body { padding:1.2rem 1.4rem 1.4rem; }
+  .player-card-modal .card-name { font-family:'Bebas Neue',cursive; font-size:1.8rem; color:var(--white); line-height:1; margin-bottom:0.3rem; }
+  .player-card-modal .card-meta { display:flex; gap:0.5rem; align-items:center; margin-bottom:1rem; flex-wrap:wrap; }
+  .player-card-modal .card-divider { height:1px; background:var(--glass-border); margin:0.8rem 0; }
+  .player-card-modal .card-stat-row { display:flex; justify-content:space-between; align-items:center; padding:0.3rem 0; font-size:0.82rem; color:var(--silver); }
+  .player-card-modal .card-stat-row .val { font-family:'Space Mono',monospace; font-weight:700; color:var(--white); }
+  .player-card-modal .card-total { display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0 0; margin-top:0.3rem; border-top:1px solid var(--glass-border); }
+  .player-card-modal .card-total-label { font-family:'Space Mono',monospace; font-size:0.7rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--silver); }
+  .player-card-modal .card-total-pts { font-family:'Bebas Neue',cursive; font-size:2rem; color:var(--gold); line-height:1; }
+  .modal-close { position:absolute; top:1rem; right:1rem; background:rgba(255,255,255,0.1); border:none; color:var(--white); width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center; }
+  .modal-close:hover { background:rgba(255,255,255,0.2); }
 
   /* JUGADORS TABLE */
   .jug-table { width:100%; border-collapse:separate; border-spacing:0 3px; font-size:0.82rem; }
@@ -939,8 +954,9 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
     ? `<img src="${photoUrl}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%;z-index:1" onerror="this.style.display='none'">`
     : `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.4rem;z-index:1">👤</span>`;
 
-  return `<div class="player-pin">
-    <div class="avatar ${avCls}" style="overflow:visible;position:relative">${innerHtml}${scoreBubbleZ}${flagBadgeZ}</div>
+  // Pass phase/jornada via data attributes so onclick can read them
+  return `<div class="player-pin" onclick="openPlayerCard('${name}','${_activeParticipant}','${phase}','${jornada}')" style="cursor:pointer">
+    <div class="avatar ${avCls}" style="overflow:visible;position:relative;transition:transform 0.15s" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform=''">${innerHtml}${scoreBubbleZ}${flagBadgeZ}</div>
     <div class="pname">${shortName}</div>
     ${goals}
   </div>`;
@@ -1206,7 +1222,67 @@ function openPhotoModal(url, name) {
   if (!url) return;
   const modal = document.createElement('div');
   modal.className = 'photo-modal';
-  modal.innerHTML = `<img src="${url}" alt="${name}"><div class="modal-name">${name}</div>`;
+  modal.innerHTML = `<img class="big-photo" src="${url}" alt="${name}"><div class="modal-name">${name}</div>`;
+  modal.onclick = () => modal.remove();
+  document.body.appendChild(modal);
+}
+
+function openPlayerCard(name, participant, phase, jornada) {
+  // Find player data
+  const allPl = gData?.jugadors || [];
+  const plData = allPl.find(r =>
+    norm(v(r,'Participant')) === norm(participant) && norm(v(r,'Jugador')) === norm(name)
+  ) || allPl.find(r => norm(v(r,'Jugador')) === norm(name));
+
+  const foto    = plData ? v(plData,'Foto')    : '';
+  const equip   = plData ? v(plData,'Equip')   : '';
+  const posicio = plData ? v(plData,'Posicio')  : '';
+  const cs      = getCountryStyle(equip);
+  const flagBadge = cs ? `<span style="background:${cs.color};color:#fff;font-size:0.6rem;font-weight:800;padding:2px 6px;border-radius:4px;font-family:'Space Mono',monospace">${cs.abbr}</span>` : '';
+  const posBadge  = posicio ? `<span class="pos-badge pos-${posicio.toUpperCase()}">${posicio.toUpperCase()}</span>` : '';
+
+  // Get score
+  let sc = getScore(participant, name, phase, jornada);
+  if (!sc && jornada === 'E1') sc = getScore(participant, name, phase, 'J1');
+
+  const nota    = sc ? parseNota(v(sc,'Nota'))              : null;
+  const gols    = sc ? parseInt(v(sc,'Gols')||0)            : 0;
+  const assists = sc ? parseInt(v(sc,'Assistencies')||0)    : 0;
+  const penals  = sc ? parseInt(v(sc,'Penalti')||0)         : 0;
+  const dgroga  = sc ? parseInt(v(sc,'DobleGroga')||0)      : 0;
+  const verm    = sc ? parseInt(v(sc,'Vermella')||0)        : 0;
+  const pts     = calcScoreRow(sc, posicio);
+  const notaPts = nota !== null ? notaToPts(nota) : null;
+  const notaCls = nota === null ? 'score-empty' : nota >= 8 ? 'score-high' : nota >= 6.5 ? 'score-mid' : 'score-low';
+
+  const photoHtml = foto
+    ? `<img class="card-photo" src="${foto}" onerror="this.outerHTML='<div class=card-no-photo>👤</div>'">`
+    : `<div class="card-no-photo">👤</div>`;
+
+  const statsRows = [
+    nota !== null ? `<div class="card-stat-row"><span>📊 Nota SofaScore</span><span style="display:flex;gap:8px;align-items:center"><span class="score-chip ${notaCls}">${nota.toFixed(1)}</span><span class="val">${notaPts>=0?'+':''}${notaPts} pts</span></span></div>` : '',
+    gols    > 0 ? `<div class="card-stat-row"><span>⚽ Gols (${posicio} +${golPts(posicio)}pts/gol)</span><span class="val" style="color:#6EE89A">+${gols * golPts(posicio)} pts</span></div>` : '',
+    assists > 0 ? `<div class="card-stat-row"><span>🅰️ Assistències ×${assists}</span><span class="val" style="color:#7DC3F5">+${assists*2} pts</span></div>` : '',
+    penals  > 0 ? `<div class="card-stat-row"><span>🥅 Gols de penal ×${penals}</span><span class="val" style="color:#6EE89A">+${penals*3} pts</span></div>` : '',
+    dgroga  > 0 ? `<div class="card-stat-row"><span>🟨 Doble groga</span><span class="val" style="color:#F5C842">-3 pts</span></div>` : '',
+    verm    > 0 ? `<div class="card-stat-row"><span>🟥 Targeta vermella</span><span class="val" style="color:#F58080">-6 pts</span></div>` : '',
+  ].filter(Boolean).join('');
+
+  const noDataMsg = !sc ? '<div style="color:var(--silver);font-size:0.82rem;opacity:0.7;text-align:center;padding:0.5rem 0">Sense puntuació registrada</div>' : '';
+
+  const modal = document.createElement('div');
+  modal.className = 'photo-modal';
+  modal.innerHTML = `
+    <div class="player-card-modal" onclick="event.stopPropagation()">
+      ${photoHtml}
+      <div class="card-body">
+        <div class="card-name">${name}</div>
+        <div class="card-meta">${flagBadge}${equip ? `<span style="font-size:0.82rem;color:var(--silver)">${equip}</span>` : ''}${posBadge}</div>
+        ${statsRows || noDataMsg}
+        ${pts !== null ? `<div class="card-total"><span class="card-total-label">Total ${PHASE_LABELS[phase]}</span><span class="card-total-pts">${pts} pts</span></div>` : ''}
+      </div>
+    </div>
+    <button class="modal-close" onclick="this.closest('.photo-modal').remove()">✕</button>`;
   modal.onclick = () => modal.remove();
   document.body.appendChild(modal);
 }
