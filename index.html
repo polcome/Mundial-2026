@@ -111,6 +111,7 @@
   .jug-table { width:100%; border-collapse:separate; border-spacing:0 3px; font-size:0.82rem; }
   .jug-table th { font-family:'Space Mono',monospace; font-size:0.6rem; letter-spacing:0.08em; color:var(--silver); text-transform:uppercase; padding:0.4rem 0.7rem; text-align:center; cursor:pointer; white-space:nowrap; }
   .jug-table th:first-child { text-align:left; }
+  .jug-table td:nth-child(2) { min-width:160px; }
   .jug-table th:hover { color:var(--gold); }
   .jug-table th.sorted { color:var(--gold); }
   .jug-table td { padding:0.55rem 0.7rem; background:var(--glass); border-top:1px solid var(--glass-border); border-bottom:1px solid var(--glass-border); text-align:center; vertical-align:middle; }
@@ -1308,21 +1309,37 @@ function renderJugadorsTab() {
 
     // Detail HTML
     const detailContent = r.phaseDetails.length === 0
-      ? '<p style="color:var(--silver);font-size:0.82rem">Sense puntuacions registrades.</p>'
-      : `<div class="jug-phase-grid">${r.phaseDetails.map(ph => {
+      ? '<p style="color:var(--silver);font-size:0.82rem;padding:0.5rem 0">Sense puntuacions registrades.</p>'
+      : r.phaseDetails.map(ph => {
           const jornRows = ph.jorns.map(j => {
             const bonus = [
-              j.g>0?`⚽×${j.g}`:'', j.a>0?`🅰️×${j.a}`:'',
-              j.pen>0?`🥅×${j.pen}`:'', j.dg>0?`🟨`:'', j.vm>0?`🟥`:''
+              j.g>0?`<span style="color:#6EE89A">⚽ ×${j.g}</span>`:'',
+              j.a>0?`<span style="color:#7DC3F5">🅰️ ×${j.a}</span>`:'',
+              j.pen>0?`<span style="color:#6EE89A">🥅 ×${j.pen}</span>`:'',
+              j.dg>0?`<span style="color:#F5C842">🟨</span>`:'',
+              j.vm>0?`<span style="color:#F58080">🟥</span>`:''
             ].filter(Boolean).join(' ');
-            return `<div class="jug-phase-row"><span>${PHASE_JORNADES[ph.phase].length>1?j.jorn:PHASE_LABELS[ph.phase]}</span><span style="display:flex;gap:6px;align-items:center">${bonus?`<span style="font-size:0.7rem">${bonus}</span>`:''}<span style="color:var(--white)">${j.nota?.toFixed(1)||'—'}</span><span class="jug-phase-pts">${j.pts}</span></span></div>`;
+            const jornLabel = ph.phase === 'grups' ? j.jorn : 'Eliminatòria';
+            const notaCls = j.nota===null?'score-empty':j.nota>=8?'score-high':j.nota>=6.5?'score-mid':'score-low';
+            return `<div style="display:grid;grid-template-columns:5rem 1fr auto auto;align-items:center;gap:0.8rem;padding:0.45rem 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+              <span style="font-family:'Space Mono',monospace;font-size:0.65rem;color:var(--silver)">${jornLabel}</span>
+              <span style="font-size:0.78rem">${bonus||'<span style="opacity:0.3">—</span>'}</span>
+              <span class="score-chip ${notaCls}" style="font-size:0.72rem">${j.nota!==null?j.nota.toFixed(1):'—'}</span>
+              <span style="font-family:'Bebas Neue',cursive;font-size:1.1rem;color:var(--gold);min-width:2.5rem;text-align:right">${j.pts}</span>
+            </div>`;
           }).join('');
-          return `<div class="jug-phase-card"><div class="jug-phase-title">${PHASE_ICONS[ph.phase]} ${PHASE_LABELS[ph.phase]} · <span style="color:var(--white)">${ph.pts} pts</span></div>${jornRows}</div>`;
-        }).join('')}</div>`;
+          return `<div style="margin-bottom:0.8rem">
+            <div style="font-family:'Space Mono',monospace;font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);padding:0.5rem 0 0.3rem;display:flex;justify-content:space-between;align-items:center">
+              <span>${PHASE_ICONS[ph.phase]} ${PHASE_LABELS[ph.phase]}</span>
+              <span style="background:rgba(245,200,66,0.15);padding:2px 8px;border-radius:5px">${ph.pts} pts</span>
+            </div>
+            ${jornRows}
+          </div>`;
+        }).join('');
 
     return `<tr onclick="toggleJugDetail('${detailId}')">
       <td style="color:var(--silver);font-size:0.8rem">${i+1}</td>
-      <td>${avatar}${r.name}</td>
+      <td><div style="display:flex;align-items:center;gap:8px;min-width:140px">${avatar}<span>${r.name}</span></div></td>
       <td>${flagBadge}${r.equip}</td>
       <td><span class="pos-badge ${posClass}">${r.posicio||'—'}</span></td>
       <td style="font-size:0.78rem;color:var(--silver)">${r.participant}</td>
@@ -1334,7 +1351,9 @@ function renderJugadorsTab() {
       <td style="font-family:'Space Mono',monospace;font-size:0.78rem">${r.notaMitjana>0?r.notaMitjana.toFixed(1):'—'}</td>
       <td>${r.totalPts}</td>
     </tr>
-    <tr class="jug-detail" id="${detailId}"><td colspan="12">${detailContent}</td></tr>`;
+    <tr class="jug-detail" id="${detailId}">
+      <td colspan="12" style="padding:0.8rem 1.2rem 1rem 1.2rem;background:rgba(0,0,0,0.25);border-radius:0 0 8px 8px">${detailContent}</td>
+    </tr>`;
   }).join('');
 
   view.innerHTML = `<div style="overflow-x:auto"><table class="jug-table"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table></div>`;
