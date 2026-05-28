@@ -507,7 +507,7 @@ function calcScoreRow(sc, pos) {
   const vermella = parseInt(v(sc,'Vermella') || 0);
   return nota
     + gols * golPts(pos)
-    + assists * 3
+    + assists * 2
     + penalti * 3
     + doblegroga * (-3)
     + vermella * (-6);
@@ -778,7 +778,16 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   const pts = calcScoreRow(sc, pos); // usa sistema Mister
   const avCls = note === null ? '' : note >= 8 ? 'score-high-av' : note >= 6.5 ? 'score-mid-av' : 'score-low-av';
   const scoreBubble = pts !== null ? `<div class="score-bubble">${pts.toFixed(1)}</div>` : '';
-  const goals = g > 0 ? `<div class="goal-row">${'⚽'.repeat(Math.min(g,3))}${a>0?'🅰️'.repeat(Math.min(a,3)):''}</div>` : (a>0?`<div class="goal-row">${'🅰️'.repeat(Math.min(a,3))}</div>`:'');
+  const pen  = sc ? parseInt(v(sc,'Penalti')||0) : 0;
+  const groga = sc ? parseInt(v(sc,'DobleGroga')||0) : 0;
+  const verm  = sc ? parseInt(v(sc,'Vermella')||0) : 0;
+  const iconParts = [];
+  if (g > 0)    iconParts.push('⚽'.repeat(Math.min(g,3)));
+  if (pen > 0)  iconParts.push('🥅');
+  if (a > 0)    iconParts.push('🅰️'.repeat(Math.min(a,3)));
+  if (groga > 0) iconParts.push('🟨');
+  if (verm > 0)  iconParts.push('🟥');
+  const goals = iconParts.length ? `<div class="goal-row">${iconParts.join('')}</div>` : '';
   const shortName = name.split(' ').pop();
   // Get flag from players data
   const plData = (gData?.jugadors||[]).find(r => norm(v(r,'Jugador')) === norm(name));
