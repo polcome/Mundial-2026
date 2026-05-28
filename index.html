@@ -1059,17 +1059,20 @@ function renderTeam(participant) {
         </div>
       </div>
     </div>
-    <div class="phase-tabs" style="overflow-x:auto;scrollbar-width:none">${phaseTabs}</div>
+    <div id="phaseTabs" class="phase-tabs" style="overflow-x:auto;scrollbar-width:none">${phaseTabs}</div>
     <div id="phaseContent">${renderPhaseContent(participant, currentPhaseTab)}</div>`;
 }
 
 function switchPhaseTab(participant, phase) {
   currentPhaseTab = phase;
-  // Update only phase tab buttons active state
-  document.querySelectorAll('[data-phase]').forEach(b => {
-    b.classList.toggle('active', b.dataset.phase === phase);
-  });
-  // Update only the content area, not the whole team
+  // Update phase tab active states
+  const tabsEl = document.getElementById('phaseTabs');
+  if (tabsEl) {
+    tabsEl.querySelectorAll('button[data-phase]').forEach(b => {
+      b.classList.toggle('active', b.dataset.phase === phase);
+    });
+  }
+  // Update content
   const el = document.getElementById('phaseContent');
   if (el) el.innerHTML = renderPhaseContent(participant, phase);
 }
