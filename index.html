@@ -107,6 +107,26 @@
   .jorn-btn { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.35rem 0.8rem; font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--silver); cursor: pointer; transition: all 0.15s; letter-spacing: 0.05em; }
   .jorn-btn:hover, .jorn-btn.active { background: var(--gold); color: var(--ink); border-color: var(--gold); font-weight: 700; }
 
+  /* JUGADORS TABLE */
+  .jug-table { width:100%; border-collapse:separate; border-spacing:0 3px; font-size:0.82rem; }
+  .jug-table th { font-family:'Space Mono',monospace; font-size:0.6rem; letter-spacing:0.08em; color:var(--silver); text-transform:uppercase; padding:0.4rem 0.7rem; text-align:center; cursor:pointer; white-space:nowrap; }
+  .jug-table th:first-child { text-align:left; }
+  .jug-table th:hover { color:var(--gold); }
+  .jug-table th.sorted { color:var(--gold); }
+  .jug-table td { padding:0.55rem 0.7rem; background:var(--glass); border-top:1px solid var(--glass-border); border-bottom:1px solid var(--glass-border); text-align:center; vertical-align:middle; }
+  .jug-table tr td:first-child { border-left:1px solid var(--glass-border); border-radius:8px 0 0 8px; text-align:left; }
+  .jug-table tr td:last-child { border-right:1px solid var(--glass-border); border-radius:0 8px 8px 0; font-family:'Bebas Neue',cursive; font-size:1.1rem; color:var(--gold); }
+  .jug-table tr { cursor:pointer; transition:filter 0.15s; }
+  .jug-table tr:hover td { filter:brightness(1.3); }
+  .jug-detail { display:none; }
+  .jug-detail.open { display:table-row; }
+  .jug-detail td { background:rgba(0,0,0,0.3); border-radius:0 0 8px 8px; padding:0.8rem 1rem; text-align:left; }
+  .jug-phase-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:0.5rem; }
+  .jug-phase-card { background:var(--glass); border:1px solid var(--glass-border); border-radius:8px; padding:0.6rem 0.8rem; }
+  .jug-phase-title { font-family:'Space Mono',monospace; font-size:0.6rem; color:var(--gold); letter-spacing:0.1em; margin-bottom:0.4rem; }
+  .jug-phase-row { display:flex; justify-content:space-between; font-size:0.75rem; color:var(--silver); padding:1px 0; }
+  .jug-phase-pts { font-family:'Bebas Neue',cursive; font-size:1.1rem; color:var(--gold); }
+
   /* CANVIS */
   .changes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.8rem; margin-top: 0.5rem; }
   .change-card { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 10px; padding: 1rem; }
@@ -318,6 +338,7 @@
   <button class="tab-btn active" data-tab="ranking">🏆 Classificació</button>
   <button class="tab-btn" data-tab="teams">👥 Equips</button>
   <button class="tab-btn" data-tab="jornades">📅 Jornades</button>
+  <button class="tab-btn" data-tab="jugadors">⚽ Jugadors</button>
   <button class="tab-btn" data-tab="canvis">🔄 Canvis</button>
   <button class="tab-btn admin-tab" data-tab="admin" id="adminTabBtn">⚙️ Admin</button>
 </nav>
@@ -344,6 +365,33 @@
     <div class="section-title">📅 Puntuació per Jornada</div>
     <div class="jornada-tabs" id="jornadaTabs"></div>
     <div id="jornadaView"></div>
+  </section>
+
+  <section class="section" id="tab-jugadors">
+    <div class="section-title">⚽ Taula de Jugadors</div>
+    <div id="jugadorsFilters" style="display:flex;gap:0.6rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center">
+      <select id="filterEquip" onchange="renderJugadorsTab()" style="background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);border-radius:6px;padding:0.4rem 0.7rem;color:var(--white);font-size:0.82rem">
+        <option value="">Tots els equips</option>
+      </select>
+      <select id="filterFase" onchange="renderJugadorsTab()" style="background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);border-radius:6px;padding:0.4rem 0.7rem;color:var(--white);font-size:0.82rem">
+        <option value="">Totes les fases</option>
+        <option value="grups">Fase de Grups</option>
+        <option value="r16">16ens</option>
+        <option value="r8">Vuitens</option>
+        <option value="qf">Quarts</option>
+        <option value="sf">Semifinals</option>
+        <option value="final">Final</option>
+      </select>
+      <select id="sortBy" onchange="renderJugadorsTab()" style="background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);border-radius:6px;padding:0.4rem 0.7rem;color:var(--white);font-size:0.82rem">
+        <option value="pts">Ordenar per Punts</option>
+        <option value="nota">Ordenar per Nota Mitjana</option>
+        <option value="gols">Ordenar per Gols</option>
+        <option value="assists">Ordenar per Assistències</option>
+        <option value="penals">Ordenar per Penals</option>
+        <option value="nom">Ordenar per Nom</option>
+      </select>
+    </div>
+    <div id="jugadorsView"></div>
   </section>
 
   <section class="section" id="tab-canvis">
@@ -1144,6 +1192,168 @@ function renderJornades(phase, jorn) {
 }
 
 // ============================================================
+// RENDER JUGADORS TAB
+// ============================================================
+function renderJugadorsTab() {
+  const view = document.getElementById('jugadorsView');
+  if (!gData) return;
+
+  const filterEquip = document.getElementById('filterEquip')?.value || '';
+  const filterFase  = document.getElementById('filterFase')?.value  || '';
+  const sortBy      = document.getElementById('sortBy')?.value      || 'pts';
+
+  const participants = getParticipants();
+
+  // Build stats per player
+  const rows = [];
+  for (const p of participants) {
+    const allPl = getPlayers(p);
+    // All unique player names across all phases (including substitutes)
+    const allNames = new Set();
+    for (const ph of PHASES) {
+      getPlayersForPhase(p, ph).forEach(pl => allNames.add(v(pl,'Jugador')));
+    }
+
+    for (const name of allNames) {
+      // Find player data (foto, equip, posicio)
+      const plData = allPl.find(r => norm(v(r,'Jugador')) === norm(name))
+        || (gData.jugadors||[]).find(r => norm(v(r,'Participant'))===norm(p) && norm(v(r,'Jugador'))===norm(name));
+      const equip  = plData ? v(plData,'Equip')  : '';
+      const posicio= plData ? v(plData,'Posicio') : '';
+      const foto   = plData ? v(plData,'Foto')    : '';
+
+      if (filterEquip && norm(p) !== norm(filterEquip)) continue;
+
+      // Accumulate stats across phases/jornades
+      let totalPts=0, totalGols=0, totalAssists=0, totalPenals=0;
+      let totalDobleGroga=0, totalVermella=0;
+      let notaSum=0, notaCount=0;
+      const phaseDetails = [];
+
+      const phasesToCheck = filterFase ? [filterFase] : PHASES;
+      for (const ph of phasesToCheck) {
+        // Only include player if they're in the roster for this phase
+        const roster = getPlayersForPhase(p, ph);
+        const inRoster = roster.some(pl => norm(v(pl,'Jugador')) === norm(name));
+        if (!inRoster) continue;
+
+        const jorns = PHASE_JORNADES[ph];
+        let phPts=0, phGols=0, phAssists=0, phPenals=0, phDG=0, phV=0;
+        const jornDetails = [];
+
+        for (const jorn of jorns) {
+          let sc = getScore(p, name, ph, jorn);
+          if (!sc) sc = getScore(p, name, ph, 'J1'); // fallback
+          if (!sc || v(sc,'Nota')==='') continue;
+          const nota = parseNota(v(sc,'Nota'));
+          const g = parseInt(v(sc,'Gols')||0);
+          const a = parseInt(v(sc,'Assistencies')||0);
+          const pen = parseInt(v(sc,'Penalti')||0);
+          const dg = parseInt(v(sc,'DobleGroga')||0);
+          const vm = parseInt(v(sc,'Vermella')||0);
+          const pts = calcScoreRow(sc, posicio);
+          if (nota !== null) { notaSum += nota; notaCount++; }
+          phPts += pts||0; phGols += g; phAssists += a; phPenals += pen; phDG += dg; phV += vm;
+          jornDetails.push({ jorn, nota, g, a, pen, dg, vm, pts });
+        }
+        if (jornDetails.length) {
+          phaseDetails.push({ phase: ph, pts: phPts, gols: phGols, assists: phAssists, penals: phPenals, dg: phDG, vm: phV, jorns: jornDetails });
+          totalPts += phPts; totalGols += phGols; totalAssists += phAssists;
+          totalPenals += phPenals; totalDobleGroga += phDG; totalVermella += phV;
+        }
+      }
+
+      if (phaseDetails.length === 0 && filterFase) continue; // no data for this phase
+      rows.push({ name, equip, posicio, foto, participant:p, totalPts, totalGols, totalAssists, totalPenals, totalDobleGroga, totalVermella, notaMitjana: notaCount>0?(notaSum/notaCount):0, phaseDetails });
+    }
+  }
+
+  // Sort
+  const sortFns = {
+    pts:    (a,b) => b.totalPts - a.totalPts,
+    nota:   (a,b) => b.notaMitjana - a.notaMitjana,
+    gols:   (a,b) => b.totalGols - a.totalGols,
+    assists:(a,b) => b.totalAssists - a.totalAssists,
+    penals: (a,b) => b.totalPenals - a.totalPenals,
+    nom:    (a,b) => a.name.localeCompare(b.name),
+  };
+  rows.sort(sortFns[sortBy] || sortFns.pts);
+
+  if (!rows.length) {
+    view.innerHTML = '<div class="empty-state"><div class="big-icon">⚽</div><p>Sense dades de jugadors.</p></div>';
+    return;
+  }
+
+  // Build table
+  const headers = [
+    ['#',''], ['Jugador','nom'], ['Equip',''], ['Pos',''],
+    ['Equip Fantasy',''], ['⚽ Gols','gols'], ['🅰️ Ass.','assists'],
+    ['🥅 Pen.','penals'], ['🟨 2×G',''], ['🟥 Verm.',''],
+    ['📊 Nota Mitj.','nota'], ['🏆 Pts','pts']
+  ];
+
+  const ths = headers.map(([lbl, sort]) =>
+    `<th ${sort?`onclick="document.getElementById('sortBy').value='${sort}';renderJugadorsTab()" class="${sortBy===sort?'sorted':''}"`:''} >${lbl}</th>`
+  ).join('');
+
+  const trs = rows.map((r, i) => {
+    const flag = getFlag(r.equip);
+    const cs = getCountryStyle(r.equip);
+    const flagBadge = cs ? `<span style="background:${cs.color};color:#fff;font-size:0.58rem;font-weight:800;padding:1px 4px;border-radius:3px;margin-right:4px;font-family:'Space Mono',monospace">${cs.abbr}</span>` : '';
+    const avatar = r.foto
+      ? `<img src="${r.foto}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;border:1px solid rgba(255,255,255,0.2)" onerror="this.remove()">`
+      : `<span style="display:inline-flex;width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);align-items:center;justify-content:center;margin-right:6px;font-size:0.85rem;vertical-align:middle">👤</span>`;
+    const posClass = `pos-${(r.posicio||'MIG').toUpperCase()}`;
+    const detailId = `jd-${i}`;
+
+    // Detail HTML
+    const detailContent = r.phaseDetails.length === 0
+      ? '<p style="color:var(--silver);font-size:0.82rem">Sense puntuacions registrades.</p>'
+      : `<div class="jug-phase-grid">${r.phaseDetails.map(ph => {
+          const jornRows = ph.jorns.map(j => {
+            const bonus = [
+              j.g>0?`⚽×${j.g}`:'', j.a>0?`🅰️×${j.a}`:'',
+              j.pen>0?`🥅×${j.pen}`:'', j.dg>0?`🟨`:'', j.vm>0?`🟥`:''
+            ].filter(Boolean).join(' ');
+            return `<div class="jug-phase-row"><span>${PHASE_JORNADES[ph.phase].length>1?j.jorn:PHASE_LABELS[ph.phase]}</span><span style="display:flex;gap:6px;align-items:center">${bonus?`<span style="font-size:0.7rem">${bonus}</span>`:''}<span style="color:var(--white)">${j.nota?.toFixed(1)||'—'}</span><span class="jug-phase-pts">${j.pts}</span></span></div>`;
+          }).join('');
+          return `<div class="jug-phase-card"><div class="jug-phase-title">${PHASE_ICONS[ph.phase]} ${PHASE_LABELS[ph.phase]} · <span style="color:var(--white)">${ph.pts} pts</span></div>${jornRows}</div>`;
+        }).join('')}</div>`;
+
+    return `<tr onclick="toggleJugDetail('${detailId}')">
+      <td style="color:var(--silver);font-size:0.8rem">${i+1}</td>
+      <td>${avatar}${r.name}</td>
+      <td>${flagBadge}${r.equip}</td>
+      <td><span class="pos-badge ${posClass}">${r.posicio||'—'}</span></td>
+      <td style="font-size:0.78rem;color:var(--silver)">${r.participant}</td>
+      <td>${r.totalGols||'—'}</td>
+      <td>${r.totalAssists||'—'}</td>
+      <td>${r.totalPenals||'—'}</td>
+      <td>${r.totalDobleGroga||'—'}</td>
+      <td>${r.totalVermella||'—'}</td>
+      <td style="font-family:'Space Mono',monospace;font-size:0.78rem">${r.notaMitjana>0?r.notaMitjana.toFixed(1):'—'}</td>
+      <td>${r.totalPts}</td>
+    </tr>
+    <tr class="jug-detail" id="${detailId}"><td colspan="12">${detailContent}</td></tr>`;
+  }).join('');
+
+  view.innerHTML = `<div style="overflow-x:auto"><table class="jug-table"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table></div>`;
+}
+
+function toggleJugDetail(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('open');
+}
+
+function populateJugadorsFilters() {
+  const sel = document.getElementById('filterEquip');
+  if (!sel) return;
+  const participants = getParticipants();
+  sel.innerHTML = '<option value="">Tots els equips</option>' +
+    participants.map(p => `<option value="${p}">${p}</option>`).join('');
+}
+
+// ============================================================
 // RENDER CANVIS
 // ============================================================
 function phaseLabel(rawFase) {
@@ -1367,6 +1577,7 @@ document.getElementById('mainNav').addEventListener('click', e => {
   switchTab(tab);
 
   if (tab === 'jornades') renderJornades(currentJornada.phase, currentJornada.jorn);
+  if (tab === 'jugadors') { populateJugadorsFilters(); renderJugadorsTab(); }
   if (tab === 'canvis') renderCanvis();
   if (tab === 'teams') {
     const sel = document.getElementById('teamSelect');
