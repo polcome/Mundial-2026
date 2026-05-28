@@ -230,23 +230,29 @@
   /* Player list under pitch */
   .pitch-list { margin-top:1.2rem; display:flex; flex-direction:column; gap:4px; }
   .pitch-list-row {
-    display:grid; grid-template-columns:1fr auto;
-    align-items:center; gap:0.5rem 1rem;
+    display:grid;
+    grid-template-columns: 1fr 3.5rem 1fr 3rem;
+    align-items:center; gap:0 0.6rem;
     background:var(--glass); border:1px solid var(--glass-border);
     border-radius:8px; padding:0.65rem 0.9rem;
     font-size:0.85rem;
   }
   .pitch-list-name { font-weight:600; }
   .pitch-list-name small { display:block; font-size:0.65rem; color:var(--silver); font-weight:400; margin-top:1px; }
-  .pitch-list-right {
-    display:flex; flex-direction:column; align-items:flex-end; gap:3px;
+  .pitch-list-note { text-align:center; }
+  .pitch-list-bonus {
+    display:flex; flex-wrap:wrap; gap:4px; align-items:center;
+    font-size:0.75rem;
   }
-  .pitch-list-total { font-family:'Bebas Neue',cursive; font-size:1.3rem; color:var(--gold); line-height:1; }
-  .pitch-list-meta {
-    display:flex; align-items:center; gap:5px; flex-wrap:wrap; justify-content:flex-end;
+  .bonus-chip {
+    display:inline-flex; align-items:center; gap:2px;
+    background:rgba(255,255,255,0.07); border-radius:5px;
+    padding:2px 6px; font-size:0.72rem; white-space:nowrap;
   }
-  .pitch-list-note { font-family:'Space Mono',monospace; font-size:0.75rem; }
-  .pitch-list-bonus { font-size:0.72rem; color:var(--silver); }
+  .pitch-list-total {
+    font-family:'Bebas Neue',cursive; font-size:1.6rem;
+    color:var(--gold); text-align:right; line-height:1;
+  }
   .pitch-list-row { cursor:pointer; }
   .pitch-list-row:hover { background:rgba(255,255,255,0.09); }
   .pitch-detail {
@@ -919,18 +925,24 @@ function renderPitch(participant, phase, jornada) {
       detailLines += `<div class="detail-total-line"><span>Total</span><span>${pts2 !== null ? pts2.toFixed(0) : '—'} pts</span></div>`;
     }
 
+    // Build bonus chips
+    const bonusChips = [];
+    if (g2>0)     bonusChips.push(`<span class="bonus-chip" style="color:#6EE89A">⚽ ×${g2}</span>`);
+    if (a2>0)     bonusChips.push(`<span class="bonus-chip" style="color:#7DC3F5">🅰️ ×${a2}</span>`);
+    if (pen2>0)   bonusChips.push(`<span class="bonus-chip" style="color:#6EE89A">🥅 ×${pen2}</span>`);
+    if (groga2>0) bonusChips.push(`<span class="bonus-chip" style="color:#F5C842">🟨 ×${groga2}</span>`);
+    if (verm2>0)  bonusChips.push(`<span class="bonus-chip" style="color:#F58080">🟥 ×${verm2}</span>`);
+
     return `<div class="pitch-list-row" onclick="toggleDetail('${detailId}')">
       <div class="pitch-list-name">
         ${name}<span class="pos-badge ${posClass}" style="margin-left:6px">${pos2}</span>
         <small>${flag2} ${v(pl,'Equip')}</small>
       </div>
-      <div class="pitch-list-right">
-        <div class="pitch-list-total">${pts2 !== null ? pts2.toFixed(0) : '—'}</div>
-        <div class="pitch-list-meta">
-          <span class="pitch-list-note"><span class="score-chip ${cls2}">${note2 !== null ? note2.toFixed(1) : '—'}</span></span>
-          ${bonusStr !== '—' ? `<span class="pitch-list-bonus">${bonusStr}</span>` : ''}
-        </div>
+      <div class="pitch-list-note">
+        <span class="score-chip ${cls2}">${note2 !== null ? note2.toFixed(1) : '—'}</span>
       </div>
+      <div class="pitch-list-bonus">${bonusChips.join('') || '<span style="color:rgba(255,255,255,0.2);font-size:0.7rem">—</span>'}</div>
+      <div class="pitch-list-total">${pts2 !== null ? pts2.toFixed(0) : '—'}</div>
       <div class="pitch-detail" id="${detailId}">${detailLines}</div>
     </div>`;
   }).join('');
