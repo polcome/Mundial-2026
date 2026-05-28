@@ -993,22 +993,22 @@ function renderPhaseContent(participant, phase) {
     return '<div class="empty-state" style="padding:2rem"><div class="big-icon" style="font-size:2rem">👟</div><p>Sense jugadors per a aquesta fase.</p></div>';
   }
 
-  if (showJornLabel) {
-    // Fase de grups: pestanyes J1/J2/J3
-    const activeJorn = window._activeJorn?.[participant]?.[phase] || jornades[0];
-    const jornTabs = jornades.map(j => `
+  // Fase de grups: mostra pestanyes J1/J2/J3
+  if (phase === 'grups') {
+    const activeJorn = window._activeJorn?.[participant]?.['grups'] || 'J1';
+    const jornTabs = ['J1','J2','J3'].map(j => `
       <button class="phase-tab-btn ${j===activeJorn?'active':''}"
-        onclick="setActiveJorn('${participant}','${phase}','${j}')">${j}</button>
+        onclick="setActiveJorn('${participant}','grups','${j}')">${j}</button>
     `).join('');
     return `
       <div style="display:flex;gap:0;border-bottom:1px solid var(--glass-border);margin-bottom:1rem">
         ${jornTabs}
       </div>
-      ${renderPitch(participant, phase, activeJorn)}`;
+      ${renderPitch(participant, 'grups', activeJorn)}`;
   }
 
-  // Eliminatòria: directe
-  return renderPitch(participant, phase, jornades[0]);
+  // Eliminatòria: 1 sol partit, sense pestanya de jornada
+  return renderPitch(participant, phase, 'E1');
 }
 
 function setActiveJorn(participant, phase, jorn) {
@@ -1061,10 +1061,7 @@ function renderTeam(participant) {
 
 function switchPhaseTab(participant, phase) {
   currentPhaseTab = phase;
-  // Update tab buttons
-  document.querySelectorAll('.phase-tab-btn').forEach(b => b.classList.remove('active'));
-  event.target.closest('.phase-tab-btn').classList.add('active');
-  document.getElementById('phaseContent').innerHTML = renderPhaseContent(participant, phase);
+  renderTeam(participant);
 }
 
 // ============================================================
