@@ -107,6 +107,12 @@
   .jorn-btn { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.35rem 0.8rem; font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--silver); cursor: pointer; transition: all 0.15s; letter-spacing: 0.05em; }
   .jorn-btn:hover, .jorn-btn.active { background: var(--gold); color: var(--ink); border-color: var(--gold); font-weight: 700; }
 
+  /* PHOTO MODAL */
+  .photo-modal { position:fixed; inset:0; z-index:500; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; cursor:pointer; animation:fadeIn 0.2s ease; }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  .photo-modal img { max-width:90vw; max-height:80vh; border-radius:16px; box-shadow:0 0 60px rgba(0,0,0,0.8); object-fit:contain; }
+  .photo-modal .modal-name { position:absolute; bottom:2rem; left:50%; transform:translateX(-50%); font-family:'Bebas Neue',cursive; font-size:1.8rem; color:var(--white); letter-spacing:0.1em; text-shadow:0 2px 10px rgba(0,0,0,0.8); white-space:nowrap; }
+
   /* JUGADORS TABLE */
   .jug-table { width:100%; border-collapse:separate; border-spacing:0 3px; font-size:0.82rem; }
   .jug-table th { font-family:'Space Mono',monospace; font-size:0.6rem; letter-spacing:0.08em; color:var(--silver); text-transform:uppercase; padding:0.4rem 0.7rem; text-align:center; cursor:pointer; white-space:nowrap; }
@@ -1041,7 +1047,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
 
     const photo2 = v(pl,'Foto');
     const avatarList = photo2
-      ? `<img src="${photo2}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.2);flex-shrink:0" onerror="this.style.display='none'">`
+      ? `<img src="${photo2}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.2);flex-shrink:0;cursor:pointer;transition:transform 0.15s" onclick="event.stopPropagation();openPhotoModal('${photo2}','${name}')" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'" onerror="this.style.display='none'">`
       : `<div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;border:2px solid rgba(255,255,255,0.15)">👤</div>`;
     return `<div class="pitch-list-row" onclick="toggleDetail('${detailId}')">
       <div class="pitch-list-name" style="display:flex;align-items:center;gap:0.7rem">
@@ -1194,6 +1200,18 @@ function renderJornades(phase, jorn) {
 }
 
 // ============================================================
+// PHOTO MODAL
+// ============================================================
+function openPhotoModal(url, name) {
+  if (!url) return;
+  const modal = document.createElement('div');
+  modal.className = 'photo-modal';
+  modal.innerHTML = `<img src="${url}" alt="${name}"><div class="modal-name">${name}</div>`;
+  modal.onclick = () => modal.remove();
+  document.body.appendChild(modal);
+}
+
+// ============================================================
 // RENDER JUGADORS TAB
 // ============================================================
 function renderJugadorsTab() {
@@ -1302,8 +1320,8 @@ function renderJugadorsTab() {
     const cs = getCountryStyle(r.equip);
     const flagBadge = cs ? `<span style="background:${cs.color};color:#fff;font-size:0.58rem;font-weight:800;padding:1px 4px;border-radius:3px;margin-right:4px;font-family:'Space Mono',monospace">${cs.abbr}</span>` : '';
     const avatar = r.foto
-      ? `<img src="${r.foto}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;border:1px solid rgba(255,255,255,0.2)" onerror="this.remove()">`
-      : `<span style="display:inline-flex;width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);align-items:center;justify-content:center;margin-right:6px;font-size:0.85rem;vertical-align:middle">👤</span>`;
+      ? `<img src="${r.foto}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;border:2px solid rgba(255,255,255,0.2);cursor:pointer;transition:transform 0.15s" onclick="event.stopPropagation();openPhotoModal('${r.foto}','${r.name}')" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" onerror="this.remove()">`
+      : `<span style="display:inline-flex;width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);align-items:center;justify-content:center;margin-right:6px;font-size:0.9rem;vertical-align:middle;flex-shrink:0">👤</span>`;
     const posClass = `pos-${(r.posicio||'MIG').toUpperCase()}`;
     const detailId = `jd-${i}`;
 
