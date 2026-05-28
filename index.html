@@ -1223,7 +1223,14 @@ function _renderTeamFull() {
     jornHtml = '<div style="display:flex;gap:0;border-bottom:1px solid var(--glass-border);margin-bottom:1rem">' +
       ['J1','J2','J3'].map(j => {
         const active = j === _activeJornada;
-        return `<button onclick="selectJorn('${j}')" style="background:none;border:none;cursor:pointer;padding:0.7rem 1rem;font-family:'Space Mono',monospace;font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:${active?'var(--gold)':'var(--silver)'};border-bottom:2px solid ${active?'var(--gold)':'transparent'}">${j}</button>`;
+        // Calcula punts de la jornada
+        const jPlayers = getPlayersForPhase(participant, 'grups');
+        const jPts = jPlayers.reduce((s, pl) => {
+          const sc = getScore(participant, v(pl,'Jugador'), 'grups', j);
+          return s + (calcScoreRow(sc, v(pl,'Posicio'), v(pl,'Jugador'), 'grups', j) || 0);
+        }, 0);
+        const badge = jPts > 0 ? `<span style="background:rgba(245,200,66,0.15);color:var(--gold);font-size:0.55rem;padding:1px 5px;border-radius:8px;margin-left:4px">${jPts}</span>` : '';
+        return `<button onclick="selectJorn('${j}')" style="background:none;border:none;cursor:pointer;padding:0.7rem 1rem;font-family:'Space Mono',monospace;font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:${active?'var(--gold)':'var(--silver)'};border-bottom:2px solid ${active?'var(--gold)':'transparent'};display:flex;align-items:center;gap:2px">${j}${badge}</button>`;
       }).join('') + '</div>';
   }
 
@@ -1799,13 +1806,7 @@ const R_PASSWORDS = {
   'NTNP':    'ntnp2026',
   'MBEMBA':  'mbemba2026',
   'PAPI':    'papi2026',
-  'PEÑA': 'pena2026',
-  'PITU': 'pitu2026',
-  'MORALES': 'morales2026',
-  'SIERRA': 'sierra2026',
-  'FERRAN': 'ferran2026',
-  'POLICHO': 'policho2026',
-  'POLSA': 'polsa2026',
+  'TETPEÑA': 'tetpena2026',
 };
 
 const R_FASE    = 'grups';
