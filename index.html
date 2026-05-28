@@ -766,10 +766,10 @@ function renderRanking() {
     const medal = pos===1?'🥇':pos===2?'🥈':pos===3?'🥉':'';
     const segs = PHASES.map(ph => {
       const pct = maxPts > 0 ? (r.byPhase[ph] / maxPts * 100) : 0;
-      return `<div class="phase-seg ${PHASE_COLORS[ph]}" style="flex:${Math.max(pct,2)}" title="${PHASE_LABELS[ph]}: ${r.byPhase[ph].toFixed(1)} pts"></div>`;
+      return `<div class="phase-seg ${PHASE_COLORS[ph]}" style="flex:${Math.max(pct,2)}" title="${PHASE_LABELS[ph]}: ${r.byPhase[ph].toFixed(0)} pts"></div>`;
     }).join('');
     const phDetails = PHASES.filter(ph => r.byPhase[ph] > 0)
-      .map(ph => `<div>${PHASE_LABELS[ph]}: <strong>${r.byPhase[ph].toFixed(1)}</strong></div>`).join('');
+      .map(ph => `<div>${PHASE_LABELS[ph]}: <strong>${r.byPhase[ph].toFixed(0)}</strong></div>`).join('');
     return `
     <div class="ranking-card rank-${pos}" onclick="openTeam('${r.name}')">
       <div class="rank-pos">${medal || pos}</div>
@@ -779,7 +779,7 @@ function renderRanking() {
         <div class="phase-bar">${segs}</div>
       </div>
       <div class="rank-gols">${phDetails}</div>
-      <div class="rank-pts">${r.total.toFixed(1)}<span>punts</span></div>
+      <div class="rank-pts">${r.total.toFixed(0)}<span>punts</span></div>
     </div>`;
   }).join('');
 }
@@ -802,7 +802,7 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   const a = sc ? parseInt(v(sc,'Assistencies')||0) : 0;
   const pts = calcScoreRow(sc, pos); // usa sistema Mister
   const avCls = note === null ? '' : note >= 8 ? 'score-high-av' : note >= 6.5 ? 'score-mid-av' : 'score-low-av';
-  const scoreBubble = pts !== null ? `<div class="score-bubble">${pts.toFixed(1)}</div>` : '';
+  const scoreBubble = pts !== null ? `<div class="score-bubble">${pts.toFixed(0)}</div>` : '';
   const pen  = sc ? parseInt(v(sc,'Penalti')||0) : 0;
   const groga = sc ? parseInt(v(sc,'DobleGroga')||0) : 0;
   const verm  = sc ? parseInt(v(sc,'Vermella')||0) : 0;
@@ -859,7 +859,7 @@ function renderPitch(participant, phase, jornada) {
     const pts = calcScoreRow(sc, v(pl,'Posicio'));
     return s + (pts || 0);
   }, 0);
-  const totalStr = total > 0 ? `${total.toFixed(1)} pts` : 'Sense puntuació';
+  const totalStr = total > 0 ? `${total.toFixed(0)} pts` : 'Sense puntuació';
 
   // Player list
   const listRows = phasePlayers.map((pl, plIdx) => {
@@ -889,7 +889,7 @@ function renderPitch(participant, phase, jornada) {
     let detailLines = '';
     if (note2 !== null) {
       const nc = notaPts >= 0 ? 'pos' : 'neg';
-      detailLines += `<div class="detail-line"><span class="dl-label">📊 Nota SofaScore <strong style="color:var(--white)">${note2.toFixed(1)}</strong></span><span class="dl-pts ${nc}">${notaPts >= 0 ? '+' : ''}${notaPts} pts</span></div>`;
+      detailLines += `<div class="detail-line"><span class="dl-label">📊 Nota SofaScore <strong style="color:var(--white)">${note2.toFixed(0)}</strong></span><span class="dl-pts ${nc}">${notaPts >= 0 ? '+' : ''}${notaPts} pts</span></div>`;
     }
     if (g2 > 0) {
       const gp = g2 * golPts(pos2);
@@ -910,16 +910,16 @@ function renderPitch(participant, phase, jornada) {
     if (!detailLines) {
       detailLines = `<div class="detail-line" style="justify-content:center;opacity:0.5">Sense puntuació registrada</div>`;
     } else {
-      detailLines += `<div class="detail-total-line"><span>Total</span><span>${pts2 !== null ? pts2.toFixed(1) : '—'} pts</span></div>`;
+      detailLines += `<div class="detail-total-line"><span>Total</span><span>${pts2 !== null ? pts2.toFixed(0) : '—'} pts</span></div>`;
     }
 
     return `<div class="pitch-list-row" onclick="toggleDetail('${detailId}')">
       <div class="pitch-list-name">${name}<span class="pos-badge ${posClass}" style="margin-left:6px">${pos2}</span>
         <small>${flag2} ${v(pl,'Equip')}</small>
       </div>
-      <div class="pitch-list-note"><span class="score-chip ${cls2}">${note2 !== null ? note2.toFixed(1) : '—'}</span></div>
+      <div class="pitch-list-note"><span class="score-chip ${cls2}">${note2 !== null ? note2.toFixed(0) : '—'}</span></div>
       <div class="pitch-list-bonus">${bonusStr}</div>
-      <div class="pitch-list-total">${pts2 !== null ? pts2.toFixed(1) : '—'}</div>
+      <div class="pitch-list-total">${pts2 !== null ? pts2.toFixed(0) : '—'}</div>
       <div class="pitch-detail" id="${detailId}">${detailLines}</div>
     </div>`;
   }).join('');
@@ -991,7 +991,7 @@ function renderTeam(participant) {
   // Phase tabs with pts badges
   const phaseTabs = PHASES.map(ph => {
     const phTotal = getPlayersForPhase(participant, ph).reduce((s,pl) => s + calcPlayerPhasePts(participant, v(pl,'Jugador'), ph), 0);
-    const badge = phTotal > 0 ? `<span class="pts-badge">${phTotal.toFixed(1)}</span>` : '';
+    const badge = phTotal > 0 ? `<span class="pts-badge">${phTotal.toFixed(0)}</span>` : '';
     return `<button class="phase-tab-btn ${ph===currentPhaseTab?'active':''}"
       onclick="switchPhaseTab('${participant}','${ph}')">${PHASE_ICONS[ph]} ${PHASE_LABELS[ph]}${badge}</button>`;
   }).join('');
@@ -1002,7 +1002,7 @@ function renderTeam(participant) {
         <div class="team-name-big">${participant}</div>
         <div class="team-stats-row">
           <div class="team-stat"><div class="team-stat-val">#${pos}</div><div class="team-stat-lbl">Posició</div></div>
-          <div class="team-stat"><div class="team-stat-val">${total.toFixed(1)}</div><div class="team-stat-lbl">Punts totals</div></div>
+          <div class="team-stat"><div class="team-stat-val">${total.toFixed(0)}</div><div class="team-stat-lbl">Punts totals</div></div>
           <div class="team-stat"><div class="team-stat-val">${goals}</div><div class="team-stat-lbl">Gols</div></div>
           <div class="team-stat"><div class="team-stat-val">${players.length}/11</div><div class="team-stat-lbl">Jugadors</div></div>
         </div>
@@ -1048,7 +1048,7 @@ function renderJornades(phase, jorn) {
       <div class="rank-pos">${i+1}</div>
       <div><div class="rank-card-name">${r.name}</div><div class="rank-card-sub">${PHASE_LABELS[phase]} · ${jorn}</div></div>
       <div></div>
-      <div class="rank-pts">${r.pts.toFixed(1)}<span>pts jornada</span></div>
+      <div class="rank-pts">${r.pts.toFixed(0)}<span>pts jornada</span></div>
     </div>`).join('')}</div>`;
 }
 
