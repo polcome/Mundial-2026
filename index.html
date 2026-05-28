@@ -1084,10 +1084,23 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
     if (verm2 > 0) {
       detailLines += `<div class="detail-line"><span class="dl-label">🟥 Targeta vermella</span><span class="dl-pts neg">-6 pts</span></div>`;
     }
+    const isDetCapita = rSpinResult && norm(name) === norm(rSpinResult) &&
+      norm(phase) === norm(R_FASE) && norm(jornada) === norm(R_JORNADA);
     if (!detailLines) {
       detailLines = `<div class="detail-line" style="justify-content:center;opacity:0.5">Sense puntuació registrada</div>`;
     } else {
-      detailLines += `<div class="detail-total-line"><span>Total</span><span>${pts2 !== null ? pts2.toFixed(0) : '—'} pts</span></div>`;
+      if (isDetCapita && pts2 !== null) {
+        const base2 = Math.round(pts2/2);
+        detailLines += `<div class="detail-line" style="border-top:1px solid rgba(245,200,66,0.2);margin-top:4px;padding-top:6px">
+          <span class="dl-label" style="color:var(--silver)">Subtotal base</span>
+          <span class="dl-pts neu">${base2} pts</span>
+        </div>
+        <div class="detail-line" style="background:rgba(245,200,66,0.08);border-radius:6px;padding:4px 6px">
+          <span class="dl-label" style="color:var(--gold);font-weight:700">⭐ Capità ×2</span>
+          <span class="dl-pts pos">+${base2} pts</span>
+        </div>`;
+      }
+      detailLines += `<div class="detail-total-line"><span>${isDetCapita ? '⭐ Total Capità' : 'Total'}</span><span style="color:${isDetCapita?'var(--gold)':'var(--gold)'}">${pts2 !== null ? pts2.toFixed(0) : '—'} pts</span></div>`;
     }
 
     // Build bonus chips
@@ -1102,11 +1115,14 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
     const avatarList = photo2
       ? `<img src="${photo2}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.2);flex-shrink:0;cursor:pointer;transition:transform 0.15s" onclick="event.stopPropagation();openPhotoModal('${photo2}','${name}')" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'" onerror="this.style.display='none'">`
       : `<div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;border:2px solid rgba(255,255,255,0.15)">👤</div>`;
-    return `<div class="pitch-list-row" onclick="toggleDetail('${detailId}')">
+    const isListCapita = rSpinResult && norm(name) === norm(rSpinResult) &&
+      norm(phase) === norm(R_FASE) && norm(jornada) === norm(R_JORNADA);
+    return `<div class="pitch-list-row" onclick="toggleDetail('${detailId}')" style="${isListCapita ? 'border-color:rgba(245,200,66,0.4);background:rgba(245,200,66,0.06)' : ''}">
       <div class="pitch-list-name" style="display:flex;align-items:center;gap:0.7rem">
         ${avatarList}
         <div>
           ${name}<span class="pos-badge ${posClass}" style="margin-left:6px">${pos2}</span>
+          ${isListCapita ? `<span style="background:var(--gold);color:var(--ink);font-family:'Bebas Neue',cursive;font-size:0.55rem;padding:1px 5px;border-radius:10px;margin-left:4px;letter-spacing:0.05em">⭐ ×2</span>` : ''}
           <small>${flag2} ${v(pl,'Equip')}</small>
         </div>
       </div>
@@ -1309,6 +1325,10 @@ function openPlayerCard(name, participant, phase, jornada) {
     ? `<img class="card-photo" src="${foto}" onerror="this.outerHTML='<div class=card-no-photo>👤</div>'">`
     : `<div class="card-no-photo">👤</div>`;
 
+  const isCardCapita = rSpinResult && norm(name) === norm(rSpinResult) &&
+    norm(phase) === norm(R_FASE) && norm(jornada) === norm(R_JORNADA);
+  const basePts = pts !== null ? (isCardCapita ? Math.round(pts/2) : pts) : null;
+
   const statsRows = [
     nota !== null ? `<div class="card-stat-row"><span>📊 Nota SofaScore</span><span style="display:flex;gap:8px;align-items:center"><span class="score-chip ${notaCls}">${nota.toFixed(1)}</span><span class="val">${notaPts>=0?'+':''}${notaPts} pts</span></span></div>` : '',
     gols    > 0 ? `<div class="card-stat-row"><span>⚽ Gols (${posicio} +${golPts(posicio)}pts/gol)</span><span class="val" style="color:#6EE89A">+${gols * golPts(posicio)} pts</span></div>` : '',
@@ -1316,6 +1336,7 @@ function openPlayerCard(name, participant, phase, jornada) {
     penals  > 0 ? `<div class="card-stat-row"><span>🥅 Gols de penal ×${penals}</span><span class="val" style="color:#6EE89A">+${penals*3} pts</span></div>` : '',
     dgroga  > 0 ? `<div class="card-stat-row"><span>🟨 Doble groga</span><span class="val" style="color:#F5C842">-3 pts</span></div>` : '',
     verm    > 0 ? `<div class="card-stat-row"><span>🟥 Targeta vermella</span><span class="val" style="color:#F58080">-6 pts</span></div>` : '',
+    isCardCapita && basePts !== null ? `<div class="card-divider"></div><div class="card-stat-row"><span style="color:var(--gold)">⭐ Capità — subtotal</span><span class="val" style="color:var(--silver)">${basePts} pts</span></div><div class="card-stat-row" style="background:rgba(245,200,66,0.1);border-radius:6px;padding:4px 6px"><span style="color:var(--gold);font-weight:700">✕2 Bonus Capità</span><span class="val" style="color:var(--gold)">+${basePts} pts</span></div>` : '',
   ].filter(Boolean).join('');
 
   const noDataMsg = !sc ? '<div style="color:var(--silver);font-size:0.82rem;opacity:0.7;text-align:center;padding:0.5rem 0">Sense puntuació registrada</div>' : '';
@@ -1326,7 +1347,10 @@ function openPlayerCard(name, participant, phase, jornada) {
     <div class="player-card-modal" onclick="event.stopPropagation()">
       ${photoHtml}
       <div class="card-body">
-        <div class="card-name">${name}</div>
+        <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.3rem">
+          <div class="card-name" style="margin-bottom:0">${name}</div>
+          ${isCardCapita ? `<span style="background:var(--gold);color:var(--ink);font-family:'Bebas Neue',cursive;font-size:0.8rem;padding:2px 8px;border-radius:20px;letter-spacing:0.05em">⭐ CAPITÀ</span>` : ''}
+        </div>
         <div class="card-meta">${flagBadge}${equip ? `<span style="font-size:0.82rem;color:var(--silver)">${equip}</span>` : ''}${posBadge}</div>
         ${statsRows || noDataMsg}
         ${pts !== null ? `<div class="card-total"><span class="card-total-label">Total ${PHASE_LABELS[phase]}</span><span class="card-total-pts">${pts} pts</span></div>` : ''}
