@@ -832,11 +832,11 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   const cs = plData ? getCountryStyle(v(plData,'Equip')) : null;
   const flagBadge = cs ? `<div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);background:${cs.color};color:#fff;font-size:0.58rem;font-weight:800;padding:1px 5px;border-radius:4px;font-family:'Space Mono',monospace;white-space:nowrap;border:1px solid rgba(255,255,255,0.3)">${cs.abbr}</div>` : '';
   const photoUrl = plData ? v(plData,'Foto') : '';
-  const avatarInner = photoUrl
-    ? `<img src="${photoUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentElement.innerHTML='👤${scoreBubble}${flagBadge}'">${scoreBubble}${flagBadge}`
-    : `👤${scoreBubble}${flagBadge}`;
+  const photoHtml = photoUrl
+    ? `<img src="${photoUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;position:absolute;inset:0" onerror="this.remove()">`
+    : '';
   return `<div class="player-pin">
-    <div class="avatar ${avCls}" style="${photoUrl?'overflow:visible;':''}">${avatarInner}</div>
+    <div class="avatar ${avCls}" style="overflow:hidden;position:relative">${photoHtml}<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.4rem;z-index:0">👤</span>${scoreBubble}${flagBadge}</div>
     <div class="pname">${shortName}</div>
     ${goals}
   </div>`;
