@@ -958,7 +958,7 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   // Use escaped participant name to avoid quote issues in onclick
   const safeParticipant = (participant||_activeParticipant).replace(/'/g, "\'");
   const safeName = name.replace(/'/g, "\'");
-  return `<div class="player-pin" onclick="openPlayerCard('${safeName}','${safeParticipant}','${phase}','${jornada}')" style="cursor:pointer">
+  return `<div class="player-pin" onclick="openPlayerCard('${safeName}','${safeParticipant}','${phase}','${jorn}')" style="cursor:pointer">
     <div class="avatar ${avCls}" style="overflow:visible;position:relative;transition:transform 0.15s" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform=''">${innerHtml}${scoreBubbleZ}${flagBadgeZ}</div>
     <div class="pname">${shortName}</div>
     ${goals}
