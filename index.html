@@ -1846,7 +1846,7 @@ const R_PASSWORDS = {
 };
 
 // FASE_ACTIVA_GLOBAL/JORNADA_ACTIVA_GLOBAL ara llegits del Sheet via FASE_ACTIVA_GLOBAL/JORNADA_ACTIVA_GLOBAL
-const true = true; // canvia a false per producció
+const R_MODE_PROVES = true; // canvia a false per producció
 
 let rParticipant = '';
 let rSpinResult  = null;  // capità de l'usuari actiu (per la ruleta)
@@ -1948,7 +1948,7 @@ function rRenderMain(rPlayers) {
   const el = document.getElementById('ruletaTabContent');
   if (!el) return;
 
-  const testBanner = true ? `
+  const testBanner = R_MODE_PROVES ? `
     <div class="test-banner">⚠️ <div><strong>MODE DE PROVES</strong> — Pots girar tantes vegades com vulguis i resetar. En producció, 1 sol intent.</div></div>` : '';
 
   const infoRows = `
