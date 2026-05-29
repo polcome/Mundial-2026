@@ -1010,7 +1010,7 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   const note = parseNota(v(sc,'Nota'));
   const g = sc ? parseInt(v(sc,'Gols')||0) : 0;
   const a = sc ? parseInt(v(sc,'Assistencies')||0) : 0;
-  const pts = calcScoreRow(sc, pos, name, phase, jorn); // usa sistema Mister
+  const pts = calcScoreRow(sc, pos, name, phase, jorn, participant||_activeParticipant); // usa sistema Mister
   const avCls = note === null ? '' : note >= 8 ? 'score-high-av' : note >= 6.5 ? 'score-mid-av' : 'score-low-av';
 
   const pen  = sc ? parseInt(v(sc,'Penalti')||0) : 0;
@@ -1103,7 +1103,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
   const total = phasePlayers.reduce((s,pl) => {
     let sc = getScore(participant, v(pl,'Jugador'), phase, jornada);
     if (!sc && tryJ1Fallback && jornada === 'E1') sc = getScore(participant, v(pl,'Jugador'), phase, 'J1');
-    const pts = calcScoreRow(sc, v(pl,'Posicio'), v(pl,'Jugador'), phase, jornada);
+    const pts = calcScoreRow(sc, v(pl,'Posicio'), v(pl,'Jugador'), phase, jornada, participant);
     return s + (pts || 0);
   }, 0);
   const totalStr = total > 0 ? `${total.toFixed(0)} pts` : 'Sense puntuació';
@@ -1119,7 +1119,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
     const pen2 = sc2 ? parseInt(v(sc2,'Penalti')||0) : 0;
     const groga2 = sc2 ? parseInt(v(sc2,'DobleGroga')||0) : 0;
     const verm2 = sc2 ? parseInt(v(sc2,'Vermella')||0) : 0;
-    const pts2 = calcScoreRow(sc2, pos2, name, phase, jornada);
+    const pts2 = calcScoreRow(sc2, pos2, name, phase, jornada, participant);
     const cls2 = note2 === null ? 'score-empty' : note2 >= 8 ? 'score-high' : note2 >= 6.5 ? 'score-mid' : 'score-low';
     const posClass = `pos-${pos2}`;
     const flag2 = getFlag(v(pl,'Equip'));
@@ -1155,22 +1155,33 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
     if (verm2 > 0) {
       detailLines += `<div class="detail-line"><span class="dl-label">🟥 Targeta vermella</span><span class="dl-pts neg">-6 pts</span></div>`;
     }
-    const isDetCapita = norm(phase) === norm(FASE_ACTIVA_GLOBAL) && norm(jornada) === norm(JORNADA_ACTIVA_GLOBAL) && isCapitaAny(name);
-    if (!detailLines) {
+    const faseActDet = norm(phase) === norm(FASE_ACTIVA_GLOBAL) && norm(jornada) === norm(JORNADA_ACTIVA_GLOBAL);
+    const isDetCapita = faseActDet && isCapitaAny(name);
+    const isDetAnulat = faseActDet && participant && isJugadorAnulat(participant, name);
+    const isDetCap2   = faseActDet && participant && isSegonCapita(participant, name);
+    const detCapMult  = (isDetCapita && participant) ? getCapitaMultiplier(participant) : (isDetCap2 ? 2 : 0);
+    if (isDetAnulat) {
+      detailLines = `<div class="detail-line" style="background:rgba(248,113,113,0.1);border-radius:6px;padding:6px;justify-content:center">
+        <span style="color:#F87171;font-weight:700">🚫 Jugador anulat per carta rival — 0 pts</span>
+      </div>`;
+    } else if (!detailLines) {
       detailLines = `<div class="detail-line" style="justify-content:center;opacity:0.5">Sense puntuació registrada</div>`;
     } else {
-      if (isDetCapita && pts2 !== null) {
-        const base2 = Math.round(pts2/2);
+      if (detCapMult > 0 && pts2 !== null) {
+        const base2 = Math.round(pts2 / detCapMult);
+        const isGreen = detCapMult === 4;
+        const color = isGreen ? '#4ADE80' : 'var(--gold)';
         detailLines += `<div class="detail-line" style="border-top:1px solid rgba(245,200,66,0.2);margin-top:4px;padding-top:6px">
           <span class="dl-label" style="color:var(--silver)">Subtotal base</span>
           <span class="dl-pts neu">${base2} pts</span>
         </div>
-        <div class="detail-line" style="background:rgba(245,200,66,0.08);border-radius:6px;padding:4px 6px">
-          <span class="dl-label" style="color:var(--gold);font-weight:700">⭐ Capità ×2</span>
-          <span class="dl-pts pos">+${base2} pts</span>
+        <div class="detail-line" style="background:${isGreen?'rgba(34,197,94,0.08)':'rgba(245,200,66,0.08)'};border-radius:6px;padding:4px 6px">
+          <span class="dl-label" style="color:${color};font-weight:700">⭐ ${isDetCap2?'2n Capità':'Capità'} ×${detCapMult}</span>
+          <span class="dl-pts pos" style="color:${color}">+${pts2-base2} pts</span>
         </div>`;
       }
-      detailLines += `<div class="detail-total-line"><span>${isDetCapita ? '⭐ Total Capità' : 'Total'}</span><span style="color:${isDetCapita?'var(--gold)':'var(--gold)'}">${pts2 !== null ? pts2.toFixed(0) : '—'} pts</span></div>`;
+      const totalLabel = detCapMult===4 ? '🟢 Total Capità ×4' : detCapMult>0 ? '⭐ Total Capità' : 'Total';
+      detailLines += `<div class="detail-total-line"><span>${totalLabel}</span><span style="color:${detCapMult===4?'#4ADE80':'var(--gold)'}">${pts2 !== null ? pts2.toFixed(0) : '—'} pts</span></div>`;
     }
 
     // Build bonus chips
@@ -1299,7 +1310,7 @@ function _renderTeamFull() {
         const jPlayers = getPlayersForPhase(participant, 'grups');
         const jPts = jPlayers.reduce((s, pl) => {
           const sc = getScore(participant, v(pl,'Jugador'), 'grups', j);
-          return s + (calcScoreRow(sc, v(pl,'Posicio'), v(pl,'Jugador'), 'grups', j) || 0);
+          return s + (calcScoreRow(sc, v(pl,'Posicio'), v(pl,'Jugador'), 'grups', j, participant) || 0);
         }, 0);
         const badge = jPts > 0 ? `<span style="background:rgba(245,200,66,0.15);color:var(--gold);font-size:0.55rem;padding:1px 5px;border-radius:8px;margin-left:4px">${jPts}</span>` : '';
         return `<button onclick="selectJorn('${j}')" style="background:none;border:none;cursor:pointer;padding:0.7rem 1rem;font-family:'Space Mono',monospace;font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:${active?'var(--gold)':'var(--silver)'};border-bottom:2px solid ${active?'var(--gold)':'transparent'};display:flex;align-items:center;gap:2px">${j}${badge}</button>`;
@@ -1401,7 +1412,7 @@ function openPlayerCard(name, participant, phase, jornada) {
   const penals  = sc ? parseInt(v(sc,'Penalti')||0)         : 0;
   const dgroga  = sc ? parseInt(v(sc,'DobleGroga')||0)      : 0;
   const verm    = sc ? parseInt(v(sc,'Vermella')||0)        : 0;
-  const pts     = calcScoreRow(sc, posicio, name, phase, jornada);
+  const pts     = calcScoreRow(sc, posicio, name, phase, jornada, participant);
   const notaPts = nota !== null ? notaToPts(nota) : null;
   const notaCls = nota === null ? 'score-empty' : nota >= 8 ? 'score-high' : nota >= 6.5 ? 'score-mid' : 'score-low';
 
@@ -1503,7 +1514,7 @@ function renderJugadorsTab() {
           const pen = parseInt(v(sc,'Penalti')||0);
           const dg = parseInt(v(sc,'DobleGroga')||0);
           const vm = parseInt(v(sc,'Vermella')||0);
-          const pts = calcScoreRow(sc, posicio, name, ph, jorn);
+          const pts = calcScoreRow(sc, posicio, name, ph, jorn, p);
           if (nota !== null) { notaSum += nota; notaCount++; }
           phPts += pts||0; phGols += g; phAssists += a; phPenals += pen; phDG += dg; phV += vm;
           jornDetails.push({ jorn, nota, g, a, pen, dg, vm, pts });
