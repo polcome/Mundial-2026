@@ -690,7 +690,7 @@ function calcScoreRow(sc, pos, jugador, fase, jornada) {
   const base = nota + gols * golPts(pos) + assists * 2 + penalti * 3 + doblegroga * (-3) + vermella * (-6);
   // Capità puntua el doble — comprova si és capità de qualsevol equip
   const isCapita = jugador && fase && jornada &&
-    norm(fase) === norm(R_FASE) && norm(jornada) === norm(R_JORNADA) &&
+    norm(fase) === norm(FASE_ACTIVA_GLOBAL) && norm(jornada) === norm(JORNADA_ACTIVA_GLOBAL) &&
     isCapitaAny(jugador);
   return isCapita ? base * 2 : base;
 }
@@ -1012,7 +1012,7 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   // scoreBubble i flagBadge van a z-index 10 per sobre de tot
   const scoreBubbleZ = pts !== null ? `<div style="position:absolute;top:-7px;right:-7px;z-index:10;background:var(--ink);border:1.5px solid var(--gold);color:var(--gold);font-family:'Space Mono',monospace;font-size:0.6rem;font-weight:700;padding:2px 5px;border-radius:5px;white-space:nowrap">${pts}</div>` : '';
   // Captain badge — shown if this player is the captain for current jornada
-  const isCapita = norm(phase) === norm(R_FASE) && norm(jorn) === norm(R_JORNADA) && isCapitaAny(name);
+  const isCapita = norm(phase) === norm(FASE_ACTIVA_GLOBAL) && norm(jorn) === norm(JORNADA_ACTIVA_GLOBAL) && isCapitaAny(name);
   const captainBadgeZ = isCapita ? `<div style="position:absolute;top:-7px;left:-7px;z-index:10;background:var(--gold);color:var(--ink);font-family:'Bebas Neue',cursive;font-size:0.65rem;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid var(--ink);box-shadow:0 0 8px rgba(245,200,66,0.6)">C</div>` : '';
   const flagBadgeZ = cs ? `<div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);z-index:10;background:${cs.color};color:#fff;font-size:0.58rem;font-weight:800;padding:1px 5px;border-radius:4px;font-family:'Space Mono',monospace;white-space:nowrap;border:1px solid rgba(255,255,255,0.3)">${cs.abbr}</div>` : '';
 
@@ -1120,7 +1120,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
     if (verm2 > 0) {
       detailLines += `<div class="detail-line"><span class="dl-label">🟥 Targeta vermella</span><span class="dl-pts neg">-6 pts</span></div>`;
     }
-    const isDetCapita = norm(phase) === norm(R_FASE) && norm(jornada) === norm(R_JORNADA) && isCapitaAny(name);
+    const isDetCapita = norm(phase) === norm(FASE_ACTIVA_GLOBAL) && norm(jornada) === norm(JORNADA_ACTIVA_GLOBAL) && isCapitaAny(name);
     if (!detailLines) {
       detailLines = `<div class="detail-line" style="justify-content:center;opacity:0.5">Sense puntuació registrada</div>`;
     } else {
@@ -1150,7 +1150,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
     const avatarList = photo2
       ? `<img src="${photo2}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.2);flex-shrink:0;cursor:pointer;transition:transform 0.15s" onclick="event.stopPropagation();openPhotoModal('${photo2}','${name}')" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'" onerror="this.style.display='none'">`
       : `<div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;border:2px solid rgba(255,255,255,0.15)">👤</div>`;
-    const isListCapita = norm(phase) === norm(R_FASE) && norm(jornada) === norm(R_JORNADA) && isCapitaAny(name);
+    const isListCapita = norm(phase) === norm(FASE_ACTIVA_GLOBAL) && norm(jornada) === norm(JORNADA_ACTIVA_GLOBAL) && isCapitaAny(name);
     return `<div class="pitch-list-row" onclick="toggleDetail('${detailId}')" style="${isListCapita ? 'border-color:rgba(245,200,66,0.4);background:rgba(245,200,66,0.06)' : ''}">
       <div class="pitch-list-name" style="display:flex;align-items:center;gap:0.7rem">
         ${avatarList}
@@ -1366,7 +1366,7 @@ function openPlayerCard(name, participant, phase, jornada) {
     ? `<img class="card-photo" src="${foto}" onerror="this.outerHTML='<div class=card-no-photo>👤</div>'">`
     : `<div class="card-no-photo">👤</div>`;
 
-  const isCardCapita = norm(phase) === norm(R_FASE) && norm(jornada) === norm(R_JORNADA) && isCapitaAny(name);
+  const isCardCapita = norm(phase) === norm(FASE_ACTIVA_GLOBAL) && norm(jornada) === norm(JORNADA_ACTIVA_GLOBAL) && isCapitaAny(name);
   const basePts = pts !== null ? (isCardCapita ? Math.round(pts/2) : pts) : null;
 
   const statsRows = [
@@ -1845,10 +1845,8 @@ const R_PASSWORDS = {
   'FERRAN': 'ferran2026',
 };
 
-const R_FASE    = 'grups';
-const R_JORNADA = 'J1';
-const R_LABEL   = 'Fase de Grups — Jornada 1';
-const R_MODE_PROVES = true; // canvia a false per producció
+// FASE_ACTIVA_GLOBAL/JORNADA_ACTIVA_GLOBAL ara llegits del Sheet via FASE_ACTIVA_GLOBAL/JORNADA_ACTIVA_GLOBAL
+const true = true; // canvia a false per producció
 
 let rParticipant = '';
 let rSpinResult  = null;  // capità de l'usuari actiu (per la ruleta)
@@ -1922,7 +1920,7 @@ async function rLoadRuleta() {
   el.innerHTML = `<div style="text-align:center;padding:3rem"><div class="spinner"></div><p style="color:var(--silver);margin-top:0.5rem">Carregant...</p></div>`;
 
   // Jugadors de l'equip (de la fase activa)
-  const rPlayers = getPlayersForPhase(rParticipant, R_FASE);
+  const rPlayers = getPlayersForPhase(rParticipant, FASE_ACTIVA_GLOBAL);
 
   // Capità actual del Sheet
   let rCapita = null;
@@ -1935,8 +1933,8 @@ async function rLoadRuleta() {
     const rows = parseSheet(json);
     const found = rows.find(r =>
       norm(v(r,'Participant')) === norm(rParticipant) &&
-      norm(v(r,'Fase'))        === norm(R_FASE) &&
-      norm(v(r,'Jornada'))     === norm(R_JORNADA)
+      norm(v(r,'Fase'))     === norm(FASE_ACTIVA_GLOBAL) &&
+      norm(v(r,'Jornada'))  === norm(JORNADA_ACTIVA_GLOBAL)
     );
     if (found) rCapita = v(found,'Capita');
   } catch(e) { console.warn('Error llegint Capitans:', e); }
@@ -1950,14 +1948,14 @@ function rRenderMain(rPlayers) {
   const el = document.getElementById('ruletaTabContent');
   if (!el) return;
 
-  const testBanner = R_MODE_PROVES ? `
+  const testBanner = true ? `
     <div class="test-banner">⚠️ <div><strong>MODE DE PROVES</strong> — Pots girar tantes vegades com vulguis i resetar. En producció, 1 sol intent.</div></div>` : '';
 
   const infoRows = `
     <div style="display:flex;flex-direction:column;gap:0.4rem;margin-bottom:1.2rem;max-width:480px;margin-left:auto;margin-right:auto">
       <div style="display:flex;justify-content:space-between;background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;padding:0.6rem 1rem;font-size:0.82rem">
         <span style="color:var(--silver)">📅 Fase activa</span>
-        <span style="font-family:'Space Mono',monospace;font-size:0.75rem">${R_LABEL}</span>
+        <span style="font-family:'Space Mono',monospace;font-size:0.75rem">${`${PHASE_LABELS[FASE_ACTIVA_GLOBAL]||FASE_ACTIVA_GLOBAL} — ${JORNADA_ACTIVA_GLOBAL}`}</span>
       </div>
       <div style="display:flex;justify-content:space-between;background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;padding:0.6rem 1rem;font-size:0.82rem">
         <span style="color:var(--silver)">👥 Jugadors disponibles</span>
@@ -1980,15 +1978,15 @@ function rRenderMain(rPlayers) {
 
     mainContent = `
       <div class="ruleta-result">
-        <div class="c-badge">⭐ CAPITÀ DE LA ${R_JORNADA}</div>
+        <div class="c-badge">⭐ CAPITÀ DE LA ${JORNADA_ACTIVA_GLOBAL}</div>
         ${avatarHtml}
         <div class="c-name">${rSpinResult}</div>
         <div class="c-sub">${equip} · ${posicio}</div>
         <div style="font-size:0.82rem;color:var(--silver);background:rgba(0,0,0,0.2);border-radius:8px;padding:0.7rem 1rem;margin-bottom:1rem">
-          Aquest jugador <strong style="color:var(--gold)">puntua el doble</strong> durant la ${R_JORNADA} de ${R_LABEL}.
+          Aquest jugador <strong style="color:var(--gold)">puntua el doble</strong> durant la ${JORNADA_ACTIVA_GLOBAL} de ${`${PHASE_LABELS[FASE_ACTIVA_GLOBAL]||FASE_ACTIVA_GLOBAL} — ${JORNADA_ACTIVA_GLOBAL}`}.
         </div>
       </div>
-      ${R_MODE_PROVES ? `<div style="display:flex;gap:0.6rem;max-width:480px;margin:1rem auto 0">
+      ${true ? `<div style="display:flex;gap:0.6rem;max-width:480px;margin:1rem auto 0">
         <button onclick="rResetCapita()" style="flex:1;background:rgba(224,52,52,0.2);border:1px solid rgba(224,52,52,0.3);color:#F58080;border-radius:8px;padding:0.55rem 1rem;cursor:pointer;font-size:0.8rem;font-weight:700">🗑️ Reset</button>
         <button onclick="rLoadRuleta()" style="flex:1;background:var(--glass);border:1px solid var(--glass-border);color:var(--silver);border-radius:8px;padding:0.55rem 1rem;cursor:pointer;font-size:0.8rem">🔄 Recarregar</button>
       </div>` : ''}`;
@@ -2027,7 +2025,7 @@ function rRenderMain(rPlayers) {
 
 function rDoSpin() {
   if (rSpinning) return;
-  const rPlayers = getPlayersForPhase(rParticipant, R_FASE);
+  const rPlayers = getPlayersForPhase(rParticipant, FASE_ACTIVA_GLOBAL);
   if (!rPlayers.length) return;
   rSpinning = true;
 
@@ -2062,7 +2060,7 @@ function rDoSpin() {
 async function rSaveCapita(jugador, rPlayers) {
   document.getElementById('ruletaTabContent').innerHTML += '';
   try {
-    await rPost({action:'set_capita', participant:rParticipant, fase:R_FASE, jornada:R_JORNADA, capita:jugador});
+    await rPost({action:'set_capita', participant:rParticipant, fase:FASE_ACTIVA_GLOBAL, jornada:JORNADA_ACTIVA_GLOBAL, capita:jugador});
   } catch(e) { console.warn('Error guardant capità:', e); }
   rSpinResult = jugador;
   _capitansMap[norm(rParticipant)] = jugador;
@@ -2073,7 +2071,7 @@ async function rSaveCapita(jugador, rPlayers) {
 
 async function rResetCapita() {
   if (!confirm('Esborrar el capità actual? (mode proves)')) return;
-  try { await rPost({action:'reset_capita', participant:rParticipant, fase:R_FASE, jornada:R_JORNADA}); }
+  try { await rPost({action:'reset_capita', participant:rParticipant, fase:FASE_ACTIVA_GLOBAL, jornada:JORNADA_ACTIVA_GLOBAL}); }
   catch(e) { console.warn('Error reset:', e); }
   rSpinResult = null;
   rLoadRuleta();
@@ -2405,6 +2403,8 @@ async function cGastar(params) {
       action: 'gastar_carta',
       participant: cParticipant,
       carta: params.carta,
+      fase: FASE_ACTIVA_GLOBAL,
+      jornada: JORNADA_ACTIVA_GLOBAL,
       detall: JSON.stringify(params)
     });
   } catch(e) { console.warn('Error guardant carta:', e); }
@@ -2464,6 +2464,23 @@ async function init() {
   teamSel.innerHTML = participants.map(p => `<option value="${p}">${p}</option>`).join('');
   if (participants.length) { selectTeam(participants[0]); }
 
+  // Carrega configuració activa (fase i jornada)
+  try {
+    const cfgUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Config&_=${Date.now()}`;
+    const cfgRes = await fetch(cfgUrl, {cache:'no-store'});
+    const cfgText = await cfgRes.text();
+    const cfgStart = cfgText.indexOf('('), cfgEnd = cfgText.lastIndexOf(')');
+    const cfgJson = JSON.parse(cfgText.slice(cfgStart+1, cfgEnd));
+    const cfgRows = parseSheet(cfgJson);
+    cfgRows.forEach(r => {
+      const clau = norm(v(r,'Clau'));
+      const valor = v(r,'Valor');
+      if (clau === 'fase_activa')    FASE_ACTIVA_GLOBAL    = valor;
+      if (clau === 'jornada_activa') JORNADA_ACTIVA_GLOBAL = valor;
+    });
+    console.log('Config carregada:', FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
+  } catch(e) { console.warn('Error carregant Config:', e); }
+
   // Carrega TOTS els capitans de tots els equips
   try {
     const capUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Capitans&_=${Date.now()}`;
@@ -2475,7 +2492,7 @@ async function init() {
     // Construeix mapa de tots els capitans actius (fase i jornada actuals)
     _capitansMap = {};
     capRows.forEach(r => {
-      if (norm(v(r,'Fase')) === norm(R_FASE) && norm(v(r,'Jornada')) === norm(R_JORNADA)) {
+      if (norm(v(r,'Fase')) === norm(FASE_ACTIVA_GLOBAL) && norm(v(r,'Jornada')) === norm(JORNADA_ACTIVA_GLOBAL)) {
         const cap = v(r,'Capita');
         if (cap) _capitansMap[norm(v(r,'Participant'))] = cap;
       }
