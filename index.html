@@ -132,6 +132,30 @@
   .spin-btn { font-size:1rem; padding:1rem 2rem; border-radius:12px; width:100%; }
   .captain-badge { position:absolute; top:-6px; left:-6px; z-index:15; background:var(--gold); color:var(--ink); font-family:'Bebas Neue',cursive; font-size:0.65rem; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid var(--ink); box-shadow:0 0 8px rgba(245,200,66,0.5); }
 
+  /* CARTES DE PODER */
+  .carta-reveal { background:linear-gradient(135deg,rgba(107,33,168,0.3),rgba(147,51,234,0.1)); border:2px solid rgba(147,51,234,0.5); border-radius:20px; padding:2rem 1.5rem; text-align:center; animation:popIn 0.5s ease; margin-bottom:1.5rem; max-width:480px; margin-left:auto; margin-right:auto; }
+  .carta-icon-big { font-size:4rem; margin-bottom:0.8rem; display:block; }
+  .carta-nom-big { font-family:'Bebas Neue',cursive; font-size:2.2rem; line-height:1; margin-bottom:0.5rem; }
+  .carta-desc-text { font-size:0.88rem; color:var(--silver); line-height:1.6; margin-bottom:1.2rem; }
+  .estat-badge { display:inline-block; padding:4px 14px; border-radius:20px; font-family:'Space Mono',monospace; font-size:0.65rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; }
+  .estat-disponible { background:rgba(34,197,94,0.2); border:1px solid rgba(34,197,94,0.4); color:#4ADE80; }
+  .estat-gastada { background:rgba(224,52,52,0.2); border:1px solid rgba(224,52,52,0.4); color:#F87171; }
+  .carta-accio-panel { background:var(--glass); border:1px solid var(--glass-border); border-radius:16px; padding:1.5rem; margin-bottom:1rem; max-width:480px; margin-left:auto; margin-right:auto; }
+  .carta-accio-panel h3 { font-family:'Space Mono',monospace; font-size:0.7rem; letter-spacing:0.15em; text-transform:uppercase; color:var(--gold); margin-bottom:1rem; }
+  .carta-form-row { display:flex; gap:0.5rem; margin-bottom:0.7rem; align-items:center; flex-wrap:wrap; }
+  .carta-form-row label { font-size:0.8rem; color:var(--silver); min-width:6rem; }
+  .carta-form-row select { background:rgba(255,255,255,0.07); border:1px solid var(--glass-border); border-radius:6px; padding:0.45rem 0.7rem; color:var(--white); font-family:'DM Sans',sans-serif; font-size:0.85rem; flex:1; }
+  .carta-form-row select:focus { outline:none; border-color:var(--gold); }
+  .comodi-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; margin-bottom:1rem; }
+  .comodi-opt { background:var(--glass); border:1px solid var(--glass-border); border-radius:12px; padding:1rem; cursor:pointer; transition:all 0.2s; text-align:center; }
+  .comodi-opt:hover { border-color:rgba(147,51,234,0.5); background:rgba(147,51,234,0.1); transform:translateY(-2px); }
+  .comodi-opt.selected { border-color:var(--gold); background:rgba(245,200,66,0.1); }
+  .comodi-opt .co-icon { font-size:1.8rem; margin-bottom:0.4rem; }
+  .comodi-opt .co-nom { font-family:'Bebas Neue',cursive; font-size:0.9rem; color:var(--white); line-height:1.2; }
+  .carta-gastada-box { background:rgba(224,52,52,0.08); border:1px solid rgba(224,52,52,0.2); border-radius:12px; padding:2rem 1.5rem; text-align:center; max-width:480px; margin:0 auto; }
+  .carta-login-box { background:#0F1929; border:1px solid var(--glass-border); border-radius:20px; padding:2rem 1.5rem; max-width:380px; margin:2rem auto; text-align:center; }
+  .carta-login-box h2 { font-family:'Bebas Neue',cursive; font-size:2rem; color:var(--gold); margin-bottom:0.3rem; }
+
   /* PHOTO MODAL & PLAYER CARD MODAL */
   .photo-modal { position:fixed; inset:0; z-index:500; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; cursor:pointer; animation:fadeIn 0.2s ease; }
   @keyframes fadeIn { from{opacity:0} to{opacity:1} }
@@ -388,6 +412,7 @@
   <button class="tab-btn" data-tab="jugadors">⚽ Jugadors</button>
   <button class="tab-btn" data-tab="canvis">🔄 Canvis</button>
   <button class="tab-btn" data-tab="ruleta">⭐ Capità</button>
+  <button class="tab-btn" data-tab="cartes">🃏 Carta</button>
   <button class="tab-btn admin-tab" data-tab="admin" id="adminTabBtn">⚙️ Admin</button>
 </nav>
 
@@ -453,6 +478,10 @@
 
   <section class="section" id="tab-ruleta">
     <div id="ruletaTabContent"></div>
+  </section>
+
+  <section class="section" id="tab-cartes">
+    <div id="cartesTabContent"></div>
   </section>
 
   <section class="section" id="tab-admin">
@@ -1781,6 +1810,7 @@ document.getElementById('mainNav').addEventListener('click', e => {
   if (tab === 'jornades') renderJornades(currentJornada.phase, currentJornada.jorn);
   if (tab === 'jugadors') { populateJugadorsFilters(); renderJugadorsTab(); }
   if (tab === 'ruleta') renderRuletaTab();
+  if (tab === 'cartes') renderCartesTab();
   if (tab === 'canvis') renderCanvis();
   if (tab === 'teams') {
     const sel = document.getElementById('teamSelect');
@@ -2057,6 +2087,355 @@ function rLogout() {
 }
 
 // ============================================================
+// CARTES DE PODER
+// ============================================================
+const C_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzChU0LpTDGrqsUEdWbwpcPlK--Ci7RI6G1cuja8p7Jn63rBuGcdPvDj7j47_iMeSOMPA/exec';
+
+const C_PASSWORDS = {
+  'NTNP':'ntnp2026','MBEMBA':'mbemba2026','PAPI':'papi2026',
+  'TETPEÑA':'tetpena2026','POLSA':'polsa2026','FERRAN':'ferran2026',
+  'MORALES':'morales2026','SIERRA':'sierra2026','PITU':'pitu2026','POLICHO':'policho2026'
+};
+
+const CARTES_DEF = {
+  'Capita x4':          {icon:'👑',color:'#F5C842',desc:'El teu capità puntua ×4 durant la jornada activa en lloc de ×2.',accio:'capita_x4'},
+  'Anular capita rival':{icon:'🚫',color:'#F87171',desc:'Anuŀles el bonus de capità d'un rival. El seu capità puntua ×1 aquella jornada.',accio:'anular_capita_rival'},
+  'Anular jugador rival':{icon:'❌',color:'#FB923C',desc:'Un jugador d'un rival que tu esculls puntua 0 aquella jornada.',accio:'anular_jugador_rival'},
+  'Canvi jugador rival': {icon:'🔀',color:'#60A5FA',desc:'Intercanvies un jugador amb un rival durant una sola jornada.',accio:'canvi_jugador_rival'},
+  'Capita manual':       {icon:'🎯',color:'#A78BFA',desc:'Tries el teu capità manualment, sense ruleta. Puntua ×2.',accio:'capita_manual'},
+  'Doble capita':        {icon:'⭐',color:'#FBBF24',desc:'Tens dos capitans aquella jornada. El segon jugador que tries també puntua ×2.',accio:'doble_capita'},
+  'Gol doble':           {icon:'⚽',color:'#4ADE80',desc:'Tots els gols del teu equip valen el doble de punts durant aquella jornada.',accio:'gol_doble'},
+  'Comodi':              {icon:'🃏',color:'#C084FC',desc:'Tries qualsevol de les altres 7 cartes i l'apliques immediatament.',accio:'comodi'},
+};
+
+let cParticipant = '';
+let cCartaData   = null;
+let cComodiSel   = '';
+let cAllPlayers  = {};
+
+async function cScriptCall(params) {
+  const url = C_SCRIPT_URL + '?' + new URLSearchParams({...params, _:Date.now()}).toString();
+  const res = await fetch(url, {cache:'no-store'});
+  const text = await res.text();
+  try { return JSON.parse(text); } catch(e) { return {ok:true}; }
+}
+
+function renderCartesTab() {
+  const el = document.getElementById('cartesTabContent');
+  if (!el) return;
+  const saved = sessionStorage.getItem('cartes_auth');
+  if (saved && C_PASSWORDS[saved]) { cParticipant = saved; cLoadCarta(); return; }
+
+  const participants = getParticipants();
+  const opts = participants.map(p => `<option value="${p}">${p}</option>`).join('');
+  el.innerHTML = `
+    <div class="carta-login-box">
+      <div style="font-size:2.5rem;margin-bottom:0.5rem">🃏</div>
+      <h2>CARTES DE PODER</h2>
+      <p style="font-size:0.82rem;color:var(--silver);margin-bottom:1.2rem">Selecciona el teu equip i introdueix la teva contrasenya</p>
+      <select id="cLoginSel" style="background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);border-radius:8px;padding:0.7rem 1rem;color:var(--white);font-size:0.9rem;width:100%;margin-bottom:0.8rem;cursor:pointer">
+        <option value="">Selecciona el teu equip...</option>${opts}
+      </select>
+      <input type="password" id="cLoginPass" placeholder="Contrasenya"
+        style="background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);border-radius:8px;padding:0.7rem 1rem;color:var(--white);font-size:0.9rem;width:100%;margin-bottom:0.5rem;text-align:center;letter-spacing:0.15em"
+        onkeydown="if(event.key==='Enter')cDoLogin()">
+      <div id="cLoginErr" style="color:#F58080;font-size:0.8rem;min-height:1.2em;margin-bottom:0.5rem"></div>
+      <button onclick="cDoLogin()" style="width:100%;border:none;border-radius:10px;padding:0.8rem;font-weight:700;font-size:0.9rem;cursor:pointer;background:linear-gradient(135deg,#C9A020,var(--gold));color:var(--ink)">Entrar 🃏</button>
+    </div>`;
+}
+
+function cDoLogin() {
+  const p    = document.getElementById('cLoginSel').value;
+  const pass = document.getElementById('cLoginPass').value;
+  const err  = document.getElementById('cLoginErr');
+  if (!p) { err.textContent = 'Selecciona el teu equip'; return; }
+  if (!C_PASSWORDS[p]) { err.textContent = 'Equip sense contrasenya'; return; }
+  if (pass !== C_PASSWORDS[p]) { err.textContent = '❌ Contrasenya incorrecta'; return; }
+  cParticipant = p;
+  sessionStorage.setItem('cartes_auth', p);
+  cLoadCarta();
+}
+
+async function cLoadCarta() {
+  const el = document.getElementById('cartesTabContent');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:3rem"><div class="spinner"></div><p style="color:var(--silver);margin-top:0.5rem">Carregant carta...</p></div>';
+  try {
+    // Carrega jugadors per selectors
+    cAllPlayers = {};
+    (gData?.jugadors||[]).forEach(r => {
+      const p = norm(v(r,'Participant'));
+      if (!cAllPlayers[p]) cAllPlayers[p] = [];
+      cAllPlayers[p].push(r);
+    });
+    // Llegeix carta del Sheet via script
+    const res = await cScriptCall({sheet:'Participants'});
+    const rows = res.rows || [];
+    const myRow = rows.find(r => norm(r[0]) === norm(cParticipant));
+    if (!myRow) throw new Error('Participant no trobat al Sheet');
+    cCartaData = { carta: (myRow[1]||'').trim(), estat: (myRow[2]||'disponible').trim() };
+    cRenderCarta();
+  } catch(e) {
+    el.innerHTML = `<div style="text-align:center;padding:2rem;color:#F87171">⚠️ Error: ${e.message}</div>`;
+  }
+}
+
+function cRenderCarta() {
+  const el = document.getElementById('cartesTabContent');
+  if (!el || !cCartaData) return;
+  const def = CARTES_DEF[cCartaData.carta] || {icon:'🃏',color:'#F5C842',desc:'Carta especial.',accio:'desconeguda'};
+  const gastada = norm(cCartaData.estat) === 'gastada';
+
+  let html = `
+    <div style="text-align:center;margin-bottom:0.5rem;color:var(--silver);font-size:0.85rem">
+      Equip: <strong style="color:var(--white)">${cParticipant}</strong>
+      <button onclick="cLogout()" style="background:none;border:none;color:rgba(255,255,255,0.3);font-size:0.75rem;cursor:pointer;text-decoration:underline;margin-left:0.8rem">Canviar</button>
+    </div>
+    <div class="carta-reveal" style="border-color:${def.color}60">
+      <span class="carta-icon-big">${def.icon}</span>
+      <div class="carta-nom-big" style="color:${def.color}">${cCartaData.carta}</div>
+      <div class="carta-desc-text">${def.desc}</div>
+      <span class="estat-badge ${gastada?'estat-gastada':'estat-disponible'}">${gastada?'✓ Gastada':'● Disponible'}</span>
+    </div>`;
+
+  if (gastada) {
+    html += `<div class="carta-gastada-box">
+      <div style="font-size:2.5rem;margin-bottom:0.5rem">🔒</div>
+      <div style="font-family:'Bebas Neue',cursive;font-size:1.4rem;color:#F87171;margin-bottom:0.3rem">Carta ja gastada</div>
+      <p style="font-size:0.82rem;color:var(--silver)">Ja has gastat la teva carta. Segueix la lliga!</p>
+    </div>
+    <div style="text-align:center;margin-top:1rem">
+      <button onclick="cResetCarta()" style="background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);color:var(--silver);border-radius:8px;padding:0.45rem 1rem;cursor:pointer;font-size:0.78rem">🔄 Reset (proves)</button>
+    </div>`;
+  } else {
+    html += cRenderAccio(def.accio);
+  }
+
+  el.innerHTML = html;
+  // Init selectors
+  setTimeout(() => {
+    cUpdateJugadorsRival('aj_rival','aj_jugador');
+    cUpdateJugadorsRival('cjr_rival','cjr_jugador_rival');
+    cUpdateJugadorsMeus('cjr_jugador_meu');
+  }, 100);
+}
+
+function cRenderAccio(accio) {
+  const rivals = getParticipants().filter(p => norm(p) !== norm(cParticipant));
+  const rivOpts = rivals.map(r => `<option value="${r}">${r}</option>`).join('');
+  const myPl = cAllPlayers[norm(cParticipant)] || [];
+  const myOpts = myPl.map(p => `<option value="${v(p,'Jugador')}">${v(p,'Jugador')} (${v(p,'Posicio')})</option>`).join('');
+
+  switch(accio) {
+    case 'capita_x4':
+      return `<div class="carta-accio-panel">
+        <h3>👑 Activar Capità ×4</h3>
+        <p style="font-size:0.85rem;color:var(--silver);margin-bottom:1rem">El teu capità puntua <strong style="color:var(--gold)">×4</strong> aquesta jornada. Assegura't d'haver girat la ruleta primer.</p>
+        <button onclick="cConfirmar({carta:'Capita x4'})" style="width:100%;border:none;border-radius:10px;padding:0.8rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#C9A020,var(--gold));color:var(--ink)">👑 Activar Capità ×4</button>
+      </div>`;
+
+    case 'anular_capita_rival':
+      return `<div class="carta-accio-panel">
+        <h3>🚫 Anular Capità Rival</h3>
+        <div class="carta-form-row"><label>Rival:</label><select id="ac_rival">${rivOpts}</select></div>
+        <p style="font-size:0.78rem;color:var(--silver);margin-bottom:1rem">El capità d'aquest rival puntua ×1 (sense bonus).</p>
+        <button onclick="cConfirmarForm('anular_capita_rival')" style="width:100%;border:none;border-radius:10px;padding:0.8rem;font-weight:700;cursor:pointer;background:rgba(224,52,52,0.3);border:1px solid rgba(224,52,52,0.5);color:#F87171">🚫 Anular capità</button>
+      </div>`;
+
+    case 'anular_jugador_rival':
+      return `<div class="carta-accio-panel">
+        <h3>❌ Anular Jugador Rival</h3>
+        <div class="carta-form-row"><label>Rival:</label><select id="aj_rival" onchange="cUpdateJugadorsRival('aj_rival','aj_jugador')">${rivOpts}</select></div>
+        <div class="carta-form-row"><label>Jugador:</label><select id="aj_jugador"></select></div>
+        <p style="font-size:0.78rem;color:var(--silver);margin-bottom:1rem">Aquest jugador puntua 0 aquesta jornada.</p>
+        <button onclick="cConfirmarForm('anular_jugador_rival')" style="width:100%;border:none;border-radius:10px;padding:0.8rem;font-weight:700;cursor:pointer;background:rgba(224,52,52,0.3);border:1px solid rgba(224,52,52,0.5);color:#F87171">❌ Anular jugador</button>
+      </div>`;
+
+    case 'canvi_jugador_rival':
+      return `<div class="carta-accio-panel">
+        <h3>🔀 Canvi de Jugador amb Rival</h3>
+        <div class="carta-form-row"><label>Rival:</label><select id="cjr_rival" onchange="cUpdateJugadorsRival('cjr_rival','cjr_jugador_rival');cUpdateJugadorsMeus('cjr_jugador_meu')">${rivOpts}</select></div>
+        <div class="carta-form-row"><label>Jugador teu:</label><select id="cjr_jugador_meu">${myOpts}</select></div>
+        <div class="carta-form-row"><label>Jugador rival:</label><select id="cjr_jugador_rival"></select></div>
+        <p style="font-size:0.78rem;color:var(--silver);margin-bottom:1rem">Sols per aquesta jornada. Tots dos tornen als equips originals la jornada següent.</p>
+        <button onclick="cConfirmarForm('canvi_jugador_rival')" style="width:100%;border:none;border-radius:10px;padding:0.8rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#1e40af,#3b82f6);color:var(--white)">🔀 Confirmar canvi</button>
+      </div>`;
+
+    case 'capita_manual':
+      return `<div class="carta-accio-panel">
+        <h3>🎯 Triar Capità Manualment</h3>
+        <div class="carta-form-row"><label>Capità:</label><select id="cm_jugador">${myOpts}</select></div>
+        <p style="font-size:0.78rem;color:var(--silver);margin-bottom:1rem">Aquest jugador serà el teu capità i puntua ×2.</p>
+        <button onclick="cConfirmarForm('capita_manual')" style="width:100%;border:none;border-radius:10px;padding:0.8rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#6B21A8,#9333EA);color:var(--white)">🎯 Confirmar capità</button>
+      </div>`;
+
+    case 'doble_capita':
+      return `<div class="carta-accio-panel">
+        <h3>⭐ Doble Capità</h3>
+        <p style="font-size:0.85rem;color:var(--silver);margin-bottom:0.8rem">Tries un segon capità. Tots dos puntuen ×2.</p>
+        <div class="carta-form-row"><label>2n Capità:</label><select id="dc_jugador">${myOpts}</select></div>
+        <p style="font-size:0.78rem;color:var(--silver);margin-bottom:1rem">El 1r capità ja el tens de la ruleta.</p>
+        <button onclick="cConfirmarForm('doble_capita')" style="width:100%;border:none;border-radius:10px;padding:0.8rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#C9A020,var(--gold));color:var(--ink)">⭐ Confirmar 2n capità</button>
+      </div>`;
+
+    case 'gol_doble':
+      return `<div class="carta-accio-panel">
+        <h3>⚽ Puntuació Doble per Gol</h3>
+        <p style="font-size:0.85rem;color:var(--silver);margin-bottom:1rem">Tots els gols del teu equip valen el doble de punts aquesta jornada.</p>
+        <button onclick="cConfirmar({carta:'Gol doble'})" style="width:100%;border:none;border-radius:10px;padding:0.8rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#15803D,#22C55E);color:var(--white)">⚽ Activar Gol Doble</button>
+      </div>`;
+
+    case 'comodi':
+      return cRenderComodi();
+
+    default:
+      return `<div class="carta-accio-panel"><p style="color:var(--silver)">Carta desconeguda: ${accio}</p></div>`;
+  }
+}
+
+function cRenderComodi() {
+  const cartes = Object.keys(CARTES_DEF).filter(c => c !== 'Comodi');
+  const grid = cartes.map(c => {
+    const def = CARTES_DEF[c];
+    const sel = cComodiSel === c;
+    return `<div class="comodi-opt ${sel?'selected':''}" onclick="cSelectComodi('${c}')">
+      <div class="co-icon">${def.icon}</div>
+      <div class="co-nom">${c}</div>
+    </div>`;
+  }).join('');
+
+  return `<div class="carta-accio-panel">
+    <h3>🃏 Comodi — Tria una carta</h3>
+    <div class="comodi-grid">${grid}</div>
+    ${cComodiSel ? `
+      <div style="background:rgba(245,200,66,0.08);border:1px solid rgba(245,200,66,0.2);border-radius:10px;padding:1rem;margin-bottom:1rem">
+        <div style="font-family:'Space Mono',monospace;font-size:0.65rem;color:var(--gold);margin-bottom:0.5rem">CARTA SELECCIONADA</div>
+        <div style="font-weight:700">${CARTES_DEF[cComodiSel].icon} ${cComodiSel}</div>
+      </div>
+      <div id="cComodiAccio">${cRenderAccio(CARTES_DEF[cComodiSel].accio)}</div>
+    ` : '<p style="font-size:0.82rem;color:var(--silver);opacity:0.6;text-align:center;padding:0.5rem 0">Clica una carta per seleccionar-la</p>'}
+  </div>`;
+}
+
+function cSelectComodi(carta) {
+  cComodiSel = carta;
+  cRenderCarta();
+  setTimeout(() => {
+    cUpdateJugadorsRival('aj_rival','aj_jugador');
+    cUpdateJugadorsRival('cjr_rival','cjr_jugador_rival');
+    cUpdateJugadorsMeus('cjr_jugador_meu');
+  }, 100);
+}
+
+function cUpdateJugadorsRival(rivalId, jugadorId) {
+  const rival = document.getElementById(rivalId)?.value;
+  const sel = document.getElementById(jugadorId);
+  if (!sel || !rival) return;
+  const players = cAllPlayers[norm(rival)] || [];
+  sel.innerHTML = players.map(p => `<option value="${v(p,'Jugador')}">${v(p,'Jugador')} (${v(p,'Equip')})</option>`).join('');
+}
+
+function cUpdateJugadorsMeus(selId) {
+  const sel = document.getElementById(selId);
+  if (!sel) return;
+  const players = cAllPlayers[norm(cParticipant)] || [];
+  sel.innerHTML = players.map(p => `<option value="${v(p,'Jugador')}">${v(p,'Jugador')} (${v(p,'Equip')})</option>`).join('');
+}
+
+function cConfirmarForm(accio) {
+  let params = {carta: cComodiSel || cCartaData.carta};
+  switch(accio) {
+    case 'anular_capita_rival':
+      params.rival = document.getElementById('ac_rival')?.value;
+      if (!params.rival) { showToast('⚠️ Selecciona un rival'); return; }
+      break;
+    case 'anular_jugador_rival':
+      params.rival = document.getElementById('aj_rival')?.value;
+      params.jugador = document.getElementById('aj_jugador')?.value;
+      if (!params.rival || !params.jugador) { showToast('⚠️ Omple tots els camps'); return; }
+      break;
+    case 'canvi_jugador_rival':
+      params.rival = document.getElementById('cjr_rival')?.value;
+      params.jugador_meu = document.getElementById('cjr_jugador_meu')?.value;
+      params.jugador_rival = document.getElementById('cjr_jugador_rival')?.value;
+      if (!params.rival || !params.jugador_meu || !params.jugador_rival) { showToast('⚠️ Omple tots els camps'); return; }
+      break;
+    case 'capita_manual':
+      params.jugador = document.getElementById('cm_jugador')?.value;
+      if (!params.jugador) { showToast('⚠️ Selecciona un jugador'); return; }
+      break;
+    case 'doble_capita':
+      params.jugador = document.getElementById('dc_jugador')?.value;
+      if (!params.jugador) { showToast('⚠️ Selecciona un jugador'); return; }
+      break;
+  }
+  cConfirmar(params);
+}
+
+function cConfirmar(params) {
+  const def = CARTES_DEF[params.carta] || {icon:'🃏'};
+  let resum = '';
+  if (params.rival) resum += `<br>Rival: <strong>${params.rival}</strong>`;
+  if (params.jugador) resum += `<br>Jugador: <strong>${params.jugador}</strong>`;
+  if (params.jugador_meu) resum += `<br>El teu jugador: <strong>${params.jugador_meu}</strong>`;
+  if (params.jugador_rival) resum += `<br>Jugador rival: <strong>${params.jugador_rival}</strong>`;
+
+  const paramsStr = JSON.stringify(params).replace(/\/g,'\\').replace(/'/g,"\'");
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:1rem';
+  modal.innerHTML = `<div style="background:#0F1929;border:1px solid rgba(245,200,66,0.4);border-radius:20px;padding:2rem;max-width:360px;width:100%;text-align:center">
+    <div style="font-size:3rem;margin-bottom:0.8rem">${def.icon}</div>
+    <div style="font-family:'Bebas Neue',cursive;font-size:1.6rem;color:var(--gold);margin-bottom:0.5rem">Confirmar carta</div>
+    <div style="background:rgba(245,200,66,0.08);border:1px solid rgba(245,200,66,0.2);border-radius:10px;padding:1rem;margin:1rem 0;font-size:0.85rem;color:var(--silver);text-align:left">
+      Carta: <strong style="color:var(--gold)">${params.carta}</strong>${resum}
+    </div>
+    <p style="font-size:0.8rem;color:#F87171;margin-bottom:1.2rem">⚠️ En producció, aquesta acció és irreversible.</p>
+    <div style="display:flex;gap:0.6rem">
+      <button style="flex:1;background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);color:var(--silver);border-radius:8px;padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem" onclick="this.closest('[style*=fixed]').remove()">Cancel·lar</button>
+      <button style="flex:1;background:linear-gradient(135deg,#C9A020,var(--gold));border:none;color:var(--ink);border-radius:8px;padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;font-weight:700" onclick="cGastar(${paramsStr});this.closest('[style*=fixed]').remove()">✅ Confirmar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+}
+
+async function cGastar(params) {
+  document.getElementById('cartesTabContent').innerHTML = '<div style="text-align:center;padding:3rem"><div class="spinner"></div><p style="color:var(--silver);margin-top:0.5rem">Guardant carta...</p></div>';
+  try {
+    await cScriptCall({
+      action: 'gastar_carta',
+      participant: cParticipant,
+      carta: params.carta,
+      detall: JSON.stringify(params)
+    });
+  } catch(e) { console.warn('Error guardant carta:', e); }
+  cCartaData.estat = 'gastada';
+  cRenderCarta();
+  showToast('🃏 Carta gastada!');
+  // Celebració
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;inset:0;z-index:600;pointer-events:none;display:flex;align-items:center;justify-content:center';
+  const icon = CARTES_DEF[params.carta]?.icon || '🃏';
+  el.innerHTML = `<div style="font-size:6rem;animation:bigPop 1.5s ease forwards">${icon}</div><style>@keyframes bigPop{0%{transform:scale(0);opacity:1}50%{transform:scale(1.5);opacity:1}100%{transform:scale(3);opacity:0}}</style>`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1600);
+}
+
+async function cResetCarta() {
+  if (!confirm('Reset carta per a proves?')) return;
+  try { await cScriptCall({action:'reset_carta', participant:cParticipant}); } catch(e) {}
+  cCartaData.estat = 'disponible';
+  cComodiSel = '';
+  cRenderCarta();
+  showToast('🔄 Carta reiniciada');
+}
+
+function cLogout() {
+  sessionStorage.removeItem('cartes_auth');
+  cParticipant = ''; cCartaData = null; cComodiSel = '';
+  renderCartesTab();
+}
+
+// ============================================================
 // INIT
 // ============================================================
 async function init() {
@@ -2117,8 +2496,9 @@ async function init() {
   renderJornades('grups', 'J1');
   renderCanvis();
 
-  // Restaura sessió admin si existia
+  // Restaura sessions
   if (sessionStorage.getItem('adminAuth') === '1') isAdmin = true;
+  if (sessionStorage.getItem('cartes_auth')) cParticipant = sessionStorage.getItem('cartes_auth');
 }
 
 init();
