@@ -2380,7 +2380,7 @@ function cConfirmar(params) {
   if (params.jugador_meu) resum += `<br>El teu jugador: <strong>${params.jugador_meu}</strong>`;
   if (params.jugador_rival) resum += `<br>Jugador rival: <strong>${params.jugador_rival}</strong>`;
 
-  const paramsStr = JSON.stringify(params).replace(/\/g,'\\').replace(/'/g,"\'");
+  window._cPendingParams = params;
   const modal = document.createElement('div');
   modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:1rem';
   modal.innerHTML = `<div style="background:#0F1929;border:1px solid rgba(245,200,66,0.4);border-radius:20px;padding:2rem;max-width:360px;width:100%;text-align:center">
@@ -2392,7 +2392,7 @@ function cConfirmar(params) {
     <p style="font-size:0.8rem;color:#F87171;margin-bottom:1.2rem">⚠️ En producció, aquesta acció és irreversible.</p>
     <div style="display:flex;gap:0.6rem">
       <button style="flex:1;background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);color:var(--silver);border-radius:8px;padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem" onclick="this.closest('[style*=fixed]').remove()">Cancel·lar</button>
-      <button style="flex:1;background:linear-gradient(135deg,#C9A020,var(--gold));border:none;color:var(--ink);border-radius:8px;padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;font-weight:700" onclick="cGastar(${paramsStr});this.closest('[style*=fixed]').remove()">✅ Confirmar</button>
+      <button style="flex:1;background:linear-gradient(135deg,#C9A020,var(--gold));border:none;color:var(--ink);border-radius:8px;padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;font-weight:700" onclick="cGastar(window._cPendingParams);this.closest('[style*=fixed]').remove()">✅ Confirmar</button>
     </div>
   </div>`;
   document.body.appendChild(modal);
