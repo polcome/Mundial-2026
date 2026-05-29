@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mundial 2026 — Cartes de Poder</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:#0A0F1E; --gold:#F5C842; --silver:#B8C5D6; --white:#F8FAFC;
+    --red:#E03434; --green:#28A04E; --glass:rgba(255,255,255,0.06);
+    --glass-border:rgba(255,255,255,0.12);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'DM Sans',sans-serif;background:var(--ink);color:var(--white);min-height:100vh;overflow-x:hidden}
+  .bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:radial-gradient(ellipse 120% 80% at 50% -20%,rgba(80,20,120,0.4) 0%,transparent 70%),var(--ink)}
+
+  /* LOGIN */
+  .login-wrap{position:relative;z-index:10;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem}
+  .login-box{background:#0F1929;border:1px solid var(--glass-border);border-radius:20px;padding:2.5rem 2rem;width:100%;max-width:380px;text-align:center}
+  .login-box h1{font-family:'Bebas Neue',cursive;font-size:2.5rem;color:var(--gold);margin-bottom:0.3rem}
+  .login-box p{font-size:0.85rem;color:var(--silver);margin-bottom:1.5rem}
+  .inp{width:100%;padding:0.75rem 1rem;background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);border-radius:8px;color:var(--white);font-family:'DM Sans',sans-serif;font-size:0.95rem;margin-bottom:0.8rem;text-align:center;letter-spacing:0.08em}
+  .inp:focus{outline:none;border-color:var(--gold)}
+  .err{color:#F58080;font-size:0.8rem;min-height:1.2em;margin-bottom:0.5rem}
+  .btn{border:none;border-radius:10px;padding:0.8rem 1.5rem;font-family:'DM Sans',sans-serif;font-weight:700;font-size:0.9rem;cursor:pointer;transition:filter 0.2s,transform 0.15s;width:100%}
+  .btn:hover{filter:brightness(1.15);transform:translateY(-1px)}
+  .btn-gold{background:linear-gradient(135deg,#C9A020,var(--gold));color:var(--ink)}
+  .btn-purple{background:linear-gradient(135deg,#6B21A8,#9333EA);color:var(--white)}
+  .btn-red{background:rgba(224,52,52,0.2);border:1px solid rgba(224,52,52,0.3);color:#F58080}
+  .btn-gray{background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);color:var(--silver)}
+  .btn-green{background:linear-gradient(135deg,#15803D,#22C55E);color:var(--white)}
+  .btn-sm{padding:0.5rem 1rem;font-size:0.82rem}
+
+  /* MAIN */
+  .main-wrap{position:relative;z-index:10;max-width:540px;margin:0 auto;padding:2rem 1.5rem 4rem}
+  header{text-align:center;margin-bottom:2rem}
+  .eyebrow{font-family:'Space Mono',monospace;font-size:0.65rem;letter-spacing:0.3em;color:var(--gold);text-transform:uppercase;margin-bottom:0.5rem}
+  header h1{font-family:'Bebas Neue',cursive;font-size:clamp(2.5rem,8vw,4.5rem);background:linear-gradient(135deg,var(--white) 0%,#C084FC 40%,var(--gold) 100%);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1}
+
+  /* CARTA CARD */
+  .carta-reveal{background:linear-gradient(135deg,rgba(107,33,168,0.3),rgba(147,51,234,0.1));border:2px solid rgba(147,51,234,0.5);border-radius:20px;padding:2rem 1.5rem;text-align:center;animation:popIn 0.5s ease;margin-bottom:1.5rem}
+  @keyframes popIn{from{transform:scale(0.85);opacity:0}to{transform:scale(1);opacity:1}}
+  .carta-icon{font-size:4rem;margin-bottom:0.8rem;display:block}
+  .carta-nom{font-family:'Bebas Neue',cursive;font-size:2.2rem;color:var(--white);line-height:1;margin-bottom:0.5rem}
+  .carta-desc{font-size:0.88rem;color:var(--silver);line-height:1.6;margin-bottom:1.2rem}
+  .estat-badge{display:inline-block;padding:4px 14px;border-radius:20px;font-family:'Space Mono',monospace;font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase}
+  .estat-disponible{background:rgba(34,197,94,0.2);border:1px solid rgba(34,197,94,0.4);color:#4ADE80}
+  .estat-gastada{background:rgba(224,52,52,0.2);border:1px solid rgba(224,52,52,0.4);color:#F87171}
+
+  /* ACCIÓ PANEL */
+  .accio-panel{background:var(--glass);border:1px solid var(--glass-border);border-radius:16px;padding:1.5rem;margin-bottom:1rem}
+  .accio-panel h3{font-family:'Space Mono',monospace;font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem}
+  .form-row{display:flex;gap:0.5rem;margin-bottom:0.7rem;align-items:center;flex-wrap:wrap}
+  .form-row label{font-size:0.8rem;color:var(--silver);min-width:6rem}
+  .form-row select,.form-row input{background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);border-radius:6px;padding:0.45rem 0.7rem;color:var(--white);font-family:'DM Sans',sans-serif;font-size:0.85rem;flex:1}
+  .form-row select:focus,.form-row input:focus{outline:none;border-color:var(--gold)}
+  select option{background:var(--ink)}
+
+  /* COMODI GRID */
+  .comodi-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-bottom:1rem}
+  .comodi-opt{background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1rem;cursor:pointer;transition:all 0.2s;text-align:center}
+  .comodi-opt:hover{border-color:rgba(147,51,234,0.5);background:rgba(147,51,234,0.1);transform:translateY(-2px)}
+  .comodi-opt.selected{border-color:var(--gold);background:rgba(245,200,66,0.1)}
+  .comodi-opt .co-icon{font-size:1.8rem;margin-bottom:0.4rem}
+  .comodi-opt .co-nom{font-family:'Bebas Neue',cursive;font-size:0.9rem;color:var(--white);line-height:1.2}
+
+  /* CONFIRM */
+  .confirm-box{background:rgba(245,200,66,0.08);border:1px solid rgba(245,200,66,0.3);border-radius:12px;padding:1.2rem;margin-bottom:1rem;font-size:0.85rem;color:var(--silver);line-height:1.6}
+  .confirm-box strong{color:var(--gold)}
+
+  /* GASTADA */
+  .gastada-box{background:rgba(224,52,52,0.08);border:1px solid rgba(224,52,52,0.2);border-radius:12px;padding:1.2rem;text-align:center}
+  .gastada-box .g-icon{font-size:2.5rem;margin-bottom:0.5rem}
+  .gastada-box h3{font-family:'Bebas Neue',cursive;font-size:1.4rem;color:#F87171;margin-bottom:0.3rem}
+  .gastada-box p{font-size:0.82rem;color:var(--silver)}
+
+  /* TEST MODE */
+  .test-banner{background:rgba(224,52,52,0.15);border:1px solid rgba(224,52,52,0.35);border-radius:10px;padding:0.8rem 1.2rem;margin-bottom:1.5rem;font-size:0.8rem;color:#F58080;display:flex;gap:0.6rem;align-items:flex-start}
+
+  .logout-btn{background:none;border:none;color:rgba(255,255,255,0.3);font-size:0.75rem;cursor:pointer;text-decoration:underline;display:block;text-align:center;margin-top:1.5rem}
+  .logout-btn:hover{color:var(--silver)}
+
+  .spinner{width:36px;height:36px;border:3px solid rgba(255,255,255,0.1);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 1rem}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+
+<!-- LOGIN -->
+<div class="login-wrap" id="loginWrap">
+  <div class="login-box">
+    <div style="font-size:2.5rem;margin-bottom:0.5rem">🃏</div>
+    <h1>CARTES DE PODER</h1>
+    <p>Introdueix el teu equip i contrasenya per veure i gastar la teva carta</p>
+    <select class="inp" id="loginSel" style="cursor:pointer">
+      <option value="">Selecciona el teu equip...</option>
+    </select>
+    <input type="password" class="inp" id="loginPass" placeholder="Contrasenya" onkeydown="if(event.key==='Enter')doLogin()">
+    <div class="err" id="loginErr"></div>
+    <button class="btn btn-gold" onclick="doLogin()">Entrar 🃏</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main-wrap" id="mainWrap" style="display:none">
+  <header>
+    <div class="eyebrow">🌍 Mundial 2026 Fantasy</div>
+    <h1>CARTES DE PODER</h1>
+    <div style="font-size:0.9rem;color:var(--silver);margin-top:0.3rem" id="headerName"></div>
+  </header>
+  <div class="test-banner">
+    ⚠️ <div><strong>MODE DE PROVES</strong> — Pots gastar i restablir la carta lliurement.</div>
+  </div>
+  <div id="cartaContent"></div>
+  <button class="logout-btn" onclick="doLogout()">Tancar sessió</button>
+</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const SHEET_ID   = '1W02L1nn1FI3shibepGLazZC_G4IgG9sytqm6fGoWQdE';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxGNYJreI3LUDahUbGYZGfP7WgTc--0q_onvp88tBJpZV2fmJ2CxvrTbQakrFxDGcMKzw/exec';
+
+const PASSWORDS = {
+  'NTNP':'ntnp2026','MBEMBA':'mbemba2026','PAPI':'papi2026',
+  'TETPEÑA':'tetpena2026','POLSA':'polsa2026','FERRAN':'ferran2026',
+  'MORALES':'morales2026','SIERRA':'sierra2026','PITU':'pitu2026','POLICHO':'policho2026'
+};
+
+// Fase i jornada actives
+const FASE_ACTIVA    = 'grups';
+const JORNADA_ACTIVA = 'J1';
+
+// Definició de cartes
+const CARTES = {
+  'Capita x4': {
+    icon:'👑', color:'#F5C842',
+    desc:'El teu capità puntua ×4 durant la propera jornada en lloc de ×2.',
+    accio:'capita_x4'
+  },
+  'Anular capita rival': {
+    icon:'🚫', color:'#F87171',
+    desc:'Anul·les el bonus de capità d\'un rival. El seu capità puntua ×1 (normal) aquella jornada.',
+    accio:'anular_capita_rival'
+  },
+  'Anular jugador rival': {
+    icon:'❌', color:'#FB923C',
+    desc:'Un jugador aleatori d\'un rival que tu esculls puntua 0 aquella jornada.',
+    accio:'anular_jugador_rival'
+  },
+  'Canvi jugador rival': {
+    icon:'🔀', color:'#60A5FA',
+    desc:'Intercanvies un jugador amb un rival durant una sola jornada. Tots dos jugadors tornen als equips originals la jornada següent.',
+    accio:'canvi_jugador_rival'
+  },
+  'Capita manual': {
+    icon:'🎯', color:'#A78BFA',
+    desc:'Tries el teu capità manualment, sense ruleta. Puntua ×2 com un capità normal.',
+    accio:'capita_manual'
+  },
+  'Doble capita': {
+    icon:'⭐', color:'#FBBF24',
+    desc:'Tens dos capitans aquella jornada. Tries un segon jugador que també puntua ×2.',
+    accio:'doble_capita'
+  },
+  'Gol doble': {
+    icon:'⚽', color:'#4ADE80',
+    desc:'Tots els gols del teu equip valen el doble de punts durant aquella jornada.',
+    accio:'gol_doble'
+  },
+  'Comodi': {
+    icon:'🃏', color:'#C084FC',
+    desc:'Tries qualsevol de les altres 7 cartes i l\'apliques immediatament.',
+    accio:'comodi'
+  }
+};
+
+// ============================================================
+// UTILS
+// ============================================================
+function norm(s){return(s??'').toString().trim().toLowerCase()}
+function v(row,key){if(!row)return '';return(row[key]??'').toString().trim()}
+
+async function fetchSheet(sheet){
+  const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheet)}&_=${Date.now()}`;
+  const res=await fetch(url,{cache:'no-store'});
+  const text=await res.text();
+  const s=text.indexOf('('),e=text.lastIndexOf(')');
+  const json=JSON.parse(text.slice(s+1,e));
+  if(json.status==='error')throw new Error(json.errors?.[0]?.message);
+  return json;
+}
+
+function parseSheet(json){
+  if(!json?.table)return[];
+  const cols=json.table.cols||[];
+  const rows=json.table.rows||[];
+  if(!rows.length)return[];
+  function cv(cell){if(!cell)return '';const vv=(cell.v!=null)?cell.v:(cell.f??'');return typeof vv==='string'?vv.trim():vv}
+  const fv=cols.map((c,i)=>cv(rows[0]?.c?.[i]));
+  const gl=cols.map(c=>(c.label||'').trim());
+  const ne=fv.filter(v=>v!==''&&v!==null);
+  const fih=ne.length>0&&ne.every(v=>typeof v==='string'&&isNaN(parseFloat(v)));
+  let headers,drows;
+  if(fih){headers=cols.map((c,i)=>fv[i]||gl[i]||String.fromCharCode(65+i));drows=rows.slice(1);}
+  else{headers=gl.map((l,i)=>l||String.fromCharCode(65+i));drows=rows;}
+  return drows.map(row=>{const obj={};headers.forEach((col,i)=>{obj[col]=cv(row.c?.[i]);});return obj;})
+    .filter(row=>headers.some(h=>row[h]!==''&&row[h]!==null));
+}
+
+async function scriptCall(params){
+  const url=SCRIPT_URL+'?'+new URLSearchParams({...params,_:Date.now()}).toString();
+  const res=await fetch(url,{cache:'no-store'});
+  const text=await res.text();
+  try{return JSON.parse(text);}catch(e){return{ok:true};}
+}
+
+// ============================================================
+// ESTAT
+// ============================================================
+let currentParticipant='';
+let cartaData=null;     // {carta, estat, gastada_jornada, gastada_detall}
+let allParticipants=[]; // per selectors de rivals
+let allPlayers={};      // jugadors per participant
+let comodiSelected='';  // carta triada al comodi
+
+// ============================================================
+// LOGIN
+// ============================================================
+async function initLogin(){
+  try{
+    const json=await fetchSheet('Participants');
+    const parts=parseSheet(json);
+    const sel=document.getElementById('loginSel');
+    parts.forEach(p=>{
+      const nom=v(p,'Nom')||v(p,Object.keys(p)[0]);
+      if(!nom)return;
+      const opt=document.createElement('option');
+      opt.value=nom;opt.textContent=nom;sel.appendChild(opt);
+    });
+    allParticipants=parts.map(p=>v(p,'Nom')||v(p,Object.keys(p)[0])).filter(Boolean);
+  }catch(e){console.warn('Error login init:',e);}
+}
+
+function doLogin(){
+  const p=document.getElementById('loginSel').value;
+  const pass=document.getElementById('loginPass').value;
+  const err=document.getElementById('loginErr');
+  if(!p){err.textContent='Selecciona el teu equip';return;}
+  if(!PASSWORDS[p]){err.textContent='Equip sense contrasenya configurada';return;}
+  if(pass!==PASSWORDS[p]){err.textContent='❌ Contrasenya incorrecta';return;}
+  currentParticipant=p;
+  sessionStorage.setItem('cartes_auth',p);
+  document.getElementById('loginWrap').style.display='none';
+  document.getElementById('mainWrap').style.display='block';
+  document.getElementById('headerName').textContent=p;
+  loadCarta();
+}
+
+function doLogout(){
+  sessionStorage.removeItem('cartes_auth');
+  currentParticipant='';cartaData=null;comodiSelected='';
+  document.getElementById('loginWrap').style.display='flex';
+  document.getElementById('mainWrap').style.display='none';
+  document.getElementById('loginPass').value='';
+  document.getElementById('loginErr').textContent='';
+}
+
+// ============================================================
+// CARREGA DADES
+// ============================================================
+async function loadCarta(){
+  document.getElementById('cartaContent').innerHTML='<div style="text-align:center;padding:3rem"><div class="spinner"></div><p style="color:var(--silver)">Carregant...</p></div>';
+  try{
+    // Participants + cartes
+    const pJson=await fetchSheet('Participants');
+    const parts=parseSheet(pJson);
+    const myRow=parts.find(p=>norm(v(p,'Nom')||v(p,Object.keys(p)[0]))===norm(currentParticipant));
+    if(!myRow){throw new Error('Participant no trobat al Sheet');}
+
+    cartaData={
+      carta: v(myRow,'Carta'),
+      estat: v(myRow,'Carta_Estat')||'disponible',
+    };
+
+    // Carrega tots els jugadors per als selectors de rivals
+    const jJson=await fetchSheet('Jugadors');
+    const jRows=parseSheet(jJson);
+    allPlayers={};
+    jRows.forEach(r=>{
+      const p=norm(v(r,'Participant'));
+      if(!allPlayers[p])allPlayers[p]=[];
+      allPlayers[p].push(r);
+    });
+    allParticipants=parts.map(p=>v(p,'Nom')||v(p,Object.keys(p)[0])).filter(Boolean);
+
+    renderCarta();
+  }catch(e){
+    document.getElementById('cartaContent').innerHTML=`<div style="text-align:center;padding:2rem;color:#F87171">⚠️ Error: ${e.message}</div>`;
+  }
+}
+
+// ============================================================
+// RENDER CARTA
+// ============================================================
+function renderCarta(){
+  if(!cartaData?.carta){
+    document.getElementById('cartaContent').innerHTML='<div style="text-align:center;padding:2rem;color:var(--silver)">No tens cap carta assignada al Sheet.</div>';
+    return;
+  }
+
+  const def=CARTES[cartaData.carta]||{icon:'🃏',color:var(--gold),desc:'Carta especial.',accio:'desconeguda'};
+  const estat=norm(cartaData.estat);
+  const gastada=estat==='gastada';
+
+  let html=`
+    <div class="carta-reveal" style="border-color:${def.color}40;background:linear-gradient(135deg,${def.color}15,${def.color}05)">
+      <span class="carta-icon">${def.icon}</span>
+      <div class="carta-nom" style="color:${def.color}">${cartaData.carta}</div>
+      <div class="carta-desc">${def.desc}</div>
+      <span class="estat-badge ${gastada?'estat-gastada':'estat-disponible'}">${gastada?'✓ Gastada':'● Disponible'}</span>
+    </div>`;
+
+  if(gastada){
+    html+=`<div class="gastada-box">
+      <div class="g-icon">🔒</div>
+      <h3>Carta ja gastada</h3>
+      <p>Ja has gastat la teva carta. Segueix la lliga!</p>
+    </div>
+    <div style="margin-top:1rem">
+      <button class="btn btn-gray btn-sm" onclick="resetCarta()" style="width:auto">🔄 Reset (proves)</button>
+    </div>`;
+  } else {
+    html+=renderAccio(def.accio, cartaData.carta);
+  }
+
+  document.getElementById('cartaContent').innerHTML=html;
+}
+
+// ============================================================
+// RENDER ACCIO PER TIPUS
+// ============================================================
+function renderAccio(accio, nomCarta){
+  const rivals=allParticipants.filter(p=>norm(p)!==norm(currentParticipant));
+
+  switch(accio){
+
+    case 'capita_x4':
+      return `<div class="accio-panel">
+        <h3>👑 Activar Capità ×4</h3>
+        <p style="font-size:0.85rem;color:var(--silver);margin-bottom:1rem">
+          El teu capità de la <strong style="color:var(--white)">${JORNADA_ACTIVA}</strong> puntua <strong style="color:var(--gold)">×4</strong> en lloc de ×2.<br>
+          Assegura't d'haver girat la ruleta de capità primer.
+        </p>
+        <button class="btn btn-gold" onclick="confirmarCarta({carta:'Capita x4',jornada:'${JORNADA_ACTIVA}',fase:'${FASE_ACTIVA}'})">👑 Activar Capità ×4</button>
+      </div>`;
+
+    case 'anular_capita_rival':
+      return `<div class="accio-panel">
+        <h3>🚫 Anular Capità Rival</h3>
+        <div class="form-row">
+          <label>Rival:</label>
+          <select id="ac_rival">${rivals.map(r=>`<option value="${r}">${r}</option>`).join('')}</select>
+        </div>
+        <p style="font-size:0.78rem;color:var(--silver);margin-bottom:1rem">El capità d'aquest rival puntua ×1 (sense bonus) a la ${JORNADA_ACTIVA}.</p>
+        <button class="btn btn-red" onclick="confirmarCartaForm('anular_capita_rival')">🚫 Anular capità</button>
+      </div>`;
+
+    case 'anular_jugador_rival':
+      return `<div class="accio-panel">
+        <h3>❌ Anular Jugador Rival</h3>
+        <div class="form-row">
+          <label>Rival:</label>
+          <select id="aj_rival" onchange="updateJugadorsRival('aj_rival','aj_jugador')">${rivals.map(r=>`<option value="${r}">${r}</option>`).join('')}</select>
+        </div>
+        <div class="form-row">
+          <label>Jugador:</label>
+          <select id="aj_jugador"></select>
+        </div>
+        <p style="font-size:0.78rem;color:var(--silver);margin-bottom:1rem">Aquest jugador puntua 0 a la ${JORNADA_ACTIVA}.</p>
+        <button class="btn btn-red" onclick="confirmarCartaForm('anular_jugador_rival')">❌ Anular jugador</button>
+      </div>`;
+
+    case 'canvi_jugador_rival':
+      return `<div class="accio-panel">
+        <h3>🔀 Canvi de Jugador amb Rival</h3>
+        <div class="form-row">
+          <label>Rival:</label>
+          <select id="cjr_rival" onchange="updateJugadorsRival('cjr_rival','cjr_jugador_rival');updateJugadorsMeus('cjr_jugador_meu')">${rivals.map(r=>`<option value="${r}">${r}</option>`).join('')}</select>
+        </div>
+        <div class="form-row">
+          <label>Jugador teu:</label>
+          <select id="cjr_jugador_meu"></select>
+        </div>
+        <div class="form-row">
+          <label>Jugador rival:</label>
+          <select id="cjr_jugador_rival"></select>
+        </div>
+        <p style="font-size:0.78rem;color:var(--silver);margin-bottom:1rem">Sols per la ${JORNADA_ACTIVA}. Tots dos jugadors tornen als equips originals la jornada següent.</p>
+        <button class="btn btn-purple" onclick="confirmarCartaForm('canvi_jugador_rival')">🔀 Confirmar canvi</button>
+      </div>`;
+
+    case 'capita_manual':
+      const myPlayers=allPlayers[norm(currentParticipant)]||[];
+      return `<div class="accio-panel">
+        <h3>🎯 Triar Capità Manualment</h3>
+        <div class="form-row">
+          <label>Capità:</label>
+          <select id="cm_jugador">${myPlayers.map(p=>`<option value="${v(p,'Jugador')}">${v(p,'Jugador')} (${v(p,'Posicio')})</option>`).join('')}</select>
+        </div>
+        <p style="font-size:0.78rem;color:var(--silver);margin-bottom:1rem">Aquest jugador serà el teu capità a la ${JORNADA_ACTIVA} i puntua ×2.</p>
+        <button class="btn btn-purple" onclick="confirmarCartaForm('capita_manual')">🎯 Confirmar capità</button>
+      </div>`;
+
+    case 'doble_capita':
+      const myPlayers2=allPlayers[norm(currentParticipant)]||[];
+      return `<div class="accio-panel">
+        <h3>⭐ Doble Capità</h3>
+        <p style="font-size:0.85rem;color:var(--silver);margin-bottom:0.8rem">Tries un segon capità. Tots dos puntuen ×2 a la ${JORNADA_ACTIVA}.</p>
+        <div class="form-row">
+          <label>2n Capità:</label>
+          <select id="dc_jugador">${myPlayers2.map(p=>`<option value="${v(p,'Jugador')}">${v(p,'Jugador')} (${v(p,'Posicio')})</option>`).join('')}</select>
+        </div>
+        <p style="font-size:0.78rem;color:var(--silver);margin-bottom:1rem">El capità principal ja l'has triat amb la ruleta.</p>
+        <button class="btn btn-gold" onclick="confirmarCartaForm('doble_capita')">⭐ Confirmar 2n capità</button>
+      </div>`;
+
+    case 'gol_doble':
+      return `<div class="accio-panel">
+        <h3>⚽ Puntuació Doble per Gol</h3>
+        <p style="font-size:0.85rem;color:var(--silver);margin-bottom:1rem">
+          Tots els gols del teu equip valen el doble de punts a la <strong style="color:var(--white)">${JORNADA_ACTIVA}</strong>.<br>
+          En lloc de DAV+3, MIG+4, DEF+5, POR+6 → seran DAV+6, MIG+8, DEF+10, POR+12.
+        </p>
+        <button class="btn btn-green" onclick="confirmarCarta({carta:'Gol doble',jornada:'${JORNADA_ACTIVA}',fase:'${FASE_ACTIVA}'})">⚽ Activar Gol Doble</button>
+      </div>`;
+
+    case 'comodi':
+      return renderComodi();
+
+    default:
+      return `<div class="accio-panel"><p style="color:var(--silver)">Carta no implementada: ${accio}</p></div>`;
+  }
+}
+
+function renderComodi(){
+  const cartes=Object.keys(CARTES).filter(c=>c!=='Comodi');
+  const grid=cartes.map(c=>{
+    const def=CARTES[c];
+    const sel=comodiSelected===c;
+    return `<div class="comodi-opt ${sel?'selected':''}" onclick="selectComodi('${c}')">
+      <div class="co-icon">${def.icon}</div>
+      <div class="co-nom">${c}</div>
+    </div>`;
+  }).join('');
+
+  return `<div class="accio-panel">
+    <h3>🃏 Comodi — Tria una carta</h3>
+    <p style="font-size:0.82rem;color:var(--silver);margin-bottom:1rem">Selecciona quina de les 7 cartes vols usar:</p>
+    <div class="comodi-grid">${grid}</div>
+    ${comodiSelected?`
+    <div style="background:rgba(245,200,66,0.08);border:1px solid rgba(245,200,66,0.2);border-radius:10px;padding:1rem;margin-bottom:1rem">
+      <div style="font-family:'Space Mono',monospace;font-size:0.65rem;color:var(--gold);margin-bottom:0.5rem">CARTA SELECCIONADA</div>
+      <div style="font-weight:700">${CARTES[comodiSelected].icon} ${comodiSelected}</div>
+      <div style="font-size:0.78rem;color:var(--silver);margin-top:0.3rem">${CARTES[comodiSelected].desc}</div>
+    </div>
+    <div id="comodiAccio">${renderAccio(CARTES[comodiSelected].accio, comodiSelected)}</div>
+    `:'<p style="font-size:0.82rem;color:var(--silver);opacity:0.6;text-align:center">Clica una carta per seleccionar-la</p>'}
+  </div>`;
+}
+
+function selectComodi(carta){
+  comodiSelected=carta;
+  renderCarta();
+  // Inicialitza selectors del comodi
+  setTimeout(()=>{
+    const accio=CARTES[carta]?.accio;
+    if(accio==='anular_jugador_rival')updateJugadorsRival('aj_rival','aj_jugador');
+    if(accio==='canvi_jugador_rival'){updateJugadorsRival('cjr_rival','cjr_jugador_rival');updateJugadorsMeus('cjr_jugador_meu');}
+  },50);
+}
+
+// ============================================================
+// SELECTORS DINÀMICS
+// ============================================================
+function updateJugadorsRival(rivalSelId, jugadorSelId){
+  const rival=document.getElementById(rivalSelId)?.value;
+  const sel=document.getElementById(jugadorSelId);
+  if(!sel||!rival)return;
+  const players=allPlayers[norm(rival)]||[];
+  sel.innerHTML=players.map(p=>`<option value="${v(p,'Jugador')}">${v(p,'Jugador')} (${v(p,'Equip')})</option>`).join('');
+}
+
+function updateJugadorsMeus(selId){
+  const sel=document.getElementById(selId);
+  if(!sel)return;
+  const players=allPlayers[norm(currentParticipant)]||[];
+  sel.innerHTML=players.map(p=>`<option value="${v(p,'Jugador')}">${v(p,'Jugador')} (${v(p,'Equip')})</option>`).join('');
+}
+
+// Inicialitza selectors dinàmics quan es renderitzen
+setTimeout(()=>{
+  updateJugadorsRival('aj_rival','aj_jugador');
+  updateJugadorsRival('cjr_rival','cjr_jugador_rival');
+  updateJugadorsMeus('cjr_jugador_meu');
+},200);
+
+// ============================================================
+// CONFIRMAR CARTA
+// ============================================================
+function confirmarCartaForm(accio){
+  let detall={};
+  switch(accio){
+    case 'anular_capita_rival':
+      detall.rival=document.getElementById('ac_rival')?.value;
+      if(!detall.rival){alert('Selecciona un rival');return;}
+      break;
+    case 'anular_jugador_rival':
+      detall.rival=document.getElementById('aj_rival')?.value;
+      detall.jugador=document.getElementById('aj_jugador')?.value;
+      if(!detall.rival||!detall.jugador){alert('Selecciona rival i jugador');return;}
+      break;
+    case 'canvi_jugador_rival':
+      detall.rival=document.getElementById('cjr_rival')?.value;
+      detall.jugador_meu=document.getElementById('cjr_jugador_meu')?.value;
+      detall.jugador_rival=document.getElementById('cjr_jugador_rival')?.value;
+      if(!detall.rival||!detall.jugador_meu||!detall.jugador_rival){alert('Omple tots els camps');return;}
+      break;
+    case 'capita_manual':
+      detall.jugador=document.getElementById('cm_jugador')?.value;
+      if(!detall.jugador){alert('Selecciona un jugador');return;}
+      break;
+    case 'doble_capita':
+      detall.jugador=document.getElementById('dc_jugador')?.value;
+      if(!detall.jugador){alert('Selecciona un jugador');return;}
+      break;
+  }
+  confirmarCarta({
+    carta: comodiSelected||cartaData.carta,
+    jornada: JORNADA_ACTIVA,
+    fase: FASE_ACTIVA,
+    ...detall
+  });
+}
+
+function confirmarCarta(params){
+  // Mostra confirmació
+  const def=CARTES[params.carta]||{icon:'🃏'};
+  let resum='';
+  if(params.rival)resum+=`<br>Rival: <strong>${params.rival}</strong>`;
+  if(params.jugador)resum+=`<br>Jugador: <strong>${params.jugador}</strong>`;
+  if(params.jugador_meu)resum+=`<br>El teu jugador: <strong>${params.jugador_meu}</strong>`;
+  if(params.jugador_rival)resum+=`<br>Jugador rival: <strong>${params.jugador_rival}</strong>`;
+
+  const box=document.createElement('div');
+  box.style.cssText='position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:1rem';
+  box.innerHTML=`<div style="background:#0F1929;border:1px solid rgba(245,200,66,0.4);border-radius:20px;padding:2rem;max-width:360px;width:100%;text-align:center">
+    <div style="font-size:3rem;margin-bottom:0.8rem">${def.icon}</div>
+    <div style="font-family:'Bebas Neue',cursive;font-size:1.6rem;color:var(--gold);margin-bottom:0.5rem">Confirmar carta</div>
+    <div class="confirm-box" style="text-align:left;margin:1rem 0">
+      Carta: <strong>${params.carta}</strong>
+      <br>Jornada: <strong>${params.jornada}</strong>
+      ${resum}
+    </div>
+    <p style="font-size:0.8rem;color:#F87171;margin-bottom:1.2rem">⚠️ En producció, aquesta acció és irreversible.</p>
+    <div style="display:flex;gap:0.6rem">
+      <button class="btn btn-gray btn-sm" style="flex:1" onclick="this.closest('[style*=fixed]').remove()">Cancel·lar</button>
+      <button class="btn btn-gold btn-sm" style="flex:1" onclick="gastarCarta(${JSON.stringify(params).replace(/"/g,'&quot;')});this.closest('[style*=fixed]').remove()">✅ Confirmar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(box);
+}
+
+// ============================================================
+// GASTAR CARTA
+// ============================================================
+async function gastarCarta(params){
+  document.getElementById('cartaContent').innerHTML='<div style="text-align:center;padding:3rem"><div class="spinner"></div><p style="color:var(--silver)">Guardant...</p></div>';
+  try{
+    const detallStr=JSON.stringify(params);
+    await scriptCall({
+      action:'gastar_carta',
+      participant:currentParticipant,
+      carta:params.carta,
+      jornada:params.jornada,
+      fase:params.fase,
+      detall:detallStr
+    });
+    cartaData.estat='gastada';
+    renderCarta();
+    // Mostra confetti/celebració
+    showCelebration(CARTES[params.carta]?.icon||'🃏');
+  }catch(e){
+    console.error('Error gastant carta:',e);
+    cartaData.estat='gastada'; // mostra-ho igualment en proves
+    renderCarta();
+  }
+}
+
+function showCelebration(icon){
+  const el=document.createElement('div');
+  el.style.cssText='position:fixed;inset:0;z-index:600;pointer-events:none;display:flex;align-items:center;justify-content:center';
+  el.innerHTML=`<div style="font-size:6rem;animation:bigPop 1.5s ease forwards">${icon}</div>`;
+  el.innerHTML+=`<style>@keyframes bigPop{0%{transform:scale(0);opacity:1}50%{transform:scale(1.5);opacity:1}100%{transform:scale(3);opacity:0}}</style>`;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1600);
+}
+
+// ============================================================
+// RESET (proves)
+// ============================================================
+async function resetCarta(){
+  if(!confirm('Reset carta per a proves?'))return;
+  try{
+    await scriptCall({action:'reset_carta',participant:currentParticipant});
+  }catch(e){console.warn('Error reset:',e);}
+  await loadCarta();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+const saved=sessionStorage.getItem('cartes_auth');
+if(saved&&PASSWORDS[saved]){
+  currentParticipant=saved;
+  document.getElementById('loginWrap').style.display='none';
+  document.getElementById('mainWrap').style.display='block';
+  document.getElementById('headerName').textContent=saved;
+  loadCarta();
+}else{
+  initLogin();
+}
+
+// Inicialitza selectors dinàmics
+document.addEventListener('DOMContentLoaded',()=>{
+  setTimeout(()=>{
+    updateJugadorsRival('aj_rival','aj_jugador');
+    updateJugadorsRival('cjr_rival','cjr_jugador_rival');
+    updateJugadorsMeus('cjr_jugador_meu');
+  },500);
+});
+</script>
+</body>
+</html>
