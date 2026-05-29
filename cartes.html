@@ -235,14 +235,16 @@ async function initLogin(){
   try{
     const json=await fetchSheet('Participants');
     const parts=parseSheet(json);
+    console.log('Participants carregats:', parts);
     const sel=document.getElementById('loginSel');
     parts.forEach(p=>{
-      const nom=v(p,'Nom')||v(p,Object.keys(p)[0]);
-      if(!nom)return;
+      // Agafa la primera columna no-buida com a nom
+      const nom=v(p,'Nom')||v(p,'NOM')||Object.values(p).find(val=>val&&typeof val==='string'&&val.trim())||'';
+      if(!nom||nom==='Nom')return; // salta capçalera
       const opt=document.createElement('option');
       opt.value=nom;opt.textContent=nom;sel.appendChild(opt);
     });
-    allParticipants=parts.map(p=>v(p,'Nom')||v(p,Object.keys(p)[0])).filter(Boolean);
+    allParticipants=parts.map(p=>v(p,'Nom')||Object.values(p).find(val=>val&&typeof val==='string'&&val.trim())||'').filter(p=>p&&p!=='Nom');
   }catch(e){console.warn('Error login init:',e);}
 }
 
@@ -279,7 +281,10 @@ async function loadCarta(){
     // Participants + cartes
     const pJson=await fetchSheet('Participants');
     const parts=parseSheet(pJson);
-    const myRow=parts.find(p=>norm(v(p,'Nom')||v(p,Object.keys(p)[0]))===norm(currentParticipant));
+    const myRow=parts.find(p=>{
+      const nom=v(p,'Nom')||Object.values(p).find(val=>val&&typeof val==='string'&&val.trim())||'';
+      return norm(nom)===norm(currentParticipant);
+    });
     if(!myRow){throw new Error('Participant no trobat al Sheet');}
 
     cartaData={
