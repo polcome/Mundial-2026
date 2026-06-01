@@ -2285,10 +2285,8 @@ function cConfirmarForm(accio){
   else if(accio==='anular_jugador_rival'){
     params.rival=document.getElementById('aj_rival')?.value;
     if(!params.rival){showToast('Selecciona un rival');return;}
-    // Tria jugador aleatori del rival
-    const rivalPlayers=cAllPlayers[norm(params.rival)]||[];
-    if(!rivalPlayers.length){showToast('No hi ha jugadors per a aquest rival');return;}
-    params.jugador=v(rivalPlayers[Math.floor(Math.random()*rivalPlayers.length)],'Jugador');
+    // NO triem el jugador aquí — es triarà aleatòriament al confirmar (irreversible)
+    params.jugador = null; // es calcularà a cGastar
   }
   else if(accio==='canvi_jugador_rival'){params.rival=document.getElementById('cjr_rival')?.value;params.jugador_meu=document.getElementById('cjr_jugador_meu')?.value;params.jugador_rival=document.getElementById('cjr_jugador_rival')?.value;if(!params.rival||!params.jugador_meu||!params.jugador_rival){showToast('Omple tots els camps');return;}}
   else if(accio==='capita_manual'){params.jugador=document.getElementById('cm_jugador')?.value;if(!params.jugador){showToast('Selecciona un jugador');return;}}
@@ -2299,7 +2297,8 @@ function cConfirmar(params){
   const def=CARTES_DEF[params.carta]||{icon:'🃏'};
   let resum='';
   if(params.rival)resum+=`<br>Rival: <strong>${params.rival}</strong>`;
-  if(params.jugador)resum+=`<br>Jugador: <strong>${params.jugador}</strong>`;
+  if(params.carta==='Anular jugador rival')resum+=`<br>Jugador: <strong style="color:#FB923C">🎲 Es triarà aleatòriament en confirmar</strong>`;
+  else if(params.jugador)resum+=`<br>Jugador: <strong>${params.jugador}</strong>`;
   if(params.jugador_meu)resum+=`<br>El teu jugador: <strong>${params.jugador_meu}</strong>`;
   if(params.jugador_rival)resum+=`<br>Jugador rival: <strong>${params.jugador_rival}</strong>`;
   window._cPendingParams=params;
@@ -2319,11 +2318,22 @@ function cConfirmar(params){
 }
 async function cGastar(params){
   document.getElementById('cartesTabContent').innerHTML='<div style="text-align:center;padding:3rem"><div class="spinner"></div></div>';
+  // Si és anular jugador rival, tria el jugador ara (moment irreversible)
+  if(params.carta==='Anular jugador rival' && params.rival && !params.jugador){
+    const rivalPls=cAllPlayers[norm(params.rival)]||[];
+    if(rivalPls.length) params.jugador=v(rivalPls[Math.floor(Math.random()*rivalPls.length)],'Jugador');
+  }
   try{await cScriptCall({action:'gastar_carta',participant:cParticipant,carta:params.carta,detall:JSON.stringify(params)});}catch(e){console.warn(e);}
   cCartaData.estat='gastada';
   _cartesGastades[norm(cParticipant)]={carta:params.carta,detall:params};
   clearCache();renderRanking();
-  cRenderCarta();showToast('Carta gastada!');
+  cRenderCarta();
+  // Si anular jugador, mostra reveal del jugador triat
+  if(params.carta==='Anular jugador rival' && params.jugador){
+    showToast(`❌ Jugador anulat: ${params.jugador}`);
+  } else {
+    showToast('Carta gastada!');
+  }
 }
 async function cResetCarta(){
   if(!confirm('Reset carta per a proves?'))return;
