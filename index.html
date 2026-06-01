@@ -2083,8 +2083,15 @@ async function rSaveCapita(jugador, rPlayers) {
     await rPost({action:'set_capita', participant:rParticipant, fase:FASE_ACTIVA_GLOBAL, jornada:JORNADA_ACTIVA_GLOBAL, capita:jugador});
   } catch(e) { console.warn('Error guardant capità:', e); }
   rSpinResult = jugador;
-  _capitansMap[norm(rParticipant)] = jugador;
-  clearCache(); // recalcula punts amb el nou capità
+  // Si té carta Capita manual, aquesta té prioritat — no sobreescrivim _capitansMap
+  const cartaManual = _cartesGastades[norm(rParticipant)];
+  if (cartaManual?.carta === 'Capita manual' && cartaManual.detall?.jugador) {
+    // La ruleta s'ha girat però el capità real és el de la carta manual
+    _capitansMap[norm(rParticipant)] = cartaManual.detall.jugador;
+  } else {
+    _capitansMap[norm(rParticipant)] = jugador;
+  }
+  clearCache();
   renderRanking();
   rRenderMain(rPlayers);
 }
@@ -2353,6 +2360,14 @@ async function cGastar(params){
   cCartaData.estat='gastada';
   _cartesGastades[norm(cParticipant)]={carta:params.carta,detall:params};
   _cartesLog.push({participant:cParticipant,carta:params.carta,detall:params});
+  // Carta Capita manual: actualitza _capitansMap i guarda al Sheet de Capitans
+  if(params.carta==='Capita manual' && params.jugador){
+    _capitansMap[norm(cParticipant)] = params.jugador;
+    // Guarda al Sheet de Capitans (mateixa acció que la ruleta)
+    try {
+      await rPost({action:'set_capita', participant:cParticipant, fase:FASE_ACTIVA_GLOBAL, jornada:JORNADA_ACTIVA_GLOBAL, capita:params.jugador});
+    } catch(e) { console.warn('Error guardant capità manual:', e); }
+  }
   clearCache();renderRanking();
   cRenderCarta();
   // Si anular jugador, mostra reveal del jugador triat
@@ -2438,6 +2453,12 @@ async function init() {
       if (norm(v(r,'Fase')) === norm(FASE_ACTIVA_GLOBAL) && norm(v(r,'Jornada')) === norm(JORNADA_ACTIVA_GLOBAL)) {
         const cap = v(r,'Capita');
         if (cap) _capitansMap[norm(v(r,'Participant'))] = cap;
+      }
+    });
+    // Sobreescriu amb carta Capita manual si existeix (carta té prioritat sobre ruleta)
+    Object.entries(_cartesGastades).forEach(([pNorm, cData]) => {
+      if (cData.carta === 'Capita manual' && cData.detall?.jugador) {
+        _capitansMap[pNorm] = cData.detall.jugador;
       }
     });
     // Si hi ha sessió activa, carrega el capità d'aquell participant
