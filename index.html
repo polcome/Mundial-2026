@@ -1146,7 +1146,8 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
       detailLines += `<div class="detail-line"><span class="dl-label">🟥 Targeta vermella</span><span class="dl-pts neg">-6 pts</span></div>`;
     }
     const faseActDet = norm(phase)===norm(FASE_ACTIVA_GLOBAL) && norm(jornada)===norm(JORNADA_ACTIVA_GLOBAL);
-    // Canvi jugador
+    // Canvi jugador — prepend banner (no substitueix les línies de stats)
+    let canviBanner = '';
     if (faseActDet && participant) {
       const canviDet = getCanviInfo(participant);
       if (canviDet) {
@@ -1154,7 +1155,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
         const isRivalDet = norm(participant)===norm(canviDet.rival)&&norm(name)===norm(canviDet.jugadorRival);
         const jugadorEf = isMeuDet ? canviDet.jugadorRival : isRivalDet ? canviDet.jugadorMeu : null;
         if (jugadorEf) {
-          detailLines = `<div class="detail-line" style="background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.3);border-radius:6px;padding:6px 8px;flex-direction:column;align-items:flex-start;gap:2px">
+          canviBanner = `<div class="detail-line" style="background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.3);border-radius:6px;padding:6px 8px;margin-bottom:4px;flex-direction:column;align-items:flex-start;gap:2px">
             <span style="color:#60A5FA;font-weight:700;font-size:0.82rem">🔀 Carta: Canvi de jugador</span>
             <span style="color:var(--silver);font-size:0.75rem">Puntua <strong style="color:var(--white)">${jugadorEf}</strong> (intercanviat per carta rival)</span>
           </div>`;
@@ -1166,13 +1167,14 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
     const capAnulDet = participant && (isDetCap||isDetCap2) && isCapitaAnulat(participant);
     const dMultDet   = (isDetCap&&participant)?getCapitaDisplayMult(participant):(isDetCap2?2:0);
     if (faseActDet && participant && isJugadorAnulat(participant, name)) {
-      detailLines = `<div class="detail-line" style="background:rgba(248,113,113,0.1);border-radius:6px;padding:6px 8px;justify-content:flex-start;gap:0.5rem">
+      detailLines = canviBanner + `<div class="detail-line" style="background:rgba(248,113,113,0.1);border-radius:6px;padding:6px 8px;justify-content:flex-start;gap:0.5rem">
         <span>🚫</span><span style="color:#F87171;font-size:0.78rem"><strong>Carta: Anulació de jugador</strong> — Puntua 0 aquesta jornada</span>
       </div>`;
       detailLines += `<div class="detail-total-line"><span>Total (anulat)</span><span style="color:#F87171">0 pts</span></div>`;
     } else if (!detailLines) {
-      detailLines = `<div class="detail-line" style="justify-content:center;opacity:0.5">Sense puntuació registrada</div>`;
+      detailLines = canviBanner + `<div class="detail-line" style="justify-content:center;opacity:0.5">Sense puntuació registrada</div>`;
     } else {
+      if (canviBanner) detailLines = canviBanner + detailLines;
       if (dMultDet>0 && pts2!==null) {
         const rMult = capAnulDet?1:dMultDet;
         const base2 = Math.round(pts2/rMult);
