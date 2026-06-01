@@ -2365,17 +2365,18 @@ function dcDoSpin() {
     _dcSpinning=false;
     const jugador=v(winner,'Jugador');
     window._dcSpinResult=jugador;
-    // Mostra resultat i botó confirmar
     const equip=v(winner,'Equip');
     const foto=v(winner,'Foto');
-    const av=foto?`<img src="${foto}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid #FBBF24;margin:0 auto;display:block;margin-bottom:0.5rem" onerror="this.remove()">`:'';
-    const container=document.getElementById('dc_drum')?.closest('div');
-    if(container){
-      container.innerHTML=`<div style="text-align:center;padding:1rem 0">
+    const av=foto?`<img src="${foto}" style="width:70px;height:70px;border-radius:50%;object-fit:cover;border:3px solid #FBBF24;margin:0 auto 0.7rem;display:block;box-shadow:0 0 20px rgba(251,191,36,0.4)">`:'<div style="width:70px;height:70px;border-radius:50%;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 0.7rem">👤</div>';
+    // Replace the entire carta accio area
+    const accioPanels = document.querySelectorAll('#cartesTabContent > div > div:last-child');
+    const ruletaWrap = document.getElementById('dc_drum')?.closest('[style*="var(--glass)"]');
+    if(ruletaWrap){
+      ruletaWrap.innerHTML=`<div style="text-align:center;padding:1.2rem 0.5rem;animation:popIn 0.4s ease">
         ${av}
-        <div style="font-family:'Bebas Neue',cursive;font-size:1.5rem;color:var(--white)">${jugador}</div>
-        <div style="font-size:0.78rem;color:var(--silver);margin-bottom:1rem">${equip}</div>
-        <button onclick="cConfirmarForm('doble_capita')" style="width:100%;border:none;border-radius:10px;padding:0.8rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#C9A020,var(--gold));color:var(--ink);font-family:'DM Sans',sans-serif">⭐ Confirmar 2n Capità: ${jugador}</button>
+        <div style="font-family:'Bebas Neue',cursive;font-size:1.8rem;color:#FBBF24;margin-bottom:0.2rem">${jugador}</div>
+        <div style="font-size:0.82rem;color:var(--silver);margin-bottom:1.2rem">${equip}</div>
+        <button onclick="cConfirmarForm('doble_capita')" style="width:100%;border:none;border-radius:10px;padding:0.9rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#C9A020,var(--gold));color:var(--ink);font-family:'DM Sans',sans-serif;font-size:0.95rem">⭐ Confirmar 2n Capità: ${jugador}</button>
       </div>`;
     }
   },4700);
