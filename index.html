@@ -1000,7 +1000,7 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   const pinGolD = faseActPin && hasGolDoble(participant||_activeParticipant);
   const iconParts = [];
   if (g > 0)    iconParts.push((pinGolD?'<span style="color:#4ADE80">':'')+'⚽'.repeat(Math.min(g,3))+(pinGolD?'×2</span>':''));
-  if (pen > 0)  iconParts.push('🥅'.repeat(Math.min(pen,3)));
+  if (pen > 0)  iconParts.push((pinGolD?'<span style="color:#4ADE80">':'')+'🥅'.repeat(Math.min(pen,3))+(pinGolD?'×2</span>':''));
   if (a > 0)    iconParts.push('🅰️'.repeat(Math.min(a,3)));
   if (groga > 0) iconParts.push('🟨');
   if (verm > 0)  iconParts.push('🟥');
@@ -1204,7 +1204,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
     const bonusChips = [];
     if (g2>0) bonusChips.push(golDCh ? `<span class="bonus-chip" style="color:#4ADE80;border:1px solid rgba(34,197,94,0.3)">⚽ ×${g2} 🟢×2</span>` : `<span class="bonus-chip" style="color:#6EE89A">⚽ ×${g2}</span>`);
     if (a2>0)     bonusChips.push(`<span class="bonus-chip" style="color:#7DC3F5">🅰️ ×${a2}</span>`);
-    if (pen2>0)   bonusChips.push(`<span class="bonus-chip" style="color:#6EE89A">🥅 ×${pen2}</span>`);
+    if (pen2>0) bonusChips.push(golDCh ? `<span class="bonus-chip" style="color:#4ADE80;border:1px solid rgba(34,197,94,0.3)">🥅 ×${pen2} 🟢×2</span>` : `<span class="bonus-chip" style="color:#6EE89A">🥅 ×${pen2}</span>`);
     if (groga2>0) bonusChips.push(`<span class="bonus-chip" style="color:#F5C842">🟨 ×${groga2}</span>`);
     if (verm2>0)  bonusChips.push(`<span class="bonus-chip" style="color:#F58080">🟥 ×${verm2}</span>`);
 
@@ -2554,8 +2554,8 @@ async function cGastar(params){
     if(rivalPls.length) params.jugador=v(rivalPls[Math.floor(Math.random()*rivalPls.length)],'Jugador');
   }
   // Si és Comodi: la carta real és la triada (cComodiSel), el Comodi és el "vehicle"
-  const cartaReal = (cCartaData.carta==='Comodi' && cComodiSel) ? cComodiSel : params.carta;
-  const esComodi  = cCartaData.carta==='Comodi' && cComodiSel;
+  const cartaReal = (cCartaData.carta==='Comodi' && cComodiSel && cComodiSel!=='Comodi') ? cComodiSel : params.carta;
+  const esComodi  = cCartaData.carta==='Comodi' && cComodiSel && cComodiSel!=='Comodi';
   params.carta = cartaReal; // actua com si tingués la carta real
   params.via_comodi = esComodi ? true : undefined;
   try{await cScriptCall({action:'gastar_carta',participant:cParticipant,carta:cartaReal,detall:JSON.stringify(params)});}catch(e){console.warn(e);}
@@ -2565,7 +2565,8 @@ async function cGastar(params){
   // Log: mostra "Comodi → [carta real]" si escau
   const logCarta = esComodi ? `Comodi → ${cartaReal}` : cartaReal;
   // Substitueix entrada existent del participant (no duplicar)
-  const logEntry = {participant:cParticipant, carta:logCarta, detall:params, icon:esComodi?'🃏→'+(CARTES_DEF[cartaReal]?.icon||''):(CARTES_DEF[cartaReal]?.icon||'🃏')};
+  const logIcon = esComodi ? ('🃏→'+(CARTES_DEF[cartaReal]?.icon||'⭐')) : (CARTES_DEF[cartaReal]?.icon||'🃏');
+  const logEntry = {participant:cParticipant, carta:logCarta, detall:params, icon:logIcon};
   const existIdx = _cartesLog.findIndex(l=>norm(l.participant)===norm(cParticipant));
   if(existIdx>=0) _cartesLog[existIdx]=logEntry; else _cartesLog.push(logEntry);
   // Reset comodi selection
