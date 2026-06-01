@@ -861,6 +861,23 @@ function getScore(participant, jugador, fase, jornada) {
   ) || null;
 }
 
+// Com getScore però aplicant el canvi de jugador si hi ha carta activa
+function getScoreEfectiu(participant, jugador, fase, jornada) {
+  const faseActiva = norm(fase) === norm(FASE_ACTIVA_GLOBAL) && norm(jornada) === norm(JORNADA_ACTIVA_GLOBAL);
+  if (!faseActiva) return getScore(participant, jugador, fase, jornada);
+  const ef = getJugadorEfectiu(participant, jugador);
+  // Busca la puntuació del jugador efectiu (pot ser de l'equip rival)
+  return getScore(ef.participant, ef.jugador, fase, jornada);
+}
+
+// Retorna true si el jugador ha estat intercanviat per carta
+function isJugadorCanviat(participant, jugador) {
+  const canvi = getCanviInfo(participant);
+  if (!canvi) return false;
+  if (norm(participant) === norm(canvi.participant)) return norm(jugador) === norm(canvi.jugadorMeu);
+  return norm(jugador) === norm(canvi.jugadorRival);
+}
+
 function getChanges(participant) {
   if (!gData) return [];
   return (gData.canvis || []).filter(r => norm(v(r,'Participant')) === norm(participant));
@@ -872,7 +889,7 @@ function calcPlayerPhasePts(participant, jugador, fase) {
   const pos = plData ? v(plData,'Posicio') : 'DAV';
   let total = 0;
   for (const jorn of PHASE_JORNADES[fase] || []) {
-    const sc = getScore(participant, jugador, fase, jorn);
+    const sc = getScoreEfectiu(participant, jugador, fase, jorn);
     const pts = calcScoreRow(sc, pos, jugador, fase, jorn, participant);
     if (pts !== null) total += pts;
   }
@@ -1011,6 +1028,8 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   const badgeBg   = capAnulat?'rgba(245,200,66,0.4)':dispMult===4?'#22C55E':isCap2?'#22C55E':'var(--gold)';
   const captainBadgeZ = (isCapita||isCap2)?`<div style="position:absolute;top:-7px;left:-7px;z-index:10;background:${badgeBg};color:var(--ink);font-family:'Bebas Neue',cursive;font-size:0.55rem;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid var(--ink)">${capAnulat?'🚫':`x${dispMult}`}</div>`:'';
   const anulatBadgeZ = isAnulat?`<div style="position:absolute;inset:0;z-index:8;background:rgba(248,113,113,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="font-size:0.8rem">🚫</span></div>`:'';
+  const isCanviat = faseAct && isJugadorCanviat(pinP, name);
+  const canviBadgeZ = isCanviat ? `<div style="position:absolute;bottom:-8px;right:-6px;z-index:15;background:#60A5FA;color:var(--ink);font-size:0.55rem;font-weight:800;padding:1px 4px;border-radius:4px;border:1px solid var(--ink);font-family:'Space Mono',monospace">🔀</div>` : '';
   const flagBadgeZ = cs ? `<div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);z-index:10;background:${cs.color};color:#fff;font-size:0.58rem;font-weight:800;padding:1px 5px;border-radius:4px;font-family:'Space Mono',monospace;white-space:nowrap;border:1px solid rgba(255,255,255,0.3)">${cs.abbr}</div>` : '';
 
   const innerHtml = photoUrl
@@ -1022,7 +1041,7 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   const safeParticipant = (participant||_activeParticipant).replace(/'/g, "\'");
   const safeName = name.replace(/'/g, "\'");
   return `<div class="player-pin" onclick="openPlayerCard('${safeName}','${safeParticipant}','${phase}','${jorn}')" style="cursor:pointer">
-    <div class="avatar ${avCls}" style="overflow:visible;position:relative;transition:transform 0.15s" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform=''">${innerHtml}${anulatBadgeZ}${scoreBubbleZ}${flagBadgeZ}${captainBadgeZ}</div>
+    <div class="avatar ${avCls}" style="overflow:visible;position:relative;transition:transform 0.15s" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform=''">${innerHtml}${anulatBadgeZ}${scoreBubbleZ}${flagBadgeZ}${captainBadgeZ}${canviBadgeZ}</div>
     <div class="pname">${shortName}</div>
     ${goals}
   </div>`;
@@ -1053,7 +1072,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
   function row(pos, rowClass) {
     const names = getSlots(pos);
     const pins = names.map(name => {
-      let sc = name ? getScore(participant, name, phase, jornada) : null;
+      let sc = name ? getScoreEfectiu(participant, name, phase, jornada) : null;
     // Fallback J1 only for eliminations (E1 might be stored as J1 in some sheets)
     if (!sc && tryJ1Fallback && jornada === 'E1') sc = name ? getScore(participant, name, phase, 'J1') : null;
       return playerPin(name, pos, sc, jornada, participant, phase);
@@ -1063,8 +1082,8 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
 
   // Total de la jornada/eliminatòria
   const total = phasePlayers.reduce((s,pl) => {
-    let sc = getScore(participant, v(pl,'Jugador'), phase, jornada);
-    if (!sc && tryJ1Fallback && jornada === 'E1') sc = getScore(participant, v(pl,'Jugador'), phase, 'J1');
+    let sc = getScoreEfectiu(participant, v(pl,'Jugador'), phase, jornada);
+    if (!sc && tryJ1Fallback && jornada === 'E1') sc = getScoreEfectiu(participant, v(pl,'Jugador'), phase, 'J1');
     const pts = calcScoreRow(sc, v(pl,'Posicio'), v(pl,'Jugador'), phase, jornada, participant);
     return s + (pts || 0);
   }, 0);
@@ -1073,8 +1092,8 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
   // Player list
   const listRows = phasePlayers.map((pl, plIdx) => {
     const name = v(pl,'Jugador'), pos2 = (v(pl,'Posicio')||'MIG').toUpperCase();
-    let sc2 = getScore(participant, name, phase, jornada);
-    if (!sc2 && tryJ1Fallback && jornada === 'E1') sc2 = getScore(participant, name, phase, 'J1');
+    let sc2 = getScoreEfectiu(participant, name, phase, jornada);
+    if (!sc2 && tryJ1Fallback && jornada === 'E1') sc2 = getScoreEfectiu(participant, name, phase, 'J1');
     const note2 = sc2 ? parseNota(v(sc2,'Nota')) : null;
     const g2 = sc2 ? parseInt(v(sc2,'Gols')||0) : 0;
     const a2 = sc2 ? parseInt(v(sc2,'Assistencies')||0) : 0;
@@ -1127,6 +1146,21 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
       detailLines += `<div class="detail-line"><span class="dl-label">🟥 Targeta vermella</span><span class="dl-pts neg">-6 pts</span></div>`;
     }
     const faseActDet = norm(phase)===norm(FASE_ACTIVA_GLOBAL) && norm(jornada)===norm(JORNADA_ACTIVA_GLOBAL);
+    // Canvi jugador
+    if (faseActDet && participant) {
+      const canviDet = getCanviInfo(participant);
+      if (canviDet) {
+        const isMeuDet = norm(participant)===norm(canviDet.participant)&&norm(name)===norm(canviDet.jugadorMeu);
+        const isRivalDet = norm(participant)===norm(canviDet.rival)&&norm(name)===norm(canviDet.jugadorRival);
+        const jugadorEf = isMeuDet ? canviDet.jugadorRival : isRivalDet ? canviDet.jugadorMeu : null;
+        if (jugadorEf) {
+          detailLines = `<div class="detail-line" style="background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.3);border-radius:6px;padding:6px 8px;flex-direction:column;align-items:flex-start;gap:2px">
+            <span style="color:#60A5FA;font-weight:700;font-size:0.82rem">🔀 Carta: Canvi de jugador</span>
+            <span style="color:var(--silver);font-size:0.75rem">Puntua <strong style="color:var(--white)">${jugadorEf}</strong> (intercanviat per carta rival)</span>
+          </div>`;
+        }
+      }
+    }
     const isDetCap   = faseActDet && isCapitaAny(name);
     const isDetCap2  = faseActDet && participant && isSegonCapita(participant,name);
     const capAnulDet = participant && (isDetCap||isDetCap2) && isCapitaAnulat(participant);
@@ -1374,8 +1408,8 @@ function openPlayerCard(name, participant, phase, jornada) {
   const posBadge  = posicio ? `<span class="pos-badge pos-${posicio.toUpperCase()}">${posicio.toUpperCase()}</span>` : '';
 
   // Get score
-  let sc = getScore(participant, name, phase, jornada);
-  if (!sc && jornada === 'E1') sc = getScore(participant, name, phase, 'J1');
+  let sc = getScoreEfectiu(participant, name, phase, jornada);
+  if (!sc && jornada === 'E1') sc = getScoreEfectiu(participant, name, phase, 'J1');
 
   const nota    = sc ? parseNota(v(sc,'Nota'))              : null;
   const gols    = sc ? parseInt(v(sc,'Gols')||0)            : 0;
@@ -1422,7 +1456,19 @@ function openPlayerCard(name, participant, phase, jornada) {
   ].filter(Boolean).join('');
 
   const isCardAnulat = faseActCard && participant && isJugadorAnulat(participant, name);
+  // Canvi jugador info
+  let canviCardInfo = null;
+  if (faseActCard && participant) {
+    const canviCard = getCanviInfo(participant);
+    if (canviCard) {
+      const isMeuCard = norm(participant)===norm(canviCard.participant)&&norm(name)===norm(canviCard.jugadorMeu);
+      const isRivalCard = norm(participant)===norm(canviCard.rival)&&norm(name)===norm(canviCard.jugadorRival);
+      if (isMeuCard) canviCardInfo = {jugadorEfectiu: canviCard.jugadorRival, rival: canviCard.rival, tipus:'sortint'};
+      if (isRivalCard) canviCardInfo = {jugadorEfectiu: canviCard.jugadorMeu, rival: canviCard.participant, tipus:'entrant'};
+    }
+  }
   const noDataMsg = !sc ? '<div style="color:var(--silver);font-size:0.82rem;opacity:0.7;text-align:center;padding:0.5rem 0">Sense puntuació registrada</div>' : '';
+  const canviMsg = canviCardInfo ? `<div style="background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.3);border-radius:8px;padding:0.7rem 1rem;margin-bottom:0.8rem;font-size:0.82rem;color:#60A5FA;display:flex;gap:0.5rem;align-items:flex-start"><span style="font-size:1.2rem">🔀</span><div><strong>Carta: Canvi de jugador</strong><br><span style="opacity:0.85;color:var(--silver)">Puntua <strong style="color:var(--white)">${canviCardInfo.jugadorEfectiu}</strong> (de ${canviCardInfo.rival})</span></div></div>` : '';
   const anulatMsg = isCardAnulat ? `<div style="background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);border-radius:8px;padding:0.7rem 1rem;margin-bottom:0.8rem;font-size:0.82rem;color:#F87171;display:flex;gap:0.5rem;align-items:center"><span style="font-size:1.2rem">🚫</span><div><strong>Carta aplicada: Anulació de jugador</strong><br><span style="opacity:0.8">Aquest jugador puntua 0 aquesta jornada per efecte d'una carta rival.</span></div></div>` : '';
 
   const modal = document.createElement('div');
@@ -1436,7 +1482,7 @@ function openPlayerCard(name, participant, phase, jornada) {
           ${(isCardCapita||isCardCap2) ? `<span style="background:${cardCapAnul?'rgba(245,200,66,0.3)':cardDisp===4||isCardCap2?'#22C55E':'var(--gold)'};color:var(--ink);font-family:'Bebas Neue',cursive;font-size:0.8rem;padding:2px 8px;border-radius:20px">${cardCapAnul?'🚫':cardDisp===4||isCardCap2?'🟢':'⭐'} ${isCardCap2?'2n CAPITÀ':'CAPITÀ'} x${cardDisp}${cardCapAnul?' (ANULAT)':''}</span>` : ''}
         </div>
         <div class="card-meta">${flagBadge}${equip ? `<span style="font-size:0.82rem;color:var(--silver)">${equip}</span>` : ''}${posBadge}</div>
-        ${anulatMsg}${statsRows || noDataMsg}
+        ${canviMsg}${anulatMsg}${statsRows || noDataMsg}
         ${pts !== null ? `<div class="card-total"><span class="card-total-label">Total ${PHASE_LABELS[phase]}</span><span class="card-total-pts">${pts} pts</span></div>` : ''}
       </div>
     </div>
@@ -2176,6 +2222,42 @@ function hasGolDoble(participant) {
 function isSegonCapita(participant, jugador) {
   const c=_cartesGastades[norm(participant)];
   return c?.carta==='Doble capita' && norm(c.detall?.jugador||'')===norm(jugador);
+}
+
+// Retorna {rival, jugadorMeu, jugadorRival} si hi ha canvi actiu per a participant
+function getCanviInfo(participant) {
+  // El participant ha usat la carta de canvi
+  const cartaP = _cartesGastades[norm(participant)];
+  if (cartaP?.carta === 'Canvi jugador rival') {
+    return { participant, rival: cartaP.detall?.rival, jugadorMeu: cartaP.detall?.jugador_meu, jugadorRival: cartaP.detall?.jugador_rival };
+  }
+  // Un rival ha usat la carta de canvi contra aquest participant
+  for (const [pNorm, rc] of Object.entries(_cartesGastades)) {
+    if (rc.carta === 'Canvi jugador rival' && norm(rc.detall?.rival||'') === norm(participant)) {
+      return { participant: pNorm, rival: participant, jugadorMeu: rc.detall?.jugador_meu, jugadorRival: rc.detall?.jugador_rival };
+    }
+  }
+  return null;
+}
+
+// Per a un jugador en un equip, retorna el jugador "real" que puntua (aplicant canvis)
+// Si el jugador ha estat intercanviat, retorna el jugador que ve de l'altre equip
+function getJugadorEfectiu(participant, jugador) {
+  const canvi = getCanviInfo(participant);
+  if (!canvi) return { jugador, participant, canviat: false };
+  // participant és el "propietari" de la carta
+  if (norm(participant) === norm(canvi.participant)) {
+    // Soc el que té la carta: el meu jugador (jugadorMeu) és substituït pel rival (jugadorRival)
+    if (norm(jugador) === norm(canvi.jugadorMeu)) {
+      return { jugador: canvi.jugadorRival, participant: canvi.rival, canviat: true, jugadorOriginal: canvi.jugadorMeu, rival: canvi.rival };
+    }
+  } else {
+    // Soc el rival: el meu jugador (jugadorRival) és substituït pel del qui té la carta (jugadorMeu)
+    if (norm(jugador) === norm(canvi.jugadorRival)) {
+      return { jugador: canvi.jugadorMeu, participant: canvi.participant, canviat: true, jugadorOriginal: canvi.jugadorRival, rival: canvi.participant };
+    }
+  }
+  return { jugador, participant, canviat: false };
 }
 // ============================================================
 // CARTES UI
