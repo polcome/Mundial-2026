@@ -979,8 +979,10 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   const pen  = sc ? parseInt(v(sc,'Penalti')||0) : 0;
   const groga = sc ? parseInt(v(sc,'DobleGroga')||0) : 0;
   const verm  = sc ? parseInt(v(sc,'Vermella')||0) : 0;
+  const faseActPin = norm(phase)===norm(FASE_ACTIVA_GLOBAL) && norm(jorn)===norm(JORNADA_ACTIVA_GLOBAL);
+  const pinGolD = faseActPin && hasGolDoble(participant||_activeParticipant);
   const iconParts = [];
-  if (g > 0)    iconParts.push('⚽'.repeat(Math.min(g,3)));
+  if (g > 0)    iconParts.push((pinGolD?'<span style="color:#4ADE80">':'')+'⚽'.repeat(Math.min(g,3))+(pinGolD?'×2</span>':''));
   if (pen > 0)  iconParts.push('🥅'.repeat(Math.min(pen,3)));
   if (a > 0)    iconParts.push('🅰️'.repeat(Math.min(a,3)));
   if (groga > 0) iconParts.push('🟨');
@@ -1100,8 +1102,17 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
       detailLines += `<div class="detail-line"><span class="dl-label">📊 Nota SofaScore <strong style="color:var(--white)">${note2.toFixed(1)}</strong></span><span class="dl-pts ${nc}">${notaPts >= 0 ? '+' : ''}${notaPts} pts</span></div>`;
     }
     if (g2 > 0) {
-      const gp = g2 * golPts(pos2);
-      detailLines += `<div class="detail-line"><span class="dl-label">⚽ ${g2} Gol${g2>1?'s':''} (${pos2} = ${golPts(pos2)}pts/gol)</span><span class="dl-pts pos">+${gp} pts</span></div>`;
+      const faseActG = norm(phase)===norm(FASE_ACTIVA_GLOBAL) && norm(jornada)===norm(JORNADA_ACTIVA_GLOBAL);
+      const golD = faseActG && hasGolDoble(participant);
+      const gpBase = golPts(pos2);
+      const gpMult = golD ? gpBase * 2 : gpBase;
+      const gp = g2 * gpMult;
+      if (golD) {
+        detailLines += `<div class="detail-line"><span class="dl-label">⚽ ${g2} Gol${g2>1?'s':''} (${pos2} = ${gpBase}pts/gol base)</span><span class="dl-pts pos">+${g2*gpBase} pts</span></div>`;
+        detailLines += `<div class="detail-line" style="background:rgba(34,197,94,0.08);border-radius:6px;padding:3px 6px"><span class="dl-label" style="color:#4ADE80;font-weight:700">🟢 Gol Doble 🃏 (+${g2*gpBase} pts extra)</span><span class="dl-pts pos" style="color:#4ADE80">+${g2*gpBase} pts</span></div>`;
+      } else {
+        detailLines += `<div class="detail-line"><span class="dl-label">⚽ ${g2} Gol${g2>1?'s':''} (${pos2} = ${gpBase}pts/gol)</span><span class="dl-pts pos">+${gp} pts</span></div>`;
+      }
     }
     if (a2 > 0) {
       detailLines += `<div class="detail-line"><span class="dl-label">🅰️ ${a2} Assistència${a2>1?'s':''}</span><span class="dl-pts pos">+${a2*2} pts</span></div>`;
@@ -1145,8 +1156,10 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
     }
 
     // Build bonus chips
+    const faseActCh = norm(phase)===norm(FASE_ACTIVA_GLOBAL) && norm(jornada)===norm(JORNADA_ACTIVA_GLOBAL);
+    const golDCh = faseActCh && hasGolDoble(participant);
     const bonusChips = [];
-    if (g2>0)     bonusChips.push(`<span class="bonus-chip" style="color:#6EE89A">⚽ ×${g2}</span>`);
+    if (g2>0) bonusChips.push(golDCh ? `<span class="bonus-chip" style="color:#4ADE80;border:1px solid rgba(34,197,94,0.3)">⚽ ×${g2} 🟢×2</span>` : `<span class="bonus-chip" style="color:#6EE89A">⚽ ×${g2}</span>`);
     if (a2>0)     bonusChips.push(`<span class="bonus-chip" style="color:#7DC3F5">🅰️ ×${a2}</span>`);
     if (pen2>0)   bonusChips.push(`<span class="bonus-chip" style="color:#6EE89A">🥅 ×${pen2}</span>`);
     if (groga2>0) bonusChips.push(`<span class="bonus-chip" style="color:#F5C842">🟨 ×${groga2}</span>`);
@@ -1387,7 +1400,16 @@ function openPlayerCard(name, participant, phase, jornada) {
   const basePts      = (pts!==null&&cardReal>0)?Math.round(pts/cardReal):pts;
   const statsRows = [
     nota !== null ? `<div class="card-stat-row"><span>📊 Nota SofaScore</span><span style="display:flex;gap:8px;align-items:center"><span class="score-chip ${notaCls}">${nota.toFixed(1)}</span><span class="val">${notaPts>=0?'+':''}${notaPts} pts</span></span></div>` : '',
-    gols    > 0 ? `<div class="card-stat-row"><span>⚽ Gols (${posicio} +${golPts(posicio)}pts/gol)</span><span class="val" style="color:#6EE89A">+${gols * golPts(posicio)} pts</span></div>` : '',
+    gols    > 0 ? (() => {
+      const faseActG2 = norm(phase)===norm(FASE_ACTIVA_GLOBAL) && norm(jornada)===norm(JORNADA_ACTIVA_GLOBAL);
+      const golD2 = faseActG2 && hasGolDoble(participant);
+      const gpB = golPts(posicio);
+      if (golD2) {
+        return `<div class="card-stat-row"><span>⚽ Gols (${posicio} +${gpB}pts base)</span><span class="val" style="color:#6EE89A">+${gols*gpB} pts</span></div>` +
+               `<div class="card-stat-row" style="background:rgba(34,197,94,0.1);border-radius:6px;padding:3px 6px"><span style="color:#4ADE80;font-weight:700">🟢 Gol Doble 🃏</span><span class="val" style="color:#4ADE80">+${gols*gpB} pts</span></div>`;
+      }
+      return `<div class="card-stat-row"><span>⚽ Gols (${posicio} +${gpB}pts/gol)</span><span class="val" style="color:#6EE89A">+${gols*gpB} pts</span></div>`;
+    })() : '',
     assists > 0 ? `<div class="card-stat-row"><span>🅰️ Assistències x${assists}</span><span class="val" style="color:#7DC3F5">+${assists*2} pts</span></div>` : '',
     penals  > 0 ? `<div class="card-stat-row"><span>🥅 Gols de penal x${penals}</span><span class="val" style="color:#6EE89A">+${penals*3} pts</span></div>` : '',
     dgroga  > 0 ? `<div class="card-stat-row"><span>🟨 Doble groga</span><span class="val" style="color:#F5C842">-3 pts</span></div>` : '',
