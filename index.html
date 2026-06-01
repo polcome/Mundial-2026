@@ -1161,7 +1161,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
     const isListAnulat = faseActL && participant && isJugadorAnulat(participant,name);
     const isListCap2   = faseActL && participant && isSegonCapita(participant,name);
     const listMult     = (isListCapita&&participant)?getCapitaDisplayMult(participant):(isListCap2?2:0);
-    const listBg = isListAnulat?'border-color:rgba(248,113,113,0.4);background:rgba(248,113,113,0.05)':listMult===4?'border-color:rgba(34,197,94,0.4);background:rgba(34,197,94,0.05)':listMult>0?'border-color:rgba(245,200,66,0.4);background:rgba(245,200,66,0.05)':'';
+    const listBg = isListAnulat?'border-color:rgba(248,113,113,0.4);background:rgba(248,113,113,0.05)':listMult===4?'border-color:rgba(34,197,94,0.4);background:rgba(34,197,94,0.05)':isListCap2?'border-color:rgba(34,197,94,0.4);background:rgba(34,197,94,0.05)':listMult>0?'border-color:rgba(245,200,66,0.4);background:rgba(245,200,66,0.05)':'';
     return `<div class="pitch-list-row" onclick="toggleDetail('${detailId}')" style="${listBg}">
       <div class="pitch-list-name" style="display:flex;align-items:center;gap:0.7rem">
         ${avatarList}
