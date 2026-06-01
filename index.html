@@ -2549,7 +2549,10 @@ async function cGastar(params){
   _cartesGastades[norm(cParticipant)]={carta:cartaReal,detall:params};
   // Log: mostra "Comodi → [carta real]" si escau
   const logCarta = esComodi ? `Comodi → ${cartaReal}` : cartaReal;
-  _cartesLog.push({participant:cParticipant,carta:logCarta,detall:params,icon:esComodi?'🃏→'+( CARTES_DEF[cartaReal]?.icon||''):(CARTES_DEF[cartaReal]?.icon||'🃏')});
+  // Substitueix entrada existent del participant (no duplicar)
+  const logEntry = {participant:cParticipant, carta:logCarta, detall:params, icon:esComodi?'🃏→'+(CARTES_DEF[cartaReal]?.icon||''):(CARTES_DEF[cartaReal]?.icon||'🃏')};
+  const existIdx = _cartesLog.findIndex(l=>norm(l.participant)===norm(cParticipant));
+  if(existIdx>=0) _cartesLog[existIdx]=logEntry; else _cartesLog.push(logEntry);
   // Reset comodi selection
   cComodiSel = '';
   // Carta Doble capita: registra el 2n capità
@@ -2577,6 +2580,8 @@ async function cResetCarta(){
   if(!confirm('Reset carta per a proves?'))return;
   try{await cScriptCall({action:'reset_carta',participant:cParticipant});}catch(e){}
   delete _cartesGastades[norm(cParticipant)];
+  const resetIdx = _cartesLog.findIndex(l=>norm(l.participant)===norm(cParticipant));
+  if(resetIdx>=0) _cartesLog.splice(resetIdx,1);
   clearCache();renderRanking();
   cCartaData.estat='disponible';cComodiSel='';cRenderCarta();
   showToast('Carta reiniciada');
@@ -2625,7 +2630,10 @@ async function init() {
       if(nom&&norm(v(r,'Carta_Estat'))==='gastada'){
         let d={};try{d=JSON.parse(v(r,'Carta_Detall'));}catch(e){}
         _cartesGastades[norm(nom)]={carta:v(r,'Carta'),detall:d};
-        _cartesLog.push({participant:nom,carta:v(r,'Carta'),detall:d});
+        // Una sola entrada per participant al log
+        const cartaLog = d?.via_comodi ? `Comodi → ${v(r,'Carta')}` : v(r,'Carta');
+        const iconLog  = d?.via_comodi ? '🃏→'+(CARTES_DEF[v(r,'Carta')]?.icon||'') : (CARTES_DEF[v(r,'Carta')]?.icon||'🃏');
+        _cartesLog.push({participant:nom, carta:cartaLog, detall:d, icon:iconLog});
       }
     });
   } catch(e){console.warn('Cartes:',e);}
