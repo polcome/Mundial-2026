@@ -537,10 +537,12 @@ function parseSheet(json) {
 
   function cellVal(cell) {
     if (!cell) return '';
-    // Prefereix el valor formatat (f) per a dates i números
+    // Per a dates (v és un string "Date(...)"), usar el valor raw per parsejar-lo després
+    const rawV = (cell.v !== null && cell.v !== undefined) ? cell.v : '';
+    if (typeof rawV === 'string' && rawV.startsWith('Date(')) return rawV.trim();
+    // Per a la resta, prefereix el valor formatat (f)
     if (cell.f !== null && cell.f !== undefined && cell.f !== '') return String(cell.f).trim();
-    const v = (cell.v !== null && cell.v !== undefined) ? cell.v : '';
-    return typeof v === 'string' ? v.trim() : v;
+    return typeof rawV === 'string' ? rawV.trim() : rawV;
   }
 
   const firstRowVals = cols.map((c, i) => cellVal(rows[0]?.c?.[i]));
@@ -1873,6 +1875,12 @@ async function reloadData() {
     const cfgR=await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Config&_=${Date.now()}`,{cache:'no-store'});
     const cfgJ=JSON.parse((t=>t.slice(t.indexOf('(')+1,t.lastIndexOf(')')))(await cfgR.text()));
     _calendari = parseSheet(cfgJ);
+    // Debug: mostra el valor raw de la primera data
+    if (_calendari.length > 0) {
+      const firstRow = _calendari[0];
+      console.log('Primera fila Config raw:', JSON.stringify(firstRow));
+      console.log('Valor Data raw:', firstRow['Data'], '| tipus:', typeof firstRow['Data']);
+    }
     detectarFaseJornada();
     console.log('Config recarregat. Revelat:', JORNADA_REVELADA);
   } catch(e){console.warn('Config reload:',e);}
@@ -2080,6 +2088,18 @@ function parseDataCalendari(dataStr) {
   if (euMatch) {
     return new Date(parseInt(euMatch[3]), parseInt(euMatch[2])-1, parseInt(euMatch[1]),
                     parseInt(euMatch[4]), parseInt(euMatch[5]), 0);
+  }
+
+  // Intenta dividir per espai i reconstruir
+  const parts = s.split(/[T ]/);
+  if (parts.length >= 2) {
+    const dateParts = parts[0].split('-');
+    const timeParts = parts[1].split(':');
+    if (dateParts.length === 3 && timeParts.length >= 2) {
+      const dd = new Date(parseInt(dateParts[0]), parseInt(dateParts[1])-1, parseInt(dateParts[2]),
+                          parseInt(timeParts[0]), parseInt(timeParts[1]), 0);
+      if (!isNaN(dd.getTime())) return dd;
+    }
   }
 
   // Darrer intent genèric
@@ -3060,6 +3080,12 @@ async function init() {
     const cfgR=await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Config&_=${Date.now()}`,{cache:'no-store'});
     const cfgJ=JSON.parse((t=>t.slice(t.indexOf('(')+1,t.lastIndexOf(')')))(await cfgR.text()));
     _calendari = parseSheet(cfgJ);
+    // Debug: mostra el valor raw de la primera data
+    if (_calendari.length > 0) {
+      const firstRow = _calendari[0];
+      console.log('Primera fila Config raw:', JSON.stringify(firstRow));
+      console.log('Valor Data raw:', firstRow['Data'], '| tipus:', typeof firstRow['Data']);
+    }
     detectarFaseJornada();
   } catch(e){console.warn('Config:',e);}
   // Carrega cartes gastades de Cartes_Jornada (jornada activa)
