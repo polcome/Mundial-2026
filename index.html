@@ -549,19 +549,25 @@ function parseSheet(json) {
 
   const firstRowVals = cols.map((c, i) => cellVal(rows[0]?.c?.[i]));
   const gvizLabels   = cols.map(c => (c.label || '').trim());
-  // La primera fila és capçalera si tots els seus valors no-buits són strings
-  // (ignorem que algunes files de dades puguin tenir números/dates)
-  const nonEmptyFirst = firstRowVals.filter(v => v !== '' && v !== null);
-  const firstRowIsHeader = nonEmptyFirst.length > 0 &&
-    nonEmptyFirst.every(v => typeof v === 'string' && isNaN(parseFloat(v)));
 
   let headers, dataRows;
-  if (firstRowIsHeader) {
-    headers  = cols.map((c, i) => firstRowVals[i] || gvizLabels[i] || String.fromCharCode(65 + i));
-    dataRows = rows.slice(1);
-  } else {
+  // Si gviz ja retorna labels amb noms reals, usar-los directament (cas normal amb capçalera al Sheet)
+  const gvizHasLabels = gvizLabels.some(l => l !== '');
+  if (gvizHasLabels) {
     headers  = gvizLabels.map((l, i) => l || String.fromCharCode(65 + i));
     dataRows = rows;
+  } else {
+    // Fallback: detecta si la primera fila és capçalera textual (cap valor és Date() ni número)
+    const nonEmptyFirst = firstRowVals.filter(v => v !== '' && v !== null);
+    const firstRowIsHeader = nonEmptyFirst.length > 0 &&
+      nonEmptyFirst.every(v => typeof v === 'string' && !String(v).startsWith('Date(') && isNaN(parseFloat(v)));
+    if (firstRowIsHeader) {
+      headers  = cols.map((c, i) => firstRowVals[i] || String.fromCharCode(65 + i));
+      dataRows = rows.slice(1);
+    } else {
+      headers  = cols.map((c, i) => String.fromCharCode(65 + i));
+      dataRows = rows;
+    }
   }
 
   return dataRows.map(row => {
