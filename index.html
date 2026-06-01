@@ -943,6 +943,24 @@ function getRanking() {
 function renderRanking() {
   const grid = document.getElementById('rankingGrid');
   if (!gData) { grid.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Carregant...</p></div>'; return; }
+  // Banner si capitans/cartes estan ocults
+  const finR2 = getFinestra(FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
+  const hiddenBanner = !JORNADA_REVELADA && finR2.jornada_inici
+    ? `<div style="background:rgba(245,200,66,0.08);border:1px solid rgba(245,200,66,0.2);border-radius:10px;padding:0.8rem 1.2rem;margin-bottom:1rem;font-size:0.82rem;color:var(--silver);display:flex;gap:0.6rem;align-items:center">
+        🔒 <span>Capitans i cartes <strong style="color:var(--gold)">ocults</strong> fins l'inici de jornada — <span id="rankJorCountdown" style="font-family:'Space Mono',monospace;color:var(--gold)"></span></span>
+      </div>`
+    : '';
+  if (hiddenBanner) {
+    const existBanner = document.getElementById('rankHiddenBanner');
+    if (!existBanner) {
+      const b = document.createElement('div');
+      b.id = 'rankHiddenBanner';
+      b.innerHTML = hiddenBanner;
+      grid.parentNode.insertBefore(b, grid);
+      setInterval(()=>{const c=document.getElementById('rankJorCountdown');if(c)c.textContent=countdownStr(finR2.jornada_inici);},1000);
+      setTimeout(()=>{const c=document.getElementById('rankJorCountdown');if(c)c.textContent=countdownStr(finR2.jornada_inici);},100);
+    }
+  }
   const ranking = getRanking();
   if (!ranking.length) {
     grid.innerHTML = '<div class="empty-state"><div class="big-icon">🏆</div><p>Encara no hi ha dades al Google Sheet.<br>Segueix la guia de configuració al panell Admin.</p></div>';
@@ -2256,6 +2274,11 @@ function rRenderMain(rPlayers) {
 
 function rDoSpin() {
   if (rSpinning) return;
+  // Comprova finestra de selecció
+  const finRDS = getFinestra(FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
+  const araRDS = new Date();
+  const selObRDS = finRDS.seleccio_inici && finRDS.seleccio_fi && araRDS >= finRDS.seleccio_inici && araRDS <= finRDS.seleccio_fi;
+  if (!selObRDS && !R_MODE_PROVES) { showToast('La finestra de selecció de capità ha tancat'); return; }
   const rPlayers = getPlayersForPhase(rParticipant, FASE_ACTIVA_GLOBAL);
   if (!rPlayers.length) return;
   rSpinning = true;
@@ -2697,7 +2720,7 @@ async function cGastar(params){
   const esComodi  = cCartaData.carta==='Comodi' && cComodiSel && cComodiSel!=='Comodi';
   params.carta = cartaReal; // actua com si tingués la carta real
   params.via_comodi = esComodi ? true : undefined;
-  try{await cScriptCall({action:'gastar_carta',participant:cParticipant,carta:cartaReal,detall:JSON.stringify(params)});}catch(e){console.warn(e);}
+  try{await cScriptCall({action:'gastar_carta_jornada',participant:cParticipant,carta:cartaReal,fase:FASE_ACTIVA_GLOBAL,jornada:JORNADA_ACTIVA_GLOBAL,detall:JSON.stringify(params)});}catch(e){console.warn(e);}
   cCartaData.estat='gastada';
   // Guarda la carta real (no Comodi) a _cartesGastades — comportament idèntic
   _cartesGastades[norm(cParticipant)]={carta:cartaReal,detall:params};
@@ -2958,6 +2981,15 @@ async function init() {
       _cartesLog.push({participant:nom, carta:cartaLog, detall:d, icon:iconLog});
     });
     console.log('Cartes jornada carregades:', Object.keys(_cartesGastades).length);
+    // Si la jornada no ha revelat, amaga les cartes dels rivals (cada un veu la seva)
+    if (!JORNADA_REVELADA) {
+      const savedCartesAuth = sessionStorage.getItem('cartes_auth');
+      const myCartesNorm = savedCartesAuth ? norm(savedCartesAuth) : null;
+      Object.keys(_cartesGastades).forEach(pNorm => {
+        if (pNorm !== myCartesNorm) delete _cartesGastades[pNorm];
+      });
+      _cartesLog = _cartesLog.filter(l => norm(l.participant) === myCartesNorm);
+    }
   } catch(e){console.warn('Cartes_Jornada:',e);}
   // Popula selector d'equips
   const participants = getParticipants();
@@ -2987,14 +3019,21 @@ async function init() {
         _capitansMap[pNorm] = cData.detall.jugador;
       }
     });
+    // Si la jornada no ha revelat encara, amaga els capitans d'altri (cada participant veu el seu)
+    if (!JORNADA_REVELADA) {
+      const savedAuth = sessionStorage.getItem('ruleta_auth');
+      const myNorm = savedAuth ? norm(savedAuth) : null;
+      Object.keys(_capitansMap).forEach(pNorm => {
+        if (pNorm !== myNorm) delete _capitansMap[pNorm];
+      });
+    }
     // Si hi ha sessió activa, carrega el capità d'aquell participant
     const savedAuth = sessionStorage.getItem('ruleta_auth');
     if (savedAuth) {
       rSpinResult = _capitansMap[norm(savedAuth)] || null;
       rParticipant = savedAuth;
     }
-    console.log('Capitans carregats:', _capitansMap);
-    // Neteja la caché perquè els totals es recalculin amb els capitans
+    console.log('Capitans carregats:', _capitansMap, '| Revelat:', JORNADA_REVELADA);
     if (Object.keys(_capitansMap).length > 0) clearCache();
   } catch(e) { console.warn('Error carregant capitans:', e); }
 
