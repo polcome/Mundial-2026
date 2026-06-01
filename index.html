@@ -2351,14 +2351,18 @@ function cRenderCarta() {
   // Afegeix registre públic de cartes usades
   if (_cartesLog.length) {
     const logItems = _cartesLog.map(l => {
-      const def = CARTES_DEF[l.carta]||{icon:'🃏'};
+      // l.carta pot ser "Comodi → Capita x4" — mostra carta real
+      const cartaDisplay = l.carta;
+      const cartaReal2 = l.carta.includes('→') ? l.carta.split('→')[1].trim() : l.carta;
+      const def = CARTES_DEF[cartaReal2]||CARTES_DEF[l.carta]||{icon:'🃏',color:'#C084FC'};
+      const iconDisplay = l.icon || def.icon;
       let detail = '';
       if(l.detall?.rival) detail += ` → <strong>${l.detall.rival}</strong>`;
       if(l.detall?.jugador) detail += ` (${l.detall.jugador})`;
       if(l.detall?.jugador_meu) detail += ` ⇄ ${l.detall.jugador_rival}`;
       return `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.82rem">
-        <span style="font-size:1.2rem">${def.icon}</span>
-        <div><strong style="color:var(--white)">${l.participant}</strong> ha gastat <strong style="color:${def.color||'var(--gold)'}">${l.carta}</strong>${detail}</div>
+        <span style="font-size:1.2rem">${iconDisplay}</span>
+        <div><strong style="color:var(--white)">${l.participant}</strong> ha gastat <strong style="color:${def.color||'var(--gold)'}">${cartaDisplay}</strong>${detail}</div>
       </div>`;
     }).join('');
     html += `<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1.2rem 1.5rem;max-width:480px;margin:1.5rem auto 0">
@@ -2534,10 +2538,20 @@ async function cGastar(params){
     const rivalPls=cAllPlayers[norm(params.rival)]||[];
     if(rivalPls.length) params.jugador=v(rivalPls[Math.floor(Math.random()*rivalPls.length)],'Jugador');
   }
-  try{await cScriptCall({action:'gastar_carta',participant:cParticipant,carta:params.carta,detall:JSON.stringify(params)});}catch(e){console.warn(e);}
+  // Si és Comodi: la carta real és la triada (cComodiSel), el Comodi és el "vehicle"
+  const cartaReal = (cCartaData.carta==='Comodi' && cComodiSel) ? cComodiSel : params.carta;
+  const esComodi  = cCartaData.carta==='Comodi' && cComodiSel;
+  params.carta = cartaReal; // actua com si tingués la carta real
+  params.via_comodi = esComodi ? true : undefined;
+  try{await cScriptCall({action:'gastar_carta',participant:cParticipant,carta:cartaReal,detall:JSON.stringify(params)});}catch(e){console.warn(e);}
   cCartaData.estat='gastada';
-  _cartesGastades[norm(cParticipant)]={carta:params.carta,detall:params};
-  _cartesLog.push({participant:cParticipant,carta:params.carta,detall:params});
+  // Guarda la carta real (no Comodi) a _cartesGastades — comportament idèntic
+  _cartesGastades[norm(cParticipant)]={carta:cartaReal,detall:params};
+  // Log: mostra "Comodi → [carta real]" si escau
+  const logCarta = esComodi ? `Comodi → ${cartaReal}` : cartaReal;
+  _cartesLog.push({participant:cParticipant,carta:logCarta,detall:params,icon:esComodi?'🃏→'+( CARTES_DEF[cartaReal]?.icon||''):(CARTES_DEF[cartaReal]?.icon||'🃏')});
+  // Reset comodi selection
+  cComodiSel = '';
   // Carta Doble capita: registra el 2n capità
   if(params.carta==='Doble capita' && params.jugador){
     window._dcSpinResult = null; // reset per si es torna a obrir
