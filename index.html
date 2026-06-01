@@ -2060,21 +2060,34 @@ let _capitansMap = {};    // { participant: capita } — tots els capitans carre
 function parseDataCalendari(dataStr) {
   if (!dataStr || dataStr === '') return null;
   const s = dataStr.toString().trim();
-  // Formats possibles: "2026-06-11 21:00", "2026-06-11T21:00", "11/06/2026 21:00"
-  let d;
-  // Format ISO amb espai: "2026-06-11 21:00"
-  const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+
+  // Format gviz Date: "Date(2026,5,1,9,59,0)" — mes és 0-indexed
+  const gvizMatch = s.match(/Date\((\d+),(\d+),(\d+),(\d+),(\d+)/);
+  if (gvizMatch) {
+    return new Date(parseInt(gvizMatch[1]), parseInt(gvizMatch[2]),
+                    parseInt(gvizMatch[3]), parseInt(gvizMatch[4]), parseInt(gvizMatch[5]), 0);
+  }
+
+  // Format ISO "2026-06-11 21:00" o "2026-06-11T21:00"
+  const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[T ](\d{1,2}):(\d{2})/);
   if (isoMatch) {
-    d = new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2])-1, parseInt(isoMatch[3]),
-                 parseInt(isoMatch[4]), parseInt(isoMatch[5]), 0);
-  } else {
-    d = new Date(s.replace(' ', 'T'));
+    return new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2])-1, parseInt(isoMatch[3]),
+                    parseInt(isoMatch[4]), parseInt(isoMatch[5]), 0);
   }
-  if (isNaN(d.getTime())) {
-    console.warn('Data no parsejada:', s);
-    return null;
+
+  // Format "11/06/2026 21:00"
+  const euMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[T ](\d{1,2}):(\d{2})/);
+  if (euMatch) {
+    return new Date(parseInt(euMatch[3]), parseInt(euMatch[2])-1, parseInt(euMatch[1]),
+                    parseInt(euMatch[4]), parseInt(euMatch[5]), 0);
   }
-  return d;
+
+  // Darrer intent genèric
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return d;
+
+  console.warn('Data no parsejada:', s);
+  return null;
 }
 
 function detectarFaseJornada() {
