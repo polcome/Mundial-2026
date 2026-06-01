@@ -1006,7 +1006,7 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   const bCol      = isAnulat?'#F87171':isVerd?'#4ADE80':'var(--gold)';
   const ptsDisp   = isAnulat?0:pts;
   const scoreBubbleZ = ptsDisp!==null?`<div style="position:absolute;top:-7px;right:-7px;z-index:10;background:var(--ink);border:1.5px solid ${bCol};color:${bCol};font-family:'Space Mono',monospace;font-size:0.6rem;font-weight:700;padding:2px 5px;border-radius:5px;white-space:nowrap">${ptsDisp}</div>`:'';
-  const badgeBg   = capAnulat?'rgba(245,200,66,0.4)':dispMult===4?'#22C55E':'var(--gold)';
+  const badgeBg   = capAnulat?'rgba(245,200,66,0.4)':dispMult===4?'#22C55E':isCap2?'#22C55E':'var(--gold)';
   const captainBadgeZ = (isCapita||isCap2)?`<div style="position:absolute;top:-7px;left:-7px;z-index:10;background:${badgeBg};color:var(--ink);font-family:'Bebas Neue',cursive;font-size:0.55rem;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid var(--ink)">${capAnulat?'🚫':`x${dispMult}`}</div>`:'';
   const anulatBadgeZ = isAnulat?`<div style="position:absolute;inset:0;z-index:8;background:rgba(248,113,113,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="font-size:0.8rem">🚫</span></div>`:'';
   const flagBadgeZ = cs ? `<div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);z-index:10;background:${cs.color};color:#fff;font-size:0.58rem;font-weight:800;padding:1px 5px;border-radius:4px;font-family:'Space Mono',monospace;white-space:nowrap;border:1px solid rgba(255,255,255,0.3)">${cs.abbr}</div>` : '';
@@ -2286,7 +2286,35 @@ function cRenderAccio(accio) {
       '❌ Anular jugador aleatori','background:rgba(224,52,52,0.3);border:1px solid rgba(224,52,52,0.5);color:#F87171',"cConfirmarForm('anular_jugador_rival')");
     case 'canvi_jugador_rival': return panel('🔀 Canvi Jugador',fr('Rival:','cjr_rival',rivOpts)+fr('Jugador teu:','cjr_jugador_meu',myOpts)+fr('Jugador rival:','cjr_jugador_rival',''),'🔀 Confirmar','background:linear-gradient(135deg,#1e40af,#3b82f6);color:white',"cConfirmarForm('canvi_jugador_rival')");
     case 'capita_manual': return panel('🎯 Capità Manual',fr('Capità:','cm_jugador',myOpts),'🎯 Confirmar','background:linear-gradient(135deg,#6B21A8,#9333EA);color:white',"cConfirmarForm('capita_manual')");
-    case 'doble_capita': return panel('⭐ Doble Capità',fr('2n Capità:','dc_jugador',myOpts),'⭐ Confirmar','background:linear-gradient(135deg,#C9A020,var(--gold));color:var(--ink)',"cConfirmarForm('doble_capita')");
+    case 'doble_capita': {
+      const cap1 = _capitansMap[norm(cParticipant)];
+      if (!cap1) {
+        return `<div style="background:rgba(245,200,66,0.08);border:1px solid rgba(245,200,66,0.2);border-radius:12px;padding:1.5rem;max-width:480px;margin:0 auto;text-align:center">
+          <div style="font-size:2rem;margin-bottom:0.5rem">🎰</div>
+          <div style="font-family:'Bebas Neue',cursive;font-size:1.2rem;color:var(--gold);margin-bottom:0.5rem">Primer tria el capità!</div>
+          <p style="font-size:0.85rem;color:var(--silver)">Ves a la pestanya <strong style="color:var(--white)">⭐ Capità</strong> i gira la ruleta per assignar el primer capità. Després torna aquí per usar la carta.</p>
+        </div>`;
+      }
+      const cap1Data = (cAllPlayers[norm(cParticipant)]||[]).find(p=>norm(v(p,'Jugador'))===norm(cap1));
+      const cap1Equip = cap1Data ? v(cap1Data,'Equip') : '';
+      const restPls = (cAllPlayers[norm(cParticipant)]||[]).filter(p=>norm(v(p,'Jugador'))!==norm(cap1));
+      const drumItems2 = [];
+      for(let i=0;i<5;i++) drumItems2.push(...restPls);
+      const drumHtml2 = drumItems2.map(pl=>{const foto=v(pl,'Foto');const av=foto?`<img class="d-avatar" src="${foto}" onerror="this.outerHTML='<div class=d-avatar-ph>👤</div>'">`:`<div class="d-avatar-ph">👤</div>`;return `<div class="drum-item">${av}<div><div class="d-name">${v(pl,'Jugador')}</div><div class="d-sub">${v(pl,'Equip')} · ${v(pl,'Posicio')}</div></div></div>`;}).join('');
+      return `<div style="max-width:480px;margin:0 auto">
+        <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:10px;padding:0.8rem 1rem;margin-bottom:1rem;font-size:0.85rem;display:flex;align-items:center;gap:0.6rem">
+          <span>⭐</span><span style="color:var(--silver)">Primer capità: <strong style="color:var(--white)">${cap1}</strong>${cap1Equip?' <span style="color:var(--silver);font-size:0.78rem">('+cap1Equip+')</span>':''}</span>
+        </div>
+        <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:16px;padding:1.5rem;text-align:center">
+          <p style="font-family:'Space Mono',monospace;font-size:0.65rem;letter-spacing:0.2em;text-transform:uppercase;color:#FBBF24;margin-bottom:1.2rem">⭐ Gira per escollir el 2n Capità</p>
+          <div class="drum-container" id="dc_drum" style="margin-bottom:1.2rem">
+            <div class="drum-highlight"></div>
+            <div class="drum-track" id="dc_track">${drumHtml2}</div>
+          </div>
+          <button id="dc_spinBtn" onclick="dcDoSpin()" style="width:100%;border:none;border-radius:10px;padding:0.8rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#C9A020,var(--gold));color:var(--ink);font-family:'DM Sans',sans-serif">⭐ GIRAR EL 2n CAPITÀ!</button>
+        </div>
+      </div>`;
+    }
     case 'gol_doble': return panel('⚽ Gol Doble',`<p style="font-size:0.85rem;color:var(--silver);margin-bottom:1rem">Tots els gols valen el doble.</p>`,'⚽ Activar','background:linear-gradient(135deg,#15803D,#22C55E);color:white',"cConfirmar({carta:'Gol doble'})");
     case 'comodi': return cRenderComodi();
     default: return `<p style="color:var(--silver)">${accio}</p>`;
@@ -2312,6 +2340,47 @@ function cInitSelectors(){
   document.getElementById('aj_rival')?.addEventListener('change',()=>upd('aj_rival','aj_jugador'));
   document.getElementById('cjr_rival')?.addEventListener('change',()=>upd('cjr_rival','cjr_jugador_rival'));
 }
+let _dcSpinning = false;
+function dcDoSpin() {
+  if (_dcSpinning) return;
+  const cap1 = _capitansMap[norm(cParticipant)];
+  const allPls = cAllPlayers[norm(cParticipant)]||[];
+  const restPls = allPls.filter(p=>norm(v(p,'Jugador'))!==norm(cap1));
+  if (!restPls.length) return;
+  _dcSpinning = true;
+  const btn = document.getElementById('dc_spinBtn');
+  if (btn) { btn.disabled=true; btn.textContent='🌀 Girant...'; }
+  const track = document.getElementById('dc_track');
+  const nP = restPls.length;
+  const winIdx = Math.floor(Math.random()*nP);
+  const winner = restPls[winIdx];
+  const finalY = (3*nP+winIdx)*90;
+  track.style.transition='none';
+  track.style.transform='translateY(0)';
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    track.style.transition='transform 4.5s cubic-bezier(0.15,0.85,0.15,1.0)';
+    track.style.transform=`translateY(-${finalY}px)`;
+  }));
+  setTimeout(()=>{
+    _dcSpinning=false;
+    const jugador=v(winner,'Jugador');
+    window._dcSpinResult=jugador;
+    // Mostra resultat i botó confirmar
+    const equip=v(winner,'Equip');
+    const foto=v(winner,'Foto');
+    const av=foto?`<img src="${foto}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid #FBBF24;margin:0 auto;display:block;margin-bottom:0.5rem" onerror="this.remove()">`:'';
+    const container=document.getElementById('dc_drum')?.closest('div');
+    if(container){
+      container.innerHTML=`<div style="text-align:center;padding:1rem 0">
+        ${av}
+        <div style="font-family:'Bebas Neue',cursive;font-size:1.5rem;color:var(--white)">${jugador}</div>
+        <div style="font-size:0.78rem;color:var(--silver);margin-bottom:1rem">${equip}</div>
+        <button onclick="cConfirmarForm('doble_capita')" style="width:100%;border:none;border-radius:10px;padding:0.8rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#C9A020,var(--gold));color:var(--ink);font-family:'DM Sans',sans-serif">⭐ Confirmar 2n Capità: ${jugador}</button>
+      </div>`;
+    }
+  },4700);
+}
+
 function cConfirmarForm(accio){
   const params={carta:cComodiSel||cCartaData.carta};
   if(accio==='anular_capita_rival'){params.rival=document.getElementById('ac_rival')?.value;if(!params.rival){showToast('Selecciona un rival');return;}}
@@ -2323,7 +2392,7 @@ function cConfirmarForm(accio){
   }
   else if(accio==='canvi_jugador_rival'){params.rival=document.getElementById('cjr_rival')?.value;params.jugador_meu=document.getElementById('cjr_jugador_meu')?.value;params.jugador_rival=document.getElementById('cjr_jugador_rival')?.value;if(!params.rival||!params.jugador_meu||!params.jugador_rival){showToast('Omple tots els camps');return;}}
   else if(accio==='capita_manual'){params.jugador=document.getElementById('cm_jugador')?.value;if(!params.jugador){showToast('Selecciona un jugador');return;}}
-  else if(accio==='doble_capita'){params.jugador=document.getElementById('dc_jugador')?.value;if(!params.jugador){showToast('Selecciona un jugador');return;}}
+  else if(accio==='doble_capita'){params.jugador=window._dcSpinResult||null;if(!params.jugador){showToast('Primer gira la ruleta del 2n capità!');return;}}
   cConfirmar(params);
 }
 function cConfirmar(params){
@@ -2360,6 +2429,10 @@ async function cGastar(params){
   cCartaData.estat='gastada';
   _cartesGastades[norm(cParticipant)]={carta:params.carta,detall:params};
   _cartesLog.push({participant:cParticipant,carta:params.carta,detall:params});
+  // Carta Doble capita: registra el 2n capità
+  if(params.carta==='Doble capita' && params.jugador){
+    window._dcSpinResult = null; // reset per si es torna a obrir
+  }
   // Carta Capita manual: actualitza _capitansMap i guarda al Sheet de Capitans
   if(params.carta==='Capita manual' && params.jugador){
     _capitansMap[norm(cParticipant)] = params.jugador;
