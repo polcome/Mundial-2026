@@ -1171,7 +1171,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
     }
     const isDetCap   = faseActDet && isCapitaAny(name);
     const isDetCap2  = faseActDet && participant && isSegonCapita(participant,name);
-    const capAnulDet = participant && (isDetCap||isDetCap2) && isCapitaAnulat(participant);
+    const capAnulDet = participant && isDetCap && !isDetCap2 && isCapitaAnulat(participant); // Only 1st captain
     const dMultDet   = (isDetCap&&participant)?getCapitaDisplayMult(participant):(isDetCap2?2:0);
     if (faseActDet && participant && isJugadorAnulat(participant, name)) {
       detailLines = canviBanner + `<div class="detail-line" style="background:rgba(248,113,113,0.1);border-radius:6px;padding:6px 8px;justify-content:flex-start;gap:0.5rem">
