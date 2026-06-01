@@ -480,6 +480,9 @@ const SHEET_ID = '1W02L1nn1FI3shibepGLazZC_G4IgG9sytqm6fGoWQdE';
 let FASE_ACTIVA_GLOBAL    = 'grups';
 let JORNADA_ACTIVA_GLOBAL = 'J1';
 let _cartesGastades = {};
+let _calendari = []; // [{fase,jornada,periode,data}]
+let SELECCIO_OBERTA = false; // si estem en finestra de selecció (ruleta+carta)
+let JORNADA_REVELADA = false; // si la jornada ja ha començat (es mostren capitans/cartes)
 let _cartesLog = []; // registre públic de cartes usades
 
 // Hash SHA-256 de la contrasenya admin (més segur que text pla)
@@ -1960,6 +1963,106 @@ let rSpinResult  = null;  // capità de l'usuari actiu (per la ruleta)
 let rSpinning    = false;
 let _capitansMap = {};    // { participant: capita } — tots els capitans carregats
 
+// ============================================================
+// CALENDARI AUTOMÀTIC
+// ============================================================
+function parseDataCalendari(dataStr) {
+  if (!dataStr) return null;
+  // Format: "2026-06-11 21:00" o "2026-06-11T21:00"
+  const s = dataStr.toString().trim().replace(' ', 'T');
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function detectarFaseJornada() {
+  if (!_calendari.length) return;
+  const ara = new Date();
+
+  // Organitza el calendari per fase+jornada
+  const mapa = {};
+  _calendari.forEach(r => {
+    const key = norm(v(r,'Fase')) + '_' + norm(v(r,'Jornada'));
+    if (!mapa[key]) mapa[key] = {fase: v(r,'Fase'), jornada: v(r,'Jornada')};
+    mapa[key][norm(v(r,'Periode'))] = parseDataCalendari(v(r,'Data'));
+  });
+
+  // Troba la fase/jornada activa o pròxima
+  let faseActiva = null, jornadaActiva = null;
+  let selOb = false, jorRev = false;
+
+  // Ordre de fases
+  const ordre = ['grups_j1','grups_j2','grups_j3','r16_e1','r8_e1','qf_e1','sf_e1','final_e1'];
+
+  for (const key of ordre) {
+    const entry = mapa[key];
+    if (!entry) continue;
+    const selInici  = entry['seleccio_inici'];
+    const selFi     = entry['seleccio_fi'];
+    const jorInici  = entry['jornada_inici'];
+    const jorFi     = entry['jornada_fi'];
+
+    // Estem en selecció o jornada d'aquesta fase?
+    const enSel  = selInici && selFi  && ara >= selInici && ara <= selFi;
+    const enJor  = jorInici && jorFi  && ara >= jorInici && ara <= jorFi;
+    // Jornada ja ha acabat però és la més recent
+    const jaTov  = jorFi && ara > jorFi;
+
+    if (enSel || enJor) {
+      faseActiva   = entry.fase;
+      jornadaActiva = entry.jornada;
+      selOb  = enSel;
+      jorRev = enJor;
+      break;
+    }
+    // Si estem entre jornades (entre fi d'aquesta i inici selecció de la seguent)
+    if (jorFi && ara > jorFi) {
+      // Última jornada acabada — mantén fins que en trobi una d'activa
+      faseActiva    = entry.fase;
+      jornadaActiva = entry.jornada;
+      selOb  = false;
+      jorRev = false;
+    }
+  }
+
+  // Si estem ABANS de la primera selecció, usar J1 grups per defecte
+  if (!faseActiva) {
+    const primerKey = ordre.find(k => mapa[k]);
+    if (primerKey && mapa[primerKey]) {
+      faseActiva    = mapa[primerKey].fase;
+      jornadaActiva = mapa[primerKey].jornada;
+    }
+  }
+
+  if (faseActiva)    FASE_ACTIVA_GLOBAL    = faseActiva;
+  if (jornadaActiva) JORNADA_ACTIVA_GLOBAL = jornadaActiva;
+  SELECCIO_OBERTA  = selOb;
+  JORNADA_REVELADA = jorRev;
+
+  console.log(`Fase: ${FASE_ACTIVA_GLOBAL} ${JORNADA_ACTIVA_GLOBAL} | Selecció: ${SELECCIO_OBERTA} | Revelada: ${JORNADA_REVELADA}`);
+}
+
+// Retorna info de la finestra actual per a una fase+jornada
+function getFinestra(fase, jornada) {
+  const key = norm(fase) + '_' + norm(jornada);
+  const entry = {};
+  _calendari.forEach(r => {
+    if (norm(v(r,'Fase'))===norm(fase) && norm(v(r,'Jornada'))===norm(jornada))
+      entry[norm(v(r,'Periode'))] = parseDataCalendari(v(r,'Data'));
+  });
+  return entry;
+}
+
+// Compta enrere fins a una data
+function countdownStr(targetDate) {
+  if (!targetDate) return '';
+  const diff = targetDate - new Date();
+  if (diff <= 0) return '00:00:00';
+  const h = Math.floor(diff/3600000);
+  const m = Math.floor((diff%3600000)/60000);
+  const s = Math.floor((diff%60000)/1000);
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
 // Retorna true si el jugador és capità del participant en la fase/jornada activa
 function isCapitaOf(jugador, participant) {
   const cap = _capitansMap[norm(participant)];
@@ -2058,17 +2161,38 @@ function rRenderMain(rPlayers) {
   const testBanner = true ? `
     <div class="test-banner">⚠️ <div><strong>MODE DE PROVES</strong> — Pots girar tantes vegades com vulguis i resetar. En producció, 1 sol intent.</div></div>` : '';
 
+  const finR = getFinestra(FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
+  const araR = new Date();
+  const selObertaR = finR.seleccio_inici && finR.seleccio_fi && araR >= finR.seleccio_inici && araR <= finR.seleccio_fi;
+  const cdLabelR = selObertaR
+    ? `<span style="color:#F87171">Tanca en: <span id="rSelCountdown" style="font-family:'Space Mono',monospace"></span></span>`
+    : (finR.seleccio_inici && araR < finR.seleccio_inici
+      ? `<span style="color:var(--silver)">S'obre en: <span id="rSelCountdown" style="font-family:'Space Mono',monospace;color:var(--gold)"></span></span>`
+      : `<span style="color:var(--silver)">Període tancat</span>`);
   const infoRows = `
     <div style="display:flex;flex-direction:column;gap:0.4rem;margin-bottom:1.2rem;max-width:480px;margin-left:auto;margin-right:auto">
       <div style="display:flex;justify-content:space-between;background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;padding:0.6rem 1rem;font-size:0.82rem">
         <span style="color:var(--silver)">📅 Fase activa</span>
-        <span style="font-family:'Space Mono',monospace;font-size:0.75rem">${`${PHASE_LABELS[FASE_ACTIVA_GLOBAL]||FASE_ACTIVA_GLOBAL} — ${JORNADA_ACTIVA_GLOBAL}`}</span>
+        <span style="font-family:'Space Mono',monospace;font-size:0.75rem">${PHASE_LABELS[FASE_ACTIVA_GLOBAL]||FASE_ACTIVA_GLOBAL} — ${JORNADA_ACTIVA_GLOBAL}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;padding:0.6rem 1rem;font-size:0.82rem">
+        <span style="color:var(--silver)">⏱️ Selecció capità</span>
+        <span style="font-size:0.78rem">${cdLabelR}</span>
       </div>
       <div style="display:flex;justify-content:space-between;background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;padding:0.6rem 1rem;font-size:0.82rem">
         <span style="color:var(--silver)">👥 Jugadors disponibles</span>
         <span style="font-family:'Space Mono',monospace;font-size:0.75rem">${rPlayers.length} jugadors</span>
       </div>
     </div>`;
+  // Start countdown interval
+  setTimeout(()=>{
+    const cd=document.getElementById('rSelCountdown');
+    if(cd){
+      const target = selObertaR ? finR.seleccio_fi : finR.seleccio_inici;
+      if(target) cd.textContent=countdownStr(target);
+      setInterval(()=>{const c=document.getElementById('rSelCountdown');if(c)c.textContent=countdownStr(target);},1000);
+    }
+  },100);
 
   let mainContent = '';
 
@@ -2116,7 +2240,7 @@ function rRenderMain(rPlayers) {
           <div class="drum-highlight"></div>
           <div class="drum-track" id="rDrumTrack">${drumHtml}</div>
         </div>
-        <button id="rSpinBtn" onclick="rDoSpin()" class="btn-gold spin-btn" style="border:none;font-family:'DM Sans',sans-serif;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#C9A020,var(--gold));color:var(--ink)">🎰 GIRAR!</button>
+        <button id="rSpinBtn" onclick="rDoSpin()" class="btn-gold spin-btn" style="border:none;font-family:'DM Sans',sans-serif;font-weight:700;cursor:pointer;background:${selObertaR?'linear-gradient(135deg,#C9A020,var(--gold))':'rgba(255,255,255,0.1)'};color:${selObertaR?'var(--ink)':'var(--silver)'}">${selObertaR?'🎰 GIRAR!':'🔒 Fora de finestra'}</button>
       </div>`;
   }
 
@@ -2333,16 +2457,30 @@ async function cLoadCarta() {
   cAllPlayers={};
   (gData?.jugadors||[]).forEach(r=>{const p=norm(v(r,'Participant'));if(!cAllPlayers[p])cAllPlayers[p]=[];cAllPlayers[p].push(r);});
   try {
-    const res=await cScriptCall({sheet:'Participants'});
-    const myRow=(res.rows||[]).find(r=>norm(r[0])===norm(cParticipant));
-    if(!myRow)throw new Error('Participant no trobat');
-    cCartaData={carta:(myRow[1]||'').trim(),estat:(myRow[2]||'disponible').trim()};
+    // Llegeix de Cartes_Jornada per a la jornada activa
+    const res=await cScriptCall({sheet:'Cartes_Jornada'});
+    const rows=res.rows||[];
+    const myRow=rows.find(r=>norm(r[0])===norm(cParticipant)&&norm(r[1])===norm(FASE_ACTIVA_GLOBAL)&&norm(r[2])===norm(JORNADA_ACTIVA_GLOBAL));
+    if(myRow){
+      // Té carta assignada per aquesta jornada
+      cCartaData={carta:(myRow[3]||'').trim(), estat:(myRow[4]||'disponible').trim()};
+    } else {
+      // Encara no té carta — ha de girar la ruleta
+      cCartaData={carta:null, estat:'sense_carta'};
+    }
     cRenderCarta();
   } catch(e){el.innerHTML=`<div style="text-align:center;padding:2rem;color:#F87171">Error: ${e.message}</div>`;}
 }
 function cRenderCarta() {
   const el=document.getElementById('cartesTabContent');
   if(!el||!cCartaData)return;
+
+  // Si no té carta assignada → mostrar ruleta de cartes
+  if(cCartaData.estat==='sense_carta'){
+    cRenderRuletaCartes();
+    return;
+  }
+
   const def=CARTES_DEF[cCartaData.carta]||{icon:'🃏',color:'#F5C842',desc:'Carta especial.',accio:'desconeguda'};
   const gastada=norm(cCartaData.estat)==='gastada';
   let html=`<div style="text-align:center;margin-bottom:0.5rem;color:var(--silver);font-size:0.85rem">
@@ -2595,7 +2733,7 @@ async function cGastar(params){
 }
 async function cResetCarta(){
   if(!confirm('Reset carta per a proves?'))return;
-  try{await cScriptCall({action:'reset_carta',participant:cParticipant});}catch(e){}
+  try{await cScriptCall({action:'reset_carta_jornada',participant:cParticipant,fase:FASE_ACTIVA_GLOBAL,jornada:JORNADA_ACTIVA_GLOBAL});}catch(e){}
   delete _cartesGastades[norm(cParticipant)];
   const resetIdx = _cartesLog.findIndex(l=>norm(l.participant)===norm(cParticipant));
   if(resetIdx>=0) _cartesLog.splice(resetIdx,1);
@@ -2603,6 +2741,169 @@ async function cResetCarta(){
   cCartaData.estat='disponible';cComodiSel='';cRenderCarta();
   showToast('Carta reiniciada');
 }
+// ============================================================
+// RULETA DE CARTES (roda de fortuna)
+// ============================================================
+let _cWheelSpinning = false;
+
+function cRenderRuletaCartes() {
+  const el = document.getElementById('cartesTabContent');
+  if (!el) return;
+
+  const finestra = getFinestra(FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
+  const ara = new Date();
+  const selOb = finestra.seleccio_inici && finestra.seleccio_fi &&
+    ara >= finestra.seleccio_inici && ara <= finestra.seleccio_fi;
+
+  const faseLabel = PHASE_LABELS[FASE_ACTIVA_GLOBAL]||FASE_ACTIVA_GLOBAL;
+
+  // Header comú
+  let html = `<div style="text-align:center;margin-bottom:0.5rem;color:var(--silver);font-size:0.85rem">
+    Equip: <strong style="color:var(--white)">${cParticipant}</strong>
+    <button onclick="cLogout()" style="background:none;border:none;color:rgba(255,255,255,0.3);font-size:0.75rem;cursor:pointer;text-decoration:underline;margin-left:0.8rem">Canviar</button>
+  </div>`;
+
+  if (!selOb) {
+    // Fora de finestra
+    const proper = finestra.seleccio_inici && ara < finestra.seleccio_inici
+      ? `S'obre en: <span id="cCartaCountdown" style="font-family:'Space Mono',monospace;color:var(--gold)"></span>`
+      : `El període de selecció de cartes per a ${faseLabel} ${JORNADA_ACTIVA_GLOBAL} ha tancat.`;
+    html += `<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:16px;padding:2.5rem 1.5rem;max-width:480px;margin:1rem auto;text-align:center">
+      <div style="font-size:3rem;margin-bottom:1rem">🔒</div>
+      <div style="font-family:'Bebas Neue',cursive;font-size:1.4rem;color:var(--silver);margin-bottom:0.5rem">Ruleta de Cartes tancada</div>
+      <p style="font-size:0.85rem;color:var(--silver)">${proper}</p>
+    </div>`;
+    if (finestra.seleccio_inici && ara < finestra.seleccio_inici) {
+      setTimeout(() => {
+        const cd = document.getElementById('cCartaCountdown');
+        if (cd) cd.textContent = countdownStr(finestra.seleccio_inici);
+      }, 100);
+      setInterval(() => {
+        const cd = document.getElementById('cCartaCountdown');
+        if (cd) cd.textContent = countdownStr(finestra.seleccio_inici);
+      }, 1000);
+    }
+  } else {
+    // Finestra oberta — mostra la roda
+    const cartaNames = Object.keys(CARTES_DEF);
+    const nCartes = cartaNames.length; // 8
+    const sliceAngle = 360 / nCartes;
+    const colors = ['#F5C842','#F87171','#FB923C','#60A5FA','#A78BFA','#FBBF24','#4ADE80','#C084FC'];
+
+    // SVG wheel
+    const cx = 150, cy = 150, r = 130, rText = 90;
+    let paths = '';
+    let texts = '';
+    cartaNames.forEach((carta, i) => {
+      const startAngle = (i * sliceAngle - 90) * Math.PI / 180;
+      const endAngle   = ((i + 1) * sliceAngle - 90) * Math.PI / 180;
+      const x1 = cx + r * Math.cos(startAngle);
+      const y1 = cy + r * Math.sin(startAngle);
+      const x2 = cx + r * Math.cos(endAngle);
+      const y2 = cy + r * Math.sin(endAngle);
+      const def = CARTES_DEF[carta];
+      paths += `<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 0,1 ${x2},${y2} Z" fill="${colors[i]}" stroke="#0A0F1E" stroke-width="2" opacity="0.9"/>`;
+      // Text al mig del segment
+      const midAngle = ((i + 0.5) * sliceAngle - 90) * Math.PI / 180;
+      const tx = cx + rText * Math.cos(midAngle);
+      const ty = cy + rText * Math.sin(midAngle);
+      const rot = (i + 0.5) * sliceAngle;
+      texts += `<text x="${tx}" y="${ty}" text-anchor="middle" dominant-baseline="middle" font-size="18" transform="rotate(${rot},${tx},${ty})" style="pointer-events:none">${def.icon}</text>`;
+    });
+
+    const svg = `<svg id="cWheelSvg" viewBox="0 0 300 300" style="width:280px;height:280px;transition:transform 0s;transform-origin:center">
+      ${paths}
+      ${texts}
+      <circle cx="${cx}" cy="${cy}" r="20" fill="#0A0F1E" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+    </svg>`;
+
+    const countdown = finestra.seleccio_fi
+      ? `<div style="font-size:0.78rem;color:var(--silver);margin-top:0.5rem">Tanca en: <span id="cSelCountdown" style="font-family:'Space Mono',monospace;color:#F87171"></span></div>`
+      : '';
+
+    html += `<div style="text-align:center">
+      <div style="font-family:'Bebas Neue',cursive;font-size:1.8rem;background:linear-gradient(135deg,var(--white),#C084FC);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:0.5rem">RULETA DE CARTES</div>
+      <div style="font-size:0.82rem;color:var(--silver);margin-bottom:1.5rem">${faseLabel} · ${JORNADA_ACTIVA_GLOBAL}</div>
+      <div style="position:relative;display:inline-block;margin-bottom:1rem">
+        <!-- Fletxa indicadora -->
+        <div style="position:absolute;top:-16px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-top:20px solid var(--gold);z-index:10;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5))"></div>
+        ${svg}
+      </div>
+      ${countdown}
+      <div style="margin-top:1.2rem">
+        <button id="cWheelBtn" onclick="cSpinWheel()" style="border:none;border-radius:12px;padding:1rem 2.5rem;font-family:'DM Sans',sans-serif;font-weight:700;font-size:1rem;cursor:pointer;background:linear-gradient(135deg,#6B21A8,#C084FC);color:var(--white)">🃏 GIRAR LA RODA!</button>
+      </div>
+    </div>`;
+
+    // Start countdown
+    if (finestra.seleccio_fi) {
+      setInterval(() => {
+        const cd = document.getElementById('cSelCountdown');
+        if (cd) cd.textContent = countdownStr(finestra.seleccio_fi);
+      }, 1000);
+      setTimeout(() => {
+        const cd = document.getElementById('cSelCountdown');
+        if (cd) cd.textContent = countdownStr(finestra.seleccio_fi);
+      }, 100);
+    }
+  }
+
+  el.innerHTML = html;
+}
+
+async function cSpinWheel() {
+  if (_cWheelSpinning) return;
+  _cWheelSpinning = true;
+  const btn = document.getElementById('cWheelBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '🌀 Girant...'; }
+
+  const cartaNames = Object.keys(CARTES_DEF);
+  const nCartes = cartaNames.length;
+  const winnerIdx = Math.floor(Math.random() * nCartes);
+  const sliceAngle = 360 / nCartes;
+
+  // La fletxa apunta a dalt (0°). El guanyador ha de quedar a dalt.
+  // Rotem la roda = el segment guanyador va al centre superior
+  // El centre del segment guanyador és a (winnerIdx + 0.5) * sliceAngle graus
+  // Per posar-lo a dalt: rotem 360*5 + (360 - (winnerIdx+0.5)*sliceAngle)
+  const targetAngle = 360 * 6 + (360 - (winnerIdx + 0.5) * sliceAngle);
+
+  const svg = document.getElementById('cWheelSvg');
+  if (svg) {
+    svg.style.transition = 'transform 5s cubic-bezier(0.17,0.67,0.12,1.0)';
+    svg.style.transform  = `rotate(${targetAngle}deg)`;
+  }
+
+  setTimeout(async () => {
+    _cWheelSpinning = false;
+    const cartaGuanyadora = cartaNames[winnerIdx];
+    const def = CARTES_DEF[cartaGuanyadora];
+
+    // Guarda al Sheet Cartes_Jornada
+    try {
+      await cScriptCall({
+        action: 'assignar_carta_jornada',
+        participant: cParticipant,
+        fase: FASE_ACTIVA_GLOBAL,
+        jornada: JORNADA_ACTIVA_GLOBAL,
+        carta: cartaGuanyadora
+      });
+    } catch(e) { console.warn('Error guardant carta jornada:', e); }
+
+    cCartaData = {carta: cartaGuanyadora, estat: 'disponible'};
+    cRenderCarta();
+
+    // Animació de revelació
+    const el2 = document.createElement('div');
+    el2.style.cssText = 'position:fixed;inset:0;z-index:600;pointer-events:none;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0.5rem';
+    el2.innerHTML = `<div style="font-size:6rem;animation:bigPop 1.8s ease forwards">${def.icon}</div>
+      <div style="font-family:'Bebas Neue',cursive;font-size:2rem;color:${def.color};animation:bigPop 1.8s ease forwards;animation-delay:0.2s;opacity:0">${cartaGuanyadora}</div>
+      <style>@keyframes bigPop{0%{transform:scale(0);opacity:0}30%{transform:scale(1.3);opacity:1}70%{opacity:1}100%{transform:scale(1.5);opacity:0}}</style>`;
+    document.body.appendChild(el2);
+    setTimeout(() => el2.remove(), 2000);
+  }, 5200);
+}
+
 function cLogout(){sessionStorage.removeItem('cartes_auth');cParticipant='';cCartaData=null;cComodiSel='';renderCartesTab();}
 
 // ============================================================
@@ -2628,36 +2929,36 @@ async function init() {
     return;
   }
 
-  // Carrega Config
+  // Carrega Config (calendari automàtic)
   try {
     const cfgR=await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Config&_=${Date.now()}`,{cache:'no-store'});
     const cfgJ=JSON.parse((t=>t.slice(t.indexOf('(')+1,t.lastIndexOf(')')))(await cfgR.text()));
-    parseSheet(cfgJ).forEach(r=>{
-      if(norm(v(r,'Clau'))==='fase_activa') FASE_ACTIVA_GLOBAL=v(r,'Valor');
-      if(norm(v(r,'Clau'))==='jornada_activa') JORNADA_ACTIVA_GLOBAL=v(r,'Valor');
-    });
+    _calendari = parseSheet(cfgJ);
+    detectarFaseJornada();
   } catch(e){console.warn('Config:',e);}
-  // Carrega cartes gastades
+  // Carrega cartes gastades de Cartes_Jornada (jornada activa)
   try {
-    const pR=await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Participants&_=${Date.now()}`,{cache:'no-store'});
-    const pJ=JSON.parse((t=>t.slice(t.indexOf('(')+1,t.lastIndexOf(')')))(await pR.text()));
+    const cjR=await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Cartes_Jornada&_=${Date.now()}`,{cache:'no-store'});
+    const cjJ=JSON.parse((t=>t.slice(t.indexOf('(')+1,t.lastIndexOf(')')))(await cjR.text()));
     _cartesLog = [];
-    parseSheet(pJ).forEach(r=>{
-      const nom=v(r,'Nom')||Object.values(r)[0]||'';
-      if(nom&&norm(v(r,'Carta_Estat'))==='gastada'){
-        let d={};try{d=JSON.parse(v(r,'Carta_Detall'));}catch(e){}
-        // Si la carta és Comodi però el detall té la carta real, usar la carta real per als efectes
-        const cartaSheet = v(r,'Carta');
-        const cartaEfectiva = (norm(cartaSheet)==='comodi' && d?.carta && d.carta!=='Comodi') ? d.carta : cartaSheet;
-        const esComodi = norm(cartaSheet)==='comodi' && cartaEfectiva!==cartaSheet;
-        _cartesGastades[norm(nom)]={carta:cartaEfectiva, detall:d, via_comodi:esComodi};
-        // Log
-        const cartaLog = esComodi ? `Comodi → ${cartaEfectiva}` : cartaEfectiva;
-        const iconLog  = esComodi ? ('🃏→'+(CARTES_DEF[cartaEfectiva]?.icon||'⭐')) : (CARTES_DEF[cartaEfectiva]?.icon||'🃏');
-        _cartesLog.push({participant:nom, carta:cartaLog, detall:d, icon:iconLog});
-      }
+    parseSheet(cjJ).forEach(r=>{
+      const nom = v(r,'Participant');
+      const fase = v(r,'Fase');
+      const jornada = v(r,'Jornada');
+      // Filtra per fase i jornada activa
+      if(!nom||norm(fase)!==norm(FASE_ACTIVA_GLOBAL)||norm(jornada)!==norm(JORNADA_ACTIVA_GLOBAL)) return;
+      if(norm(v(r,'Carta_Estat'))!=='gastada') return;
+      let d={};try{d=JSON.parse(v(r,'Carta_Detall'));}catch(e){}
+      const cartaSheet = v(r,'Carta');
+      const cartaEfectiva = (norm(cartaSheet)==='comodi' && d?.carta && d.carta!=='Comodi') ? d.carta : cartaSheet;
+      const esComodi = norm(cartaSheet)==='comodi' && cartaEfectiva!==cartaSheet;
+      _cartesGastades[norm(nom)]={carta:cartaEfectiva, detall:d, via_comodi:esComodi};
+      const cartaLog = esComodi ? `Comodi → ${cartaEfectiva}` : cartaEfectiva;
+      const iconLog  = esComodi ? ('🃏→'+(CARTES_DEF[cartaEfectiva]?.icon||'⭐')) : (CARTES_DEF[cartaEfectiva]?.icon||'🃏');
+      _cartesLog.push({participant:nom, carta:cartaLog, detall:d, icon:iconLog});
     });
-  } catch(e){console.warn('Cartes:',e);}
+    console.log('Cartes jornada carregades:', Object.keys(_cartesGastades).length);
+  } catch(e){console.warn('Cartes_Jornada:',e);}
   // Popula selector d'equips
   const participants = getParticipants();
   const teamSel = document.getElementById('teamSelect');
