@@ -1852,8 +1852,67 @@ function toggleDetail(id) {
   el.classList.toggle('open');
 }
 
-function reloadData() {
+async function reloadData() {
   gData = null;
+  // Recarrega el calendari i recalcula fase/jornada
+  try {
+    const cfgR=await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Config&_=${Date.now()}`,{cache:'no-store'});
+    const cfgJ=JSON.parse((t=>t.slice(t.indexOf('(')+1,t.lastIndexOf(')')))(await cfgR.text()));
+    _calendari = parseSheet(cfgJ);
+    detectarFaseJornada();
+    console.log('Config recarregat. Revelat:', JORNADA_REVELADA);
+  } catch(e){console.warn('Config reload:',e);}
+
+  // Recarrega cartes de la nova jornada
+  _cartesGastades = {};
+  _cartesLog = [];
+  try {
+    const cjR=await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Cartes_Jornada&_=${Date.now()}`,{cache:'no-store'});
+    const cjJ=JSON.parse((t=>t.slice(t.indexOf('(')+1,t.lastIndexOf(')')))(await cjR.text()));
+    parseSheet(cjJ).forEach(r=>{
+      const nom=v(r,'Participant');
+      if(!nom||norm(v(r,'Fase'))!==norm(FASE_ACTIVA_GLOBAL)||norm(v(r,'Jornada'))!==norm(JORNADA_ACTIVA_GLOBAL)) return;
+      if(norm(v(r,'Carta_Estat'))!=='gastada') return;
+      let d={};try{d=JSON.parse(v(r,'Carta_Detall'));}catch(e){}
+      const cartaSheet=v(r,'Carta');
+      const cartaEf=(norm(cartaSheet)==='comodi'&&d?.carta&&d.carta!=='Comodi')?d.carta:cartaSheet;
+      const esC=norm(cartaSheet)==='comodi'&&cartaEf!==cartaSheet;
+      _cartesGastades[norm(nom)]={carta:cartaEf,detall:d,via_comodi:esC};
+      const cLog=esC?`Comodi → ${cartaEf}`:cartaEf;
+      const iLog=esC?('🃏→'+(CARTES_DEF[cartaEf]?.icon||'⭐')):(CARTES_DEF[cartaEf]?.icon||'🃏');
+      _cartesLog.push({participant:nom,carta:cLog,detall:d,icon:iLog});
+    });
+    if(!JORNADA_REVELADA){
+      const savedC=sessionStorage.getItem('cartes_auth');
+      const myC=savedC?norm(savedC):null;
+      Object.keys(_cartesGastades).forEach(p=>{if(p!==myC)delete _cartesGastades[p];});
+      _cartesLog=_cartesLog.filter(l=>norm(l.participant)===myC);
+    }
+  } catch(e){console.warn('Cartes reload:',e);}
+
+  // Recarrega capitans
+  _capitansMap = {};
+  try {
+    const capR=await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Capitans&_=${Date.now()}`,{cache:'no-store'});
+    const capT=await capR.text();
+    const capJ=JSON.parse(capT.slice(capT.indexOf('(')+1,capT.lastIndexOf(')')));
+    parseSheet(capJ).forEach(r=>{
+      if(norm(v(r,'Fase'))===norm(FASE_ACTIVA_GLOBAL)&&norm(v(r,'Jornada'))===norm(JORNADA_ACTIVA_GLOBAL)){
+        const cap=v(r,'Capita');if(cap)_capitansMap[norm(v(r,'Participant'))]=cap;
+      }
+    });
+    Object.entries(_cartesGastades).forEach(([pN,cD])=>{
+      if(cD.carta==='Capita manual'&&cD.detall?.jugador)_capitansMap[pN]=cD.detall.jugador;
+    });
+    if(!JORNADA_REVELADA){
+      const savedA=sessionStorage.getItem('ruleta_auth');
+      const myA=savedA?norm(savedA):null;
+      Object.keys(_capitansMap).forEach(p=>{if(p!==myA)delete _capitansMap[p];});
+    }
+  } catch(e){console.warn('Capitans reload:',e);}
+
+  clearCache();
+
   loadAllData().then(() => {
     renderRanking();
     // Actualitza selector equips
