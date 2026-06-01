@@ -957,8 +957,22 @@ function renderRanking() {
       b.id = 'rankHiddenBanner';
       b.innerHTML = hiddenBanner;
       grid.parentNode.insertBefore(b, grid);
-      setInterval(()=>{const c=document.getElementById('rankJorCountdown');if(c)c.textContent=countdownStr(finR2.jornada_inici);},1000);
-      setTimeout(()=>{const c=document.getElementById('rankJorCountdown');if(c)c.textContent=countdownStr(finR2.jornada_inici);},100);
+      const jorTarget = finR2.jornada_inici;
+      const cdInterval = setInterval(()=>{
+        const c=document.getElementById('rankJorCountdown');
+        if(c){
+          const diff = jorTarget - new Date();
+          if(diff <= 0){
+            clearInterval(cdInterval);
+            // Jornada ha começat! Recarrega automàticament
+            showToast('🎉 La jornada ha começat! Revelant capitans i cartes...');
+            setTimeout(()=>reloadData(), 1500);
+          } else {
+            c.textContent=countdownStr(jorTarget);
+          }
+        }
+      },1000);
+      setTimeout(()=>{const c=document.getElementById('rankJorCountdown');if(c)c.textContent=countdownStr(jorTarget);},100);
     }
   }
   const ranking = getRanking();
@@ -2044,11 +2058,23 @@ let _capitansMap = {};    // { participant: capita } — tots els capitans carre
 // CALENDARI AUTOMÀTIC
 // ============================================================
 function parseDataCalendari(dataStr) {
-  if (!dataStr) return null;
-  // Format: "2026-06-11 21:00" o "2026-06-11T21:00"
-  const s = dataStr.toString().trim().replace(' ', 'T');
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? null : d;
+  if (!dataStr || dataStr === '') return null;
+  const s = dataStr.toString().trim();
+  // Formats possibles: "2026-06-11 21:00", "2026-06-11T21:00", "11/06/2026 21:00"
+  let d;
+  // Format ISO amb espai: "2026-06-11 21:00"
+  const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if (isoMatch) {
+    d = new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2])-1, parseInt(isoMatch[3]),
+                 parseInt(isoMatch[4]), parseInt(isoMatch[5]), 0);
+  } else {
+    d = new Date(s.replace(' ', 'T'));
+  }
+  if (isNaN(d.getTime())) {
+    console.warn('Data no parsejada:', s);
+    return null;
+  }
+  return d;
 }
 
 function detectarFaseJornada() {
@@ -2116,6 +2142,11 @@ function detectarFaseJornada() {
   JORNADA_REVELADA = jorRev;
 
   console.log(`Fase: ${FASE_ACTIVA_GLOBAL} ${JORNADA_ACTIVA_GLOBAL} | Selecció: ${SELECCIO_OBERTA} | Revelada: ${JORNADA_REVELADA}`);
+  console.log('Ara:', new Date().toISOString(), '| mapa keys:', Object.keys(mapa));
+  if (mapa['grups_j1']) {
+    const e = mapa['grups_j1'];
+    console.log('grups_j1 → selInici:', e.seleccio_inici, '| jorInici:', e.jornada_inici, '| jorFi:', e.jornada_fi);
+  }
 }
 
 // Retorna info de la finestra actual per a una fase+jornada
