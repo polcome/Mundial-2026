@@ -2299,126 +2299,143 @@ async function rLoadRuleta() {
   // Jugadors de l'equip (de la fase activa)
   const rPlayers = getPlayersForPhase(rParticipant, FASE_ACTIVA_GLOBAL);
 
-  // Capità actual del Sheet
-  let rCapita = null;
+  // Carrega capitans de les dues jornades (activa + selecció)
+  let rCapitaActiva = null, rCapitaSeleccio = null, allCapitansRows = [];
   try {
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Capitans&_=${Date.now()}`;
     const res = await fetch(url, {cache:'no-store'});
     const text = await res.text();
-    const start = text.indexOf('('), end = text.lastIndexOf(')');
-    const json = JSON.parse(text.slice(start+1, end));
-    const rows = parseSheet(json);
-    const found = rows.find(r =>
-      norm(v(r,'Participant')) === norm(rParticipant) &&
-      norm(v(r,'Fase'))        === norm(FASE_ACTIVA_GLOBAL) &&
-      norm(v(r,'Jornada'))     === norm(JORNADA_ACTIVA_GLOBAL)
-    );
-    if (found) rCapita = v(found,'Capita');
+    const json = JSON.parse(text.slice(text.indexOf('(')+1, text.lastIndexOf(')')));
+    allCapitansRows = parseSheet(json);
+    // Capità jornada activa (revelada)
+    const foundAct = allCapitansRows.find(r =>
+      norm(v(r,'Participant'))===norm(rParticipant) &&
+      norm(v(r,'Fase'))===norm(FASE_ACTIVA_GLOBAL) &&
+      norm(v(r,'Jornada'))===norm(JORNADA_ACTIVA_GLOBAL));
+    if (foundAct) rCapitaActiva = v(foundAct,'Capita');
+    // Capità jornada selecció (propera)
+    const faseSel = FASE_SELECCIO||FASE_ACTIVA_GLOBAL;
+    const jorSel  = JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL;
+    if (faseSel!==FASE_ACTIVA_GLOBAL||jorSel!==JORNADA_ACTIVA_GLOBAL) {
+      const foundSel = allCapitansRows.find(r =>
+        norm(v(r,'Participant'))===norm(rParticipant) &&
+        norm(v(r,'Fase'))===norm(faseSel) &&
+        norm(v(r,'Jornada'))===norm(jorSel));
+      if (foundSel) rCapitaSeleccio = v(foundSel,'Capita');
+    }
   } catch(e) { console.warn('Error llegint Capitans:', e); }
 
-  rSpinResult = rCapita || null;
-  if (rCapita) _capitansMap[norm(rParticipant)] = rCapita;
-  rRenderMain(rPlayers);
+  // rSpinResult = capità de la jornada de selecció (la que podem canviar ara)
+  rSpinResult = rCapitaSeleccio || null;
+  if (rCapitaActiva) _capitansMap[norm(rParticipant)] = rCapitaActiva;
+  rRenderMain(rPlayers, rCapitaActiva, rCapitaSeleccio, allCapitansRows);
 }
 
-function rRenderMain(rPlayers) {
+function rRenderMain(rPlayers, rCapitaActiva, rCapitaSeleccio, allCapRows) {
   const el = document.getElementById('ruletaTabContent');
   if (!el) return;
 
-  const testBanner = true ? `
-    <div class="test-banner">⚠️ <div><strong>MODE DE PROVES</strong> — Pots girar tantes vegades com vulguis i resetar. En producció, 1 sol intent.</div></div>` : '';
+  // Noms de jornades
+  const labelAct = `${PHASE_LABELS[FASE_ACTIVA_GLOBAL]||FASE_ACTIVA_GLOBAL} ${JORNADA_ACTIVA_GLOBAL}`;
+  const faseSel  = FASE_SELECCIO||FASE_ACTIVA_GLOBAL;
+  const jorSel   = JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL;
+  const labelSel = `${PHASE_LABELS[faseSel]||faseSel} ${jorSel}`;
+  const isSameJornada = norm(faseSel)===norm(FASE_ACTIVA_GLOBAL) && norm(jorSel)===norm(JORNADA_ACTIVA_GLOBAL);
 
-  const finR = getFinestra(FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
+  const testBanner = `<div class="test-banner">⚠️ <div><strong>MODE DE PROVES</strong> — Pots girar tantes vegades com vulguis i resetar. En producció, 1 sol intent.</div></div>`;
+
+  const finR = getFinestra(faseSel, jorSel);
   const araR = new Date();
   const selObertaR = SELECCIO_OBERTA;
+  const cdTarget = selObertaR ? finR.seleccio_fi : finR.seleccio_inici;
   const cdLabelR = selObertaR
     ? `<span style="color:#F87171">Tanca en: <span id="rSelCountdown" style="font-family:'Space Mono',monospace"></span></span>`
     : (finR.seleccio_inici && araR < finR.seleccio_inici
       ? `<span style="color:var(--silver)">S'obre en: <span id="rSelCountdown" style="font-family:'Space Mono',monospace;color:var(--gold)"></span></span>`
       : `<span style="color:var(--silver)">Període tancat</span>`);
-  const infoRows = `
-    <div style="display:flex;flex-direction:column;gap:0.4rem;margin-bottom:1.2rem;max-width:480px;margin-left:auto;margin-right:auto">
-      <div style="display:flex;justify-content:space-between;background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;padding:0.6rem 1rem;font-size:0.82rem">
-        <span style="color:var(--silver)">📅 Fase activa</span>
-        <span style="font-family:'Space Mono',monospace;font-size:0.75rem">${PHASE_LABELS[FASE_ACTIVA_GLOBAL]||FASE_ACTIVA_GLOBAL} — ${JORNADA_ACTIVA_GLOBAL}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;padding:0.6rem 1rem;font-size:0.82rem">
-        <span style="color:var(--silver)">⏱️ Selecció capità</span>
-        <span style="font-size:0.78rem">${cdLabelR}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;padding:0.6rem 1rem;font-size:0.82rem">
-        <span style="color:var(--silver)">👥 Jugadors disponibles</span>
-        <span style="font-family:'Space Mono',monospace;font-size:0.75rem">${rPlayers.length} jugadors</span>
-      </div>
+  // Helper: render capità card
+  function capitaCard(jugador, label, color, extra='') {
+    if (!jugador) return `<div style="background:rgba(255,255,255,0.04);border:1px dashed rgba(255,255,255,0.15);border-radius:12px;padding:1.2rem;text-align:center;color:var(--silver);font-size:0.85rem">Sense capità assignat</div>`;
+    const plData = rPlayers.find(pl=>norm(v(pl,'Jugador'))===norm(jugador))||(gData?.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(jugador));
+    const foto=plData?v(plData,'Foto'):''; const equip=plData?v(plData,'Equip'):''; const pos=plData?v(plData,'Posicio'):'';
+    const av=foto?`<img class="c-avatar" src="${foto}" style="width:70px;height:70px;border-radius:50%;object-fit:cover;border:3px solid ${color};display:block;margin:0 auto 0.5rem" onerror="this.outerHTML='<div style=width:70px;height:70px;border-radius:50%;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 0.5rem>👤</div>'">`:`<div style="width:70px;height:70px;border-radius:50%;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 0.5rem">👤</div>`;
+    return `<div style="background:var(--glass);border:1px solid ${color}60;border-radius:12px;padding:1.2rem;text-align:center">
+      <div style="font-family:'Space Mono',monospace;font-size:0.62rem;letter-spacing:0.15em;color:${color};margin-bottom:0.8rem;text-transform:uppercase">${label}</div>
+      ${av}<div style="font-family:'Bebas Neue',cursive;font-size:1.3rem;color:var(--white)">${jugador}</div>
+      <div style="font-size:0.75rem;color:var(--silver)">${equip}${pos?' · '+pos:''}</div>${extra}
     </div>`;
-  // Start countdown interval
-  setTimeout(()=>{
-    const cd=document.getElementById('rSelCountdown');
-    if(cd){
-      const target = selObertaR ? finR.seleccio_fi : finR.seleccio_inici;
-      if(target) cd.textContent=countdownStr(target);
-      setInterval(()=>{const c=document.getElementById('rSelCountdown');if(c)c.textContent=countdownStr(target);},1000);
-    }
-  },100);
-
-  let mainContent = '';
-
-  if (rSpinResult) {
-    // Mostra resultat
-    const plData = rPlayers.find(pl => norm(v(pl,'Jugador')) === norm(rSpinResult))
-      || (gData?.jugadors||[]).find(r => norm(v(r,'Jugador')) === norm(rSpinResult));
-    const foto   = plData ? v(plData,'Foto')    : '';
-    const equip  = plData ? v(plData,'Equip')   : '';
-    const posicio= plData ? v(plData,'Posicio')  : '';
-    const avatarHtml = foto
-      ? `<img class="c-avatar" src="${foto}" onerror="this.outerHTML='<div class=c-avatar-ph>👤</div>'">`
-      : `<div class="c-avatar-ph">👤</div>`;
-
-    mainContent = `
-      <div class="ruleta-result">
-        <div class="c-badge">⭐ CAPITÀ DE LA ${JORNADA_ACTIVA_GLOBAL}</div>
-        ${avatarHtml}
-        <div class="c-name">${rSpinResult}</div>
-        <div class="c-sub">${equip} · ${posicio}</div>
-        <div style="font-size:0.82rem;color:var(--silver);background:rgba(0,0,0,0.2);border-radius:8px;padding:0.7rem 1rem;margin-bottom:1rem">
-          Aquest jugador <strong style="color:var(--gold)">puntua el doble</strong> durant la ${JORNADA_ACTIVA_GLOBAL} de ${`${PHASE_LABELS[FASE_ACTIVA_GLOBAL]||FASE_ACTIVA_GLOBAL} — ${JORNADA_ACTIVA_GLOBAL}`}.
-        </div>
-      </div>
-      ${true ? `<div style="display:flex;gap:0.6rem;max-width:480px;margin:1rem auto 0">
-        <button onclick="rResetCapita()" style="flex:1;background:rgba(224,52,52,0.2);border:1px solid rgba(224,52,52,0.3);color:#F58080;border-radius:8px;padding:0.55rem 1rem;cursor:pointer;font-size:0.8rem;font-weight:700">🗑️ Reset</button>
-        <button onclick="rLoadRuleta()" style="flex:1;background:var(--glass);border:1px solid var(--glass-border);color:var(--silver);border-radius:8px;padding:0.55rem 1rem;cursor:pointer;font-size:0.8rem">🔄 Recarregar</button>
-      </div>` : ''}`;
-  } else {
-    // Mostra ruleta
-    const drumItems = [];
-    for (let i = 0; i < 5; i++) drumItems.push(...rPlayers);
-    const drumHtml = drumItems.map(pl => {
-      const foto = v(pl,'Foto');
-      const av = foto
-        ? `<img class="d-avatar" src="${foto}" onerror="this.outerHTML='<div class=d-avatar-ph>👤</div>'">`
-        : `<div class="d-avatar-ph">👤</div>`;
-      return `<div class="drum-item">${av}<div><div class="d-name">${v(pl,'Jugador')}</div><div class="d-sub">${v(pl,'Equip')} · ${v(pl,'Posicio')}</div></div></div>`;
-    }).join('');
-
-    mainContent = `
-      <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:20px;padding:2rem 1.5rem;max-width:480px;margin:0 auto;text-align:center">
-        <p style="font-family:'Space Mono',monospace;font-size:0.65rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1.5rem">🎰 Gira la ruleta per escollir el teu Capità</p>
-        <div class="drum-container" id="rDrumContainer">
-          <div class="drum-highlight"></div>
-          <div class="drum-track" id="rDrumTrack">${drumHtml}</div>
-        </div>
-        <button id="rSpinBtn" onclick="rDoSpin()" class="btn-gold spin-btn" style="border:none;font-family:'DM Sans',sans-serif;font-weight:700;cursor:pointer;background:${selObertaR?'linear-gradient(135deg,#C9A020,var(--gold))':'rgba(255,255,255,0.1)'};color:${selObertaR?'var(--ink)':'var(--silver)'}">${selObertaR?'🎰 GIRAR!':'🔒 Fora de finestra'}</button>
-      </div>`;
   }
+
+  // Countdown interval
+  if (cdTarget) {
+    setTimeout(()=>{
+      const cd=document.getElementById('rSelCountdown');
+      if(cd){cd.textContent=countdownStr(cdTarget);setInterval(()=>{const c=document.getElementById('rSelCountdown');if(c)c.textContent=countdownStr(cdTarget);},1000);}
+    },100);
+  }
+
+  // Panel jornada activa (revelada)
+  const panelActiva = `
+    <div style="background:var(--glass);border:1px solid rgba(245,200,66,0.3);border-radius:16px;padding:1.2rem 1.5rem;margin-bottom:1rem">
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem">
+        <span style="background:rgba(245,200,66,0.15);border:1px solid rgba(245,200,66,0.4);color:var(--gold);font-family:'Space Mono',monospace;font-size:0.65rem;padding:3px 8px;border-radius:20px;font-weight:700">✅ ${labelAct} — ACTIVA</span>
+        ${JORNADA_REVELADA?'<span style="font-size:0.75rem;color:var(--silver)">Capitans visibles</span>':'<span style="font-size:0.75rem;color:var(--silver)">Ocult fins inici jornada</span>'}
+      </div>
+      ${capitaCard(rCapitaActiva, `⭐ Capità ${labelAct}`, '#F5C842')}
+      ${JORNADA_REVELADA ? (() => {
+        // Mostra tots els capitans de la jornada activa
+        const tots = allCapRows ? allCapRows.filter(r=>norm(v(r,'Fase'))===norm(FASE_ACTIVA_GLOBAL)&&norm(v(r,'Jornada'))===norm(JORNADA_ACTIVA_GLOBAL)) : [];
+        if (!tots.length) return '';
+        const items = tots.map(r=>`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.8rem"><span style="color:var(--silver)">${v(r,'Participant')}</span><strong style="color:var(--white)">${v(r,'Capita')}</strong></div>`).join('');
+        return `<div style="margin-top:0.8rem;background:rgba(0,0,0,0.2);border-radius:8px;padding:0.7rem 1rem">${items}</div>`;
+      })() : ''}
+    </div>`;
+
+  // Panel jornada selecció (propera)
+  const panelSeleccio = isSameJornada ? '' : `
+    <div style="background:var(--glass);border:1px solid rgba(96,165,250,0.3);border-radius:16px;padding:1.2rem 1.5rem;margin-bottom:1rem">
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap">
+        <span style="background:rgba(96,165,250,0.15);border:1px solid rgba(96,165,250,0.4);color:#60A5FA;font-family:'Space Mono',monospace;font-size:0.65rem;padding:3px 8px;border-radius:20px;font-weight:700">🎰 ${labelSel} — SELECCIÓ OBERTA</span>
+        <span style="font-size:0.75rem;color:${selObertaR?'#F87171':'var(--silver)'}">Tanca: <span id="rSelCountdown" style="font-family:'Space Mono',monospace"></span></span>
+      </div>
+      ${rCapitaSeleccio
+        ? capitaCard(rCapitaSeleccio, `⭐ Capità ${labelSel} (triat)`, '#60A5FA', `<div style="margin-top:0.6rem;font-size:0.75rem;color:var(--silver)">Ocult fins inici de jornada</div>`)
+        : `<div style="background:rgba(96,165,250,0.05);border:1px dashed rgba(96,165,250,0.3);border-radius:12px;padding:1.2rem;text-align:center">
+          <p style="font-size:0.85rem;color:var(--silver);margin-bottom:1rem">Encara no has triat capità per a la ${labelSel}</p>
+          ${selObertaR ? `<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:16px;padding:1.5rem">
+            <div class="drum-container" id="rDrumContainer" style="margin-bottom:1rem">
+              <div class="drum-highlight"></div>
+              <div class="drum-track" id="rDrumTrack">${(()=>{const items=[];for(let i=0;i<5;i++)items.push(...rPlayers);return items.map(pl=>{const f=v(pl,'Foto');const av=f?`<img class="d-avatar" src="${f}" onerror="this.outerHTML='<div class=d-avatar-ph>👤</div>'">`:`<div class="d-avatar-ph">👤</div>`;return `<div class="drum-item">${av}<div><div class="d-name">${v(pl,'Jugador')}</div><div class="d-sub">${v(pl,'Equip')} · ${v(pl,'Posicio')}</div></div></div>`;}).join('');})()}</div>
+            </div>
+            <button id="rSpinBtn" onclick="rDoSpin()" class="btn-gold spin-btn" style="border:none;width:100%;font-family:'DM Sans',sans-serif;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#1e40af,#3b82f6);color:white;border-radius:10px;padding:0.8rem">🎰 GIRAR per a ${labelSel}!</button>
+          </div>`
+          : `<div style="background:rgba(255,255,255,0.04);border:1px dashed rgba(255,255,255,0.15);border-radius:8px;padding:0.8rem;font-size:0.8rem;color:var(--silver)">🔒 Finestra tancada · ${cdLabelR}</div>`}
+        </div>`}
+      ${rCapitaSeleccio && selObertaR ? `<div style="display:flex;gap:0.6rem;margin-top:0.8rem">
+        <button onclick="rResetCapita()" style="flex:1;background:rgba(224,52,52,0.2);border:1px solid rgba(224,52,52,0.3);color:#F58080;border-radius:8px;padding:0.5rem;cursor:pointer;font-size:0.78rem;font-weight:700">🗑️ Reset ${labelSel}</button>
+      </div>` : ''}
+    </div>`;
+
+  // Si mateixa jornada (no hi ha "propera"), mostra la ruleta normal
+  const panelSameJornada = isSameJornada ? `
+    <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:16px;padding:1.5rem;max-width:480px;margin:0 auto;text-align:center">
+      <p style="font-family:'Space Mono',monospace;font-size:0.65rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1.5rem">🎰 Gira la ruleta per escollir el teu Capità</p>
+      ${rCapitaActiva
+        ? capitaCard(rCapitaActiva, `⭐ Capità ${labelAct}`, '#F5C842')
+        : `<div class="drum-container" id="rDrumContainer" style="margin-bottom:1rem"><div class="drum-highlight"></div><div class="drum-track" id="rDrumTrack">${(()=>{const items=[];for(let i=0;i<5;i++)items.push(...rPlayers);return items.map(pl=>{const f=v(pl,'Foto');const av=f?`<img class="d-avatar" src="${f}" onerror="this.outerHTML='<div class=d-avatar-ph>👤</div>'">`:`<div class="d-avatar-ph">👤</div>`;return `<div class="drum-item">${av}<div><div class="d-name">${v(pl,'Jugador')}</div><div class="d-sub">${v(pl,'Equip')} · ${v(pl,'Posicio')}</div></div></div>`;}).join('');})()}</div></div>
+          <button id="rSpinBtn" onclick="rDoSpin()" class="btn-gold spin-btn" style="border:none;width:100%;font-family:'DM Sans',sans-serif;font-weight:700;cursor:pointer;background:${selObertaR?'linear-gradient(135deg,#C9A020,var(--gold))':'rgba(255,255,255,0.1)'};color:${selObertaR?'var(--ink)':'var(--silver)'}">${selObertaR?'🎰 GIRAR!':'🔒 Fora de finestra'}</button>`}
+    </div>` : '';
 
   el.innerHTML = `
     <div class="section-title">⭐ Ruleta de Capità</div>
-    <div style="text-align:center;margin-bottom:0.5rem;color:var(--silver);font-size:0.85rem">Equip: <strong style="color:var(--white)">${rParticipant}</strong>
+    <div style="text-align:center;margin-bottom:0.8rem;color:var(--silver);font-size:0.85rem">
+      Equip: <strong style="color:var(--white)">${rParticipant}</strong>
       <button onclick="rLogout()" style="background:none;border:none;color:rgba(255,255,255,0.3);font-size:0.75rem;cursor:pointer;text-decoration:underline;margin-left:0.8rem">Canviar</button>
     </div>
     ${testBanner}
-    ${infoRows}
-    ${mainContent}`;
+    ${panelActiva}
+    ${panelSeleccio}
+    ${panelSameJornada}`;
 }
 
 function rDoSpin() {
@@ -2630,22 +2647,126 @@ async function cLoadCarta() {
   cAllPlayers={};
   (gData?.jugadors||[]).forEach(r=>{const p=norm(v(r,'Participant'));if(!cAllPlayers[p])cAllPlayers[p]=[];cAllPlayers[p].push(r);});
   try {
-    // Llegeix de Cartes_Jornada per a la jornada activa
     const res=await cScriptCall({sheet:'Cartes_Jornada'});
     const rows=res.rows||[];
-    const faseSel3   = FASE_SELECCIO   || FASE_ACTIVA_GLOBAL;
-    const jorSel3    = JORNADA_SELECCIO || JORNADA_ACTIVA_GLOBAL;
-    const myRow=rows.find(r=>norm(r[0])===norm(cParticipant)&&norm(r[1])===norm(faseSel3)&&norm(r[2])===norm(jorSel3));
-    if(myRow){
-      // Té carta assignada per aquesta jornada
-      cCartaData={carta:(myRow[3]||'').trim(), estat:(myRow[4]||'disponible').trim()};
-    } else {
-      // Encara no té carta — ha de girar la ruleta
-      cCartaData={carta:null, estat:'sense_carta'};
-    }
-    cRenderCarta();
+    const faseSel3 = FASE_SELECCIO||FASE_ACTIVA_GLOBAL;
+    const jorSel3  = JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL;
+    const isSameJ  = norm(faseSel3)===norm(FASE_ACTIVA_GLOBAL)&&norm(jorSel3)===norm(JORNADA_ACTIVA_GLOBAL);
+
+    // Carta jornada ACTIVA (revelada)
+    const myRowAct = rows.find(r=>norm(r[0])===norm(cParticipant)&&norm(r[1])===norm(FASE_ACTIVA_GLOBAL)&&norm(r[2])===norm(JORNADA_ACTIVA_GLOBAL));
+    const cartaActiva = myRowAct ? {carta:(myRowAct[3]||'').trim(),estat:(myRowAct[4]||'disponible').trim()} : null;
+
+    // Carta jornada SELECCIÓ (propera)
+    const myRowSel = isSameJ ? myRowAct : rows.find(r=>norm(r[0])===norm(cParticipant)&&norm(r[1])===norm(faseSel3)&&norm(r[2])===norm(jorSel3));
+    const cartaSeleccio = myRowSel ? {carta:(myRowSel[3]||'').trim(),estat:(myRowSel[4]||'disponible').trim()} : null;
+
+    // Historial de totes les jornades del participant
+    const historial = rows.filter(r=>norm(r[0])===norm(cParticipant)).map(r=>({
+      fase:r[1],jornada:r[2],carta:r[3]||'',estat:r[4]||'',detall:r[5]||''
+    }));
+
+    cCartaData = isSameJ
+      ? (cartaActiva || {carta:null,estat:'sense_carta'})
+      : (cartaSeleccio || {carta:null,estat:'sense_carta'});
+
+    cRenderCartaDual(cartaActiva, cartaSeleccio, historial, isSameJ, faseSel3, jorSel3);
   } catch(e){el.innerHTML=`<div style="text-align:center;padding:2rem;color:#F87171">Error: ${e.message}</div>`;}
 }
+function cRenderCartaDual(cartaActiva, cartaSeleccio, historial, isSameJ, faseSel, jorSel) {
+  const el=document.getElementById('cartesTabContent');
+  if(!el)return;
+
+  const labelAct = `${PHASE_LABELS[FASE_ACTIVA_GLOBAL]||FASE_ACTIVA_GLOBAL} ${JORNADA_ACTIVA_GLOBAL}`;
+  const labelSel = `${PHASE_LABELS[faseSel]||faseSel} ${jorSel}`;
+
+  const header = `<div style="text-align:center;margin-bottom:0.8rem;color:var(--silver);font-size:0.85rem">
+    Equip: <strong style="color:var(--white)">${cParticipant}</strong>
+    <button onclick="cLogout()" style="background:none;border:none;color:rgba(255,255,255,0.3);font-size:0.75rem;cursor:pointer;text-decoration:underline;margin-left:0.8rem">Canviar</button>
+  </div>`;
+
+  // Panel jornada activa
+  function renderCartaPanel(cartaData, label, color, isSeleccio) {
+    if (!cartaData || !cartaData.carta) {
+      const msg = isSeleccio && SELECCIO_OBERTA
+        ? `<div style="text-align:center;padding:1rem">
+            <p style="color:var(--silver);font-size:0.85rem;margin-bottom:1rem">Encara no has girat la roda per a ${label}</p>
+            <button onclick="cCartaData={carta:null,estat:'sense_carta'};cRenderCarta()" style="border:none;border-radius:10px;padding:0.8rem 1.5rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#6B21A8,#C084FC);color:white;font-family:'DM Sans',sans-serif">🃏 Girar la Roda per a ${label}!</button>
+          </div>`
+        : `<div style="background:rgba(255,255,255,0.04);border:1px dashed rgba(255,255,255,0.15);border-radius:8px;padding:1rem;text-align:center;color:var(--silver);font-size:0.82rem">🔒 Sense carta assignada</div>`;
+      return `<div style="background:var(--glass);border:1px solid ${color}40;border-radius:16px;padding:1.2rem 1.5rem;margin-bottom:1rem">
+        <div style="font-family:'Space Mono',monospace;font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;color:${color};margin-bottom:1rem">${label}</div>
+        ${msg}
+      </div>`;
+    }
+    const def = CARTES_DEF[cartaData.carta]||{icon:'🃏',color:color,desc:''};
+    const gastada = norm(cartaData.estat)==='gastada';
+    const detall = (() => {
+      if (!gastada) return '';
+      let d='';
+      try{const p=JSON.parse(historial.find(h=>h.carta===cartaData.carta)?.detall||'{}');
+        if(p.rival)d+=` → <strong>${p.rival}</strong>`;
+        if(p.jugador)d+=` (${p.jugador})`;
+      }catch(e){}
+      return d;
+    })();
+    return `<div style="background:var(--glass);border:1px solid ${color}40;border-radius:16px;padding:1.2rem 1.5rem;margin-bottom:1rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem">
+        <span style="font-family:'Space Mono',monospace;font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:${color}">${label}</span>
+        <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:0.65rem;font-weight:700;${gastada?'background:rgba(224,52,52,0.2);color:#F87171':'background:rgba(34,197,94,0.2);color:#4ADE80'}">${gastada?'Gastada':'Disponible'}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.8rem">
+        <span style="font-size:2rem">${def.icon}</span>
+        <div>
+          <div style="font-family:'Bebas Neue',cursive;font-size:1.1rem;color:${def.color||color}">${cartaData.carta}</div>
+          <div style="font-size:0.75rem;color:var(--silver)">${gastada?'Aplicada'+detall:def.desc}</div>
+        </div>
+      </div>
+      ${!gastada && isSeleccio && SELECCIO_OBERTA ? `<button onclick="cCartaData=${JSON.stringify(cartaData)};cRenderCarta()" style="width:100%;margin-top:0.8rem;border:none;border-radius:8px;padding:0.6rem;font-weight:700;cursor:pointer;background:${def.color||color};color:var(--ink);font-family:'DM Sans',sans-serif">Usar carta ${cartaData.carta}</button>` : ''}
+    </div>`;
+  }
+
+  // Historial
+  const histHtml = historial.length > 1 ? `
+    <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1.2rem 1.5rem;margin-bottom:1rem">
+      <div style="font-family:'Space Mono',monospace;font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--gold);margin-bottom:0.8rem">📋 Historial de cartes</div>
+      ${historial.map(h=>{const def=CARTES_DEF[h.carta]||{icon:'🃏',color:'#F5C842'};const gastada=norm(h.estat)==='gastada';return `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.4rem 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.8rem">
+        <span>${def.icon}</span>
+        <span style="color:var(--silver);font-size:0.72rem;font-family:'Space Mono',monospace">${h.fase} ${h.jornada}</span>
+        <strong style="color:${def.color||'var(--gold)'}">${h.carta}</strong>
+        <span style="margin-left:auto;font-size:0.65rem;padding:2px 6px;border-radius:10px;${gastada?'background:rgba(224,52,52,0.2);color:#F87171':'background:rgba(255,255,255,0.08);color:var(--silver)'}">${gastada?'Gastada':'Disponible'}</span>
+      </div>`;}).join('')}
+    </div>` : '';
+
+  let html = header;
+  html += renderCartaPanel(cartaActiva, `✅ Carta ${labelAct} — ACTIVA`, '#F5C842', false);
+  if (!isSameJ) html += renderCartaPanel(cartaSeleccio, `🎰 Carta ${labelSel} — PROPERA`, '#60A5FA', true);
+  html += histHtml;
+
+  // Log públic
+  if (_cartesLog.length) {
+    const logItems = _cartesLog.map(l => {
+      const cartaR2 = l.carta.includes('→') ? l.carta.split('→')[1].trim() : l.carta;
+      const def = CARTES_DEF[cartaR2]||CARTES_DEF[l.carta]||{icon:'🃏',color:'#C084FC'};
+      const iconD = l.icon||def.icon;
+      let detail='';
+      if(l.detall?.rival)detail+=` → <strong>${l.detall.rival}</strong>`;
+      if(l.detall?.jugador)detail+=` (${l.detall.jugador})`;
+      return `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.82rem">
+        <span style="font-size:1.2rem">${iconD}</span>
+        <div><strong style="color:var(--white)">${l.participant}</strong> ha gastat <strong style="color:${def.color||'var(--gold)'}">${l.carta}</strong>${detail}</div>
+      </div>`;
+    }).join('');
+    html += `<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1.2rem 1.5rem;max-width:480px;margin:0 auto">
+      <div style="font-family:'Space Mono',monospace;font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--gold);margin-bottom:0.8rem">📋 Registre cartes gastades (${labelAct})</div>
+      ${logItems}
+    </div>`;
+  }
+
+  el.innerHTML = html;
+  setTimeout(()=>{cInitSelectors();},100);
+}
+
 function cRenderCarta() {
   const el=document.getElementById('cartesTabContent');
   if(!el||!cCartaData)return;
