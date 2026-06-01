@@ -2330,7 +2330,7 @@ function rRenderMain(rPlayers) {
 
   const finR = getFinestra(FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
   const araR = new Date();
-  const selObertaR = finR.seleccio_inici && finR.seleccio_fi && araR >= finR.seleccio_inici && araR <= finR.seleccio_fi;
+  const selObertaR = SELECCIO_OBERTA;
   const cdLabelR = selObertaR
     ? `<span style="color:#F87171">Tanca en: <span id="rSelCountdown" style="font-family:'Space Mono',monospace"></span></span>`
     : (finR.seleccio_inici && araR < finR.seleccio_inici
@@ -2424,10 +2424,7 @@ function rRenderMain(rPlayers) {
 function rDoSpin() {
   if (rSpinning) return;
   // Comprova finestra de selecció
-  const finRDS = getFinestra(FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
-  const araRDS = new Date();
-  const selObRDS = finRDS.seleccio_inici && finRDS.seleccio_fi && araRDS >= finRDS.seleccio_inici && araRDS <= finRDS.seleccio_fi;
-  if (!selObRDS && !R_MODE_PROVES) { showToast('La finestra de selecció de capità ha tancat'); return; }
+  if (!SELECCIO_OBERTA && !R_MODE_PROVES) { showToast('La finestra de selecció de capità ha tancat'); return; }
   const rPlayers = getPlayersForPhase(rParticipant, FASE_ACTIVA_GLOBAL);
   if (!rPlayers.length) return;
   rSpinning = true;
@@ -2928,10 +2925,9 @@ function cRenderRuletaCartes() {
   const el = document.getElementById('cartesTabContent');
   if (!el) return;
 
-  const finestra = getFinestra(FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
+  const finestra = getFinestra(FASE_SELECCIO||FASE_ACTIVA_GLOBAL, JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL);
   const ara = new Date();
-  const selOb = finestra.seleccio_inici && finestra.seleccio_fi &&
-    ara >= finestra.seleccio_inici && ara <= finestra.seleccio_fi;
+  const selOb = SELECCIO_OBERTA;
 
   const faseLabel = `${PHASE_LABELS[FASE_SELECCIO||FASE_ACTIVA_GLOBAL]||(FASE_SELECCIO||FASE_ACTIVA_GLOBAL)} — ${JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL}`;
   const isProperaJornada = JORNADA_SELECCIO && JORNADA_SELECCIO !== JORNADA_ACTIVA_GLOBAL;
