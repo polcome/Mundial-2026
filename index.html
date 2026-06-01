@@ -1019,7 +1019,7 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   const isCapita  = faseAct && isCapitaAny(name);
   const isAnulat  = faseAct && pinP && isJugadorAnulat(pinP, name);
   const isCap2    = faseAct && pinP && isSegonCapita(pinP, name);
-  const capAnulat = faseAct && pinP && (isCapita||isCap2) && isCapitaAnulat(pinP);
+  const capAnulat = faseAct && pinP && isCapita && isCapitaAnulat(pinP); // Only 1st captain affected
   const dispMult  = (isCapita&&pinP)?getCapitaDisplayMult(pinP):(isCap2?2:0);
   const isVerd    = dispMult===4||(faseAct&&pinP&&hasGolDoble(pinP));
   const bCol      = isAnulat?'#F87171':isVerd?'#4ADE80':'var(--gold)';
@@ -1225,7 +1225,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
         ${avatarList}
         <div>
           ${name}<span class="pos-badge ${posClass}" style="margin-left:6px">${pos2}</span>
-          ${(()=>{const ca=participant&&(isListCapita||isListCap2)&&isCapitaAnulat(participant);const dm=(isListCapita&&participant)?getCapitaDisplayMult(participant):(isListCap2?2:0);const isC2=isListCap2&&!isListCapita;if(dm>0)return `<span style="background:${ca?'rgba(245,200,66,0.3)':dm===4||isC2?'#22C55E':'var(--gold)'};color:var(--ink);font-family:'Bebas Neue',cursive;font-size:0.55rem;padding:1px 5px;border-radius:10px;margin-left:4px">${ca?'🚫 ':isC2?'🟢 ':'⭐ '}${isC2?'2n Capità x2':dm===4?'Capità x4':'Capità x2'}${ca?' ANULAT':''}</span>`;return '';})()}
+          ${(()=>{const ca=participant&&isListCapita&&!isListCap2&&isCapitaAnulat(participant);const dm=(isListCapita&&participant)?getCapitaDisplayMult(participant):(isListCap2?2:0);const isC2=isListCap2&&!isListCapita;if(dm>0)return `<span style="background:${ca?'rgba(245,200,66,0.3)':dm===4||isC2?'#22C55E':'var(--gold)'};color:var(--ink);font-family:'Bebas Neue',cursive;font-size:0.55rem;padding:1px 5px;border-radius:10px;margin-left:4px">${ca?'🚫 ':isC2?'🟢 ':'⭐ '}${isC2?'2n Capità x2':dm===4?'Capità x4':'Capità x2'}${ca?' ANULAT':''}</span>`;return '';})()}
           ${isListAnulat?`<span style="background:rgba(248,113,113,0.2);color:#F87171;font-size:0.6rem;padding:1px 5px;border-radius:10px;margin-left:4px">🚫</span>`:''}
           <small>${flag2} ${v(pl,'Equip')}</small>
         </div>
@@ -1439,7 +1439,7 @@ function openPlayerCard(name, participant, phase, jornada) {
   const faseActCard = norm(phase)===norm(FASE_ACTIVA_GLOBAL) && norm(jornada)===norm(JORNADA_ACTIVA_GLOBAL);
   const isCardCapita = faseActCard && isCapitaAny(name);
   const isCardCap2   = faseActCard && participant && isSegonCapita(participant,name);
-  const cardCapAnul  = participant && (isCardCapita||isCardCap2) && isCapitaAnulat(participant);
+  const cardCapAnul  = participant && isCardCapita && !isCardCap2 && isCapitaAnulat(participant);
   const cardDisp     = (isCardCapita&&participant)?getCapitaDisplayMult(participant):(isCardCap2?2:0);
   const cardReal     = cardCapAnul?1:cardDisp;
   const basePts      = (pts!==null&&cardReal>0)?Math.round(pts/cardReal):pts;
@@ -2220,13 +2220,14 @@ function getCapitaDisplayMult(participant) {
   return 2;
 }
 function isCapitaAnulat(participant) {
-  // Carta "Anular capita rival" directa
+  // Carta "Anular capita rival" directa — només afecta el 1r capità
   for (const [,rc] of Object.entries(_cartesGastades))
     if (rc.carta==='Anular capita rival' && norm(rc.detall?.rival||'')===norm(participant)) return true;
-  // Carta "Anular jugador rival" aplicada al capità
+  // Carta "Anular jugador rival" aplicada al 1r capità
   const cap = _capitansMap[norm(participant)];
   if (cap && isJugadorAnulat(participant, cap)) return true;
   return false;
+  // Nota: el 2n capità (Doble capita) NO es veu afectat per cap d'aquestes cartes
 }
 function isJugadorAnulat(participant, jugador) {
   for (const [,rc] of Object.entries(_cartesGastades))
