@@ -480,6 +480,7 @@ const SHEET_ID = '1W02L1nn1FI3shibepGLazZC_G4IgG9sytqm6fGoWQdE';
 let FASE_ACTIVA_GLOBAL    = 'grups';
 let JORNADA_ACTIVA_GLOBAL = 'J1';
 let _cartesGastades = {};
+let _cartesLog = []; // registre públic de cartes usades
 
 // Hash SHA-256 de la contrasenya admin (més segur que text pla)
 // Contrasenya per defecte: "mundial2026admin"
@@ -2110,8 +2111,11 @@ function rLogout() {
 function getCapitaMultiplier(participant) {
   const cap = _capitansMap[norm(participant)];
   if (!cap) return 1;
+  // Prioritat 1: carta "Anular capita rival" → capità puntua x1
   for (const [,rc] of Object.entries(_cartesGastades))
     if (rc.carta==='Anular capita rival' && norm(rc.detall?.rival||'')===norm(participant)) return 1;
+  // Prioritat 2: carta "Anular jugador rival" aplicada al capità → capità puntua 0 (gestionat a calcScoreRow)
+  // Prioritat 3: carta pròpia Capita x4
   const carta = _cartesGastades[norm(participant)];
   if (carta?.carta === 'Capita x4') return 4;
   return 2;
@@ -2122,8 +2126,12 @@ function getCapitaDisplayMult(participant) {
   return 2;
 }
 function isCapitaAnulat(participant) {
+  // Carta "Anular capita rival" directa
   for (const [,rc] of Object.entries(_cartesGastades))
     if (rc.carta==='Anular capita rival' && norm(rc.detall?.rival||'')===norm(participant)) return true;
+  // Carta "Anular jugador rival" aplicada al capità
+  const cap = _capitansMap[norm(participant)];
+  if (cap && isJugadorAnulat(participant, cap)) return true;
   return false;
 }
 function isJugadorAnulat(participant, jugador) {
@@ -2225,6 +2233,24 @@ function cRenderCarta() {
       <button onclick="cResetCarta()" style="background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);color:var(--silver);border-radius:8px;padding:0.45rem 1rem;cursor:pointer;font-size:0.78rem">Reset (proves)</button>
     </div>`;
   } else { html+=cRenderAccio(def.accio); }
+  // Afegeix registre públic de cartes usades
+  if (_cartesLog.length) {
+    const logItems = _cartesLog.map(l => {
+      const def = CARTES_DEF[l.carta]||{icon:'🃏'};
+      let detail = '';
+      if(l.detall?.rival) detail += ` → <strong>${l.detall.rival}</strong>`;
+      if(l.detall?.jugador) detail += ` (${l.detall.jugador})`;
+      if(l.detall?.jugador_meu) detail += ` ⇄ ${l.detall.jugador_rival}`;
+      return `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.82rem">
+        <span style="font-size:1.2rem">${def.icon}</span>
+        <div><strong style="color:var(--white)">${l.participant}</strong> ha gastat <strong style="color:${def.color||'var(--gold)'}">${l.carta}</strong>${detail}</div>
+      </div>`;
+    }).join('');
+    html += `<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1.2rem 1.5rem;max-width:480px;margin:1.5rem auto 0">
+      <div style="font-family:'Space Mono',monospace;font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--gold);margin-bottom:0.8rem">📋 Registre de cartes usades</div>
+      ${logItems}
+    </div>`;
+  }
   el.innerHTML=html;
   setTimeout(()=>{cInitSelectors();},100);
 }
@@ -2326,6 +2352,7 @@ async function cGastar(params){
   try{await cScriptCall({action:'gastar_carta',participant:cParticipant,carta:params.carta,detall:JSON.stringify(params)});}catch(e){console.warn(e);}
   cCartaData.estat='gastada';
   _cartesGastades[norm(cParticipant)]={carta:params.carta,detall:params};
+  _cartesLog.push({participant:cParticipant,carta:params.carta,detall:params});
   clearCache();renderRanking();
   cRenderCarta();
   // Si anular jugador, mostra reveal del jugador triat
@@ -2381,9 +2408,14 @@ async function init() {
   try {
     const pR=await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Participants&_=${Date.now()}`,{cache:'no-store'});
     const pJ=JSON.parse((t=>t.slice(t.indexOf('(')+1,t.lastIndexOf(')')))(await pR.text()));
+    _cartesLog = [];
     parseSheet(pJ).forEach(r=>{
       const nom=v(r,'Nom')||Object.values(r)[0]||'';
-      if(nom&&norm(v(r,'Carta_Estat'))==='gastada'){let d={};try{d=JSON.parse(v(r,'Carta_Detall'));}catch(e){}_cartesGastades[norm(nom)]={carta:v(r,'Carta'),detall:d};}
+      if(nom&&norm(v(r,'Carta_Estat'))==='gastada'){
+        let d={};try{d=JSON.parse(v(r,'Carta_Detall'));}catch(e){}
+        _cartesGastades[norm(nom)]={carta:v(r,'Carta'),detall:d};
+        _cartesLog.push({participant:nom,carta:v(r,'Carta'),detall:d});
+      }
     });
   } catch(e){console.warn('Cartes:',e);}
   // Popula selector d'equips
