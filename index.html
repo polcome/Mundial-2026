@@ -483,6 +483,8 @@ let _cartesGastades = {};
 let _calendari = []; // [{fase,jornada,periode,data}]
 let SELECCIO_OBERTA = false; // si estem en finestra de selecció (ruleta+carta)
 let JORNADA_REVELADA = false; // si la jornada ja ha començat (es mostren capitans/cartes)
+let FASE_SELECCIO = null;   // fase per a la qual podem fer la selecció (pot ser la propera)
+let JORNADA_SELECCIO = null; // jornada per a la qual podem fer la selecció
 let _cartesLog = []; // registre públic de cartes usades
 
 // Hash SHA-256 de la contrasenya admin (més segur que text pla)
@@ -2122,64 +2124,82 @@ function detectarFaseJornada() {
     mapa[key][norm(v(r,'Periode'))] = parseDataCalendari(v(r,'Data'));
   });
 
-  // Troba la fase/jornada activa o pròxima
-  let faseActiva = null, jornadaActiva = null;
-  let selOb = false, jorRev = false;
-
-  // Ordre de fases
   const ordre = ['grups_j1','grups_j2','grups_j3','r16_e1','r8_e1','qf_e1','sf_e1','final_e1'];
 
-  for (const key of ordre) {
-    const entry = mapa[key];
+  // === JORNADA REVELADA: la que s'està jugant ara, o l'última jugada ===
+  let faseRev = null, jorRev2 = null, isRevelada = false;
+  for (let i = 0; i < ordre.length; i++) {
+    const entry = mapa[ordre[i]];
     if (!entry) continue;
-    const selInici  = entry['seleccio_inici'];
-    const selFi     = entry['seleccio_fi'];
-    const jorInici  = entry['jornada_inici'];
-    const jorFi     = entry['jornada_fi'];
-
-    // Estem en selecció o jornada d'aquesta fase?
-    const enSel  = selInici && selFi  && ara >= selInici && ara <= selFi;
-    const enJor  = jorInici && jorFi  && ara >= jorInici && ara <= jorFi;
-    // Jornada ja ha acabat però és la més recent
-    const jaTov  = jorFi && ara > jorFi;
-
-    if (enSel || enJor) {
-      faseActiva   = entry.fase;
-      jornadaActiva = entry.jornada;
-      selOb  = enSel;
-      jorRev = enJor;
+    const jorInici = entry['jornada_inici'];
+    const jorFi    = entry['jornada_fi'];
+    // Estem dins la jornada?
+    if (jorInici && jorFi && ara >= jorInici && ara <= jorFi) {
+      faseRev    = entry.fase;
+      jorRev2    = entry.jornada;
+      isRevelada = true;
       break;
     }
-    // Si estem entre jornades (entre fi d'aquesta i inici selecció de la seguent)
+    // Jornada ja ha acabat — és la més recent revelada
     if (jorFi && ara > jorFi) {
-      // Última jornada acabada — mantén fins que en trobi una d'activa
-      faseActiva    = entry.fase;
-      jornadaActiva = entry.jornada;
-      selOb  = false;
-      jorRev = false;
+      faseRev    = entry.fase;
+      jorRev2    = entry.jornada;
+      isRevelada = false; // entre jornades, no revelem res
+    }
+    // Estem ABANS del inici d'aquesta jornada (ja té seleccio passada o actual)
+    if (jorInici && ara < jorInici && !faseRev) {
+      faseRev    = entry.fase;
+      jorRev2    = entry.jornada;
+      isRevelada = false;
     }
   }
 
-  // Si estem ABANS de la primera selecció, usar J1 grups per defecte
-  if (!faseActiva) {
-    const primerKey = ordre.find(k => mapa[k]);
-    if (primerKey && mapa[primerKey]) {
-      faseActiva    = mapa[primerKey].fase;
-      jornadaActiva = mapa[primerKey].jornada;
+  // === JORNADA DE SELECCIÓ: la propera per a la qual podem fer ruleta ===
+  let faseSel = null, jorSel = null, selOberta = false;
+  for (let i = 0; i < ordre.length; i++) {
+    const entry = mapa[ordre[i]];
+    if (!entry) continue;
+    const selInici = entry['seleccio_inici'];
+    const selFi    = entry['seleccio_fi'];
+    // Estem dins la finestra de selecció d'aquesta jornada?
+    if (selInici && selFi && ara >= selInici && ara <= selFi) {
+      faseSel   = entry.fase;
+      jorSel    = entry.jornada;
+      selOberta = true;
+      break;
     }
   }
 
-  if (faseActiva)    FASE_ACTIVA_GLOBAL    = faseActiva;
-  if (jornadaActiva) JORNADA_ACTIVA_GLOBAL = jornadaActiva;
-  SELECCIO_OBERTA  = selOb;
-  JORNADA_REVELADA = jorRev;
-
-  console.log(`Fase: ${FASE_ACTIVA_GLOBAL} ${JORNADA_ACTIVA_GLOBAL} | Selecció: ${SELECCIO_OBERTA} | Revelada: ${JORNADA_REVELADA}`);
-  console.log('Ara:', new Date().toISOString(), '| mapa keys:', Object.keys(mapa));
-  if (mapa['grups_j1']) {
-    const e = mapa['grups_j1'];
-    console.log('grups_j1 → selInici:', e.seleccio_inici, '| jorInici:', e.jornada_inici, '| jorFi:', e.jornada_fi);
+  // Si no hi ha selecció oberta, la propera selecció és la d'una jornada futura
+  if (!faseSel) {
+    for (let i = 0; i < ordre.length; i++) {
+      const entry = mapa[ordre[i]];
+      if (!entry) continue;
+      const selInici = entry['seleccio_inici'];
+      if (selInici && ara < selInici) {
+        faseSel = entry.fase;
+        jorSel  = entry.jornada;
+        break;
+      }
+    }
   }
+
+  // Fallback: usar primera jornada si res
+  if (!faseRev) {
+    const pk = ordre.find(k => mapa[k]);
+    if (pk) { faseRev = mapa[pk].fase; jorRev2 = mapa[pk].jornada; }
+  }
+  if (!faseSel) { faseSel = faseRev; jorSel = jorRev2; }
+
+  FASE_ACTIVA_GLOBAL    = faseRev || 'grups';
+  JORNADA_ACTIVA_GLOBAL = jorRev2 || 'J1';
+  FASE_SELECCIO         = faseSel || faseRev;
+  JORNADA_SELECCIO      = jorSel  || jorRev2;
+  SELECCIO_OBERTA       = selOberta;
+  JORNADA_REVELADA      = isRevelada;
+
+  console.log(`Revelada: ${FASE_ACTIVA_GLOBAL} ${JORNADA_ACTIVA_GLOBAL} (${JORNADA_REVELADA})`);
+  console.log(`Selecció: ${FASE_SELECCIO} ${JORNADA_SELECCIO} (oberta: ${SELECCIO_OBERTA})`);
 }
 
 // Retorna info de la finestra actual per a una fase+jornada
@@ -2436,17 +2456,21 @@ function rDoSpin() {
 
 async function rSaveCapita(jugador, rPlayers) {
   document.getElementById('ruletaTabContent').innerHTML += '';
+  // Guarda per a la jornada de SELECCIÓ (pot ser la propera, no la revelada)
+  const faseSave   = FASE_SELECCIO   || FASE_ACTIVA_GLOBAL;
+  const jornadaSave = JORNADA_SELECCIO || JORNADA_ACTIVA_GLOBAL;
   try {
-    await rPost({action:'set_capita', participant:rParticipant, fase:FASE_ACTIVA_GLOBAL, jornada:JORNADA_ACTIVA_GLOBAL, capita:jugador});
+    await rPost({action:'set_capita', participant:rParticipant, fase:faseSave, jornada:jornadaSave, capita:jugador});
   } catch(e) { console.warn('Error guardant capità:', e); }
   rSpinResult = jugador;
-  // Si té carta Capita manual, aquesta té prioritat — no sobreescrivim _capitansMap
-  const cartaManual = _cartesGastades[norm(rParticipant)];
-  if (cartaManual?.carta === 'Capita manual' && cartaManual.detall?.jugador) {
-    // La ruleta s'ha girat però el capità real és el de la carta manual
-    _capitansMap[norm(rParticipant)] = cartaManual.detall.jugador;
-  } else {
-    _capitansMap[norm(rParticipant)] = jugador;
+  // Si la jornada de selecció = jornada activa revelada, actualitza el mapa visible
+  if (norm(faseSave)===norm(FASE_ACTIVA_GLOBAL) && norm(jornadaSave)===norm(JORNADA_ACTIVA_GLOBAL) && JORNADA_REVELADA) {
+    const cartaManual = _cartesGastades[norm(rParticipant)];
+    if (cartaManual?.carta === 'Capita manual' && cartaManual.detall?.jugador) {
+      _capitansMap[norm(rParticipant)] = cartaManual.detall.jugador;
+    } else {
+      _capitansMap[norm(rParticipant)] = jugador;
+    }
   }
   clearCache();
   renderRanking();
@@ -2606,7 +2630,9 @@ async function cLoadCarta() {
     // Llegeix de Cartes_Jornada per a la jornada activa
     const res=await cScriptCall({sheet:'Cartes_Jornada'});
     const rows=res.rows||[];
-    const myRow=rows.find(r=>norm(r[0])===norm(cParticipant)&&norm(r[1])===norm(FASE_ACTIVA_GLOBAL)&&norm(r[2])===norm(JORNADA_ACTIVA_GLOBAL));
+    const faseSel3   = FASE_SELECCIO   || FASE_ACTIVA_GLOBAL;
+    const jorSel3    = JORNADA_SELECCIO || JORNADA_ACTIVA_GLOBAL;
+    const myRow=rows.find(r=>norm(r[0])===norm(cParticipant)&&norm(r[1])===norm(faseSel3)&&norm(r[2])===norm(jorSel3));
     if(myRow){
       // Té carta assignada per aquesta jornada
       cCartaData={carta:(myRow[3]||'').trim(), estat:(myRow[4]||'disponible').trim()};
@@ -2843,7 +2869,7 @@ async function cGastar(params){
   const esComodi  = cCartaData.carta==='Comodi' && cComodiSel && cComodiSel!=='Comodi';
   params.carta = cartaReal; // actua com si tingués la carta real
   params.via_comodi = esComodi ? true : undefined;
-  try{await cScriptCall({action:'gastar_carta_jornada',participant:cParticipant,carta:cartaReal,fase:FASE_ACTIVA_GLOBAL,jornada:JORNADA_ACTIVA_GLOBAL,detall:JSON.stringify(params)});}catch(e){console.warn(e);}
+  try{await cScriptCall({action:'gastar_carta_jornada',participant:cParticipant,carta:cartaReal,fase:FASE_SELECCIO||FASE_ACTIVA_GLOBAL,jornada:JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL,detall:JSON.stringify(params)});}catch(e){console.warn(e);}
   cCartaData.estat='gastada';
   // Guarda la carta real (no Comodi) a _cartesGastades — comportament idèntic
   _cartesGastades[norm(cParticipant)]={carta:cartaReal,detall:params};
@@ -2879,7 +2905,7 @@ async function cGastar(params){
 }
 async function cResetCarta(){
   if(!confirm('Reset carta per a proves?'))return;
-  try{await cScriptCall({action:'reset_carta_jornada',participant:cParticipant,fase:FASE_ACTIVA_GLOBAL,jornada:JORNADA_ACTIVA_GLOBAL});}catch(e){}
+  try{await cScriptCall({action:'reset_carta_jornada',participant:cParticipant,fase:FASE_SELECCIO||FASE_ACTIVA_GLOBAL,jornada:JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL});}catch(e){}
   delete _cartesGastades[norm(cParticipant)];
   const resetIdx = _cartesLog.findIndex(l=>norm(l.participant)===norm(cParticipant));
   if(resetIdx>=0) _cartesLog.splice(resetIdx,1);
@@ -2901,7 +2927,8 @@ function cRenderRuletaCartes() {
   const selOb = finestra.seleccio_inici && finestra.seleccio_fi &&
     ara >= finestra.seleccio_inici && ara <= finestra.seleccio_fi;
 
-  const faseLabel = PHASE_LABELS[FASE_ACTIVA_GLOBAL]||FASE_ACTIVA_GLOBAL;
+  const faseLabel = `${PHASE_LABELS[FASE_SELECCIO||FASE_ACTIVA_GLOBAL]||(FASE_SELECCIO||FASE_ACTIVA_GLOBAL)} — ${JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL}`;
+  const isProperaJornada = JORNADA_SELECCIO && JORNADA_SELECCIO !== JORNADA_ACTIVA_GLOBAL;
 
   // Header comú
   let html = `<div style="text-align:center;margin-bottom:0.5rem;color:var(--silver);font-size:0.85rem">
@@ -3030,8 +3057,8 @@ async function cSpinWheel() {
       await cScriptCall({
         action: 'assignar_carta_jornada',
         participant: cParticipant,
-        fase: FASE_ACTIVA_GLOBAL,
-        jornada: JORNADA_ACTIVA_GLOBAL,
+        fase: FASE_SELECCIO || FASE_ACTIVA_GLOBAL,
+        jornada: JORNADA_SELECCIO || JORNADA_ACTIVA_GLOBAL,
         carta: cartaGuanyadora
       });
     } catch(e) { console.warn('Error guardant carta jornada:', e); }
@@ -3093,12 +3120,20 @@ async function init() {
     const cjR=await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Cartes_Jornada&_=${Date.now()}`,{cache:'no-store'});
     const cjJ=JSON.parse((t=>t.slice(t.indexOf('(')+1,t.lastIndexOf(')')))(await cjR.text()));
     _cartesLog = [];
+    const faseSel2   = FASE_SELECCIO   || FASE_ACTIVA_GLOBAL;
+    const jorSel2    = JORNADA_SELECCIO || JORNADA_ACTIVA_GLOBAL;
     parseSheet(cjJ).forEach(r=>{
       const nom = v(r,'Participant');
       const fase = v(r,'Fase');
       const jornada = v(r,'Jornada');
-      // Filtra per fase i jornada activa
-      if(!nom||norm(fase)!==norm(FASE_ACTIVA_GLOBAL)||norm(jornada)!==norm(JORNADA_ACTIVA_GLOBAL)) return;
+      // Per efectes: cartes de la jornada REVELADA (activa)
+      // Per la pestanya cartes: cartes de la jornada de SELECCIÓ
+      // Carreguem ambdues i separem
+      const esJorActiva = nom&&norm(fase)===norm(FASE_ACTIVA_GLOBAL)&&norm(jornada)===norm(JORNADA_ACTIVA_GLOBAL);
+      const esJorSelec  = nom&&norm(fase)===norm(faseSel2)&&norm(jornada)===norm(jorSel2);
+      if(!esJorActiva && !esJorSelec) return;
+      // Per als efectes de puntuació, només la jornada activa
+      if(!esJorActiva) return;
       if(norm(v(r,'Carta_Estat'))!=='gastada') return;
       let d={};try{d=JSON.parse(v(r,'Carta_Detall'));}catch(e){}
       const cartaSheet = v(r,'Carta');
