@@ -2146,11 +2146,11 @@ function detectarFaseJornada() {
       isRevelada = true;
       break;
     }
-    // Jornada ja ha acabat — és la més recent revelada
+    // Jornada ja ha acabat — mantenir com a revelada fins que en comenci una altra
     if (jorFi && ara > jorFi) {
       faseRev    = entry.fase;
       jorRev2    = entry.jornada;
-      isRevelada = false; // entre jornades, no revelem res
+      isRevelada = true; // seguim mostrant l'última jornada fins que comenci la propera
     }
     // Estem ABANS del inici d'aquesta jornada (ja té seleccio passada o actual)
     if (jorInici && ara < jorInici && !faseRev) {
