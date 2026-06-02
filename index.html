@@ -2691,7 +2691,7 @@ function cRenderCartaDual(cartaActiva, cartaSeleccio, historial, isSameJ, faseSe
       const msg = isSeleccio && SELECCIO_OBERTA
         ? `<div style="text-align:center;padding:1rem">
             <p style="color:var(--silver);font-size:0.85rem;margin-bottom:1rem">Encara no has girat la roda per a ${label}</p>
-            <button onclick="cCartaData={carta:null,estat:'sense_carta'};cRenderCarta()" style="border:none;border-radius:10px;padding:0.8rem 1.5rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#6B21A8,#C084FC);color:white;font-family:'DM Sans',sans-serif">🃏 Girar la Roda per a ${label}!</button>
+            <button onclick="cCartaData={carta:null,estat:'sense_carta'};cRenderRuletaCartes()" style="border:none;border-radius:10px;padding:0.8rem 1.5rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#6B21A8,#C084FC);color:white;font-family:'DM Sans',sans-serif">🃏 Girar la Roda per a ${label}!</button>
           </div>`
         : `<div style="background:rgba(255,255,255,0.04);border:1px dashed rgba(255,255,255,0.15);border-radius:8px;padding:1rem;text-align:center;color:var(--silver);font-size:0.82rem">🔒 Sense carta assignada</div>`;
       return `<div style="background:var(--glass);border:1px solid ${color}40;border-radius:16px;padding:1.2rem 1.5rem;margin-bottom:1rem">
@@ -2722,7 +2722,7 @@ function cRenderCartaDual(cartaActiva, cartaSeleccio, historial, isSameJ, faseSe
           <div style="font-size:0.75rem;color:var(--silver)">${gastada?'Aplicada'+detall:def.desc}</div>
         </div>
       </div>
-      ${!gastada && isSeleccio && SELECCIO_OBERTA ? `<button onclick="cCartaData=${JSON.stringify(cartaData)};cRenderCarta()" style="width:100%;margin-top:0.8rem;border:none;border-radius:8px;padding:0.6rem;font-weight:700;cursor:pointer;background:${def.color||color};color:var(--ink);font-family:'DM Sans',sans-serif">Usar carta ${cartaData.carta}</button>` : ''}
+      ${!gastada && isSeleccio && SELECCIO_OBERTA ? `<button onclick="cActivarCarta()" style="width:100%;margin-top:0.8rem;border:none;border-radius:8px;padding:0.6rem;font-weight:700;cursor:pointer;background:${def.color||color};color:var(--ink);font-family:'DM Sans',sans-serif">Usar carta ${cartaData.carta}</button>` : ''}
     </div>`;
   }
 
@@ -2739,8 +2739,13 @@ function cRenderCartaDual(cartaActiva, cartaSeleccio, historial, isSameJ, faseSe
     </div>` : '';
 
   let html = header;
-  html += renderCartaPanel(cartaActiva, `✅ Carta ${labelAct} — ACTIVA`, '#F5C842', false);
-  if (!isSameJ) html += renderCartaPanel(cartaSeleccio, `🎰 Carta ${labelSel} — PROPERA`, '#60A5FA', true);
+  if (isSameJ) {
+    // Mateixa jornada: la selecció és per a la jornada actual
+    html += renderCartaPanel(cartaActiva, `🎰 Carta ${labelAct}`, '#F5C842', true);
+  } else {
+    html += renderCartaPanel(cartaActiva, `✅ Carta ${labelAct} — ACTIVA`, '#F5C842', false);
+    html += renderCartaPanel(cartaSeleccio, `🎰 Carta ${labelSel} — PROPERA`, '#60A5FA', true);
+  }
   html += histHtml;
 
   // Log públic
@@ -3200,6 +3205,10 @@ async function cSpinWheel() {
   }, 5200);
 }
 
+function cActivarCarta() {
+  // Activa la carta actual per usar-la (des del panel dual)
+  cRenderCarta();
+}
 function cLogout(){sessionStorage.removeItem('cartes_auth');cParticipant='';cCartaData=null;cComodiSel='';renderCartesTab();}
 
 // ============================================================
