@@ -2366,9 +2366,9 @@ function rRenderMain(rPlayers, rCapitaActiva, rCapitaSeleccio, allCapRows) {
   const selObertaR = SELECCIO_OBERTA;
   const cdTarget = selObertaR ? finR.seleccio_fi : finR.seleccio_inici;
   const cdLabelR = selObertaR
-    ? `<span style="color:#F87171">Tanca en: <span id="rSelCountdown" style="font-family:'Space Mono',monospace"></span></span>`
+    ? `<span style="color:#F87171">Tanca en: <span id="rSelCountdown3" style="font-family:'Space Mono',monospace"></span></span>`
     : (finR.seleccio_inici && araR < finR.seleccio_inici
-      ? `<span style="color:var(--silver)">S'obre en: <span id="rSelCountdown" style="font-family:'Space Mono',monospace;color:var(--gold)"></span></span>`
+      ? `<span style="color:var(--silver)">S'obre en: <span id="rSelCountdown3" style="font-family:'Space Mono',monospace;color:var(--gold)"></span></span>`
       : `<span style="color:var(--silver)">Període tancat</span>`);
   // Helper: render capità card
   function capitaCard(jugador, label, color, extra='') {
@@ -2386,8 +2386,11 @@ function rRenderMain(rPlayers, rCapitaActiva, rCapitaSeleccio, allCapRows) {
   // Countdown interval
   if (cdTarget) {
     setTimeout(()=>{
-      const cd=document.getElementById('rSelCountdown');
-      if(cd){cd.textContent=countdownStr(cdTarget);setInterval(()=>{const c=document.getElementById('rSelCountdown');if(c)c.textContent=countdownStr(cdTarget);},1000);}
+      // Omple tots els comptadors de capità
+      ['rSelCountdown2','rSelCountdown3'].forEach(id=>{
+        const cd=document.getElementById(id);
+        if(cd){cd.textContent=countdownStr(cdTarget);setInterval(()=>{const c=document.getElementById(id);if(c)c.textContent=countdownStr(cdTarget);},1000);}
+      });
     },100);
   }
 
@@ -2413,7 +2416,7 @@ function rRenderMain(rPlayers, rCapitaActiva, rCapitaSeleccio, allCapRows) {
     <div style="background:var(--glass);border:1px solid rgba(96,165,250,0.3);border-radius:16px;padding:1.2rem 1.5rem;margin-bottom:1rem">
       <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap">
         <span style="background:rgba(96,165,250,0.15);border:1px solid rgba(96,165,250,0.4);color:#60A5FA;font-family:'Space Mono',monospace;font-size:0.65rem;padding:3px 8px;border-radius:20px;font-weight:700">🎰 ${labelSel} — SELECCIÓ OBERTA</span>
-        <span style="font-size:0.75rem;color:${selObertaR?'#F87171':'var(--silver)'}">Tanca: <span id="rSelCountdown" style="font-family:'Space Mono',monospace"></span></span>
+        <span style="font-size:0.75rem;color:${selObertaR?'#F87171':'var(--silver)'}">${selObertaR?'Tanca en':'Obre en'}: <span id="rSelCountdown2" style="font-family:'Space Mono',monospace"></span></span>
       </div>
       ${rCapitaSeleccio
         ? capitaCard(rCapitaSeleccio, `⭐ Capità ${labelSel} (triat)`, '#60A5FA', `<div style="margin-top:0.6rem;font-size:0.75rem;color:var(--silver)">Ocult fins inici de jornada</div>`)
