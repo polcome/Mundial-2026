@@ -2444,16 +2444,31 @@ function rRenderMain(rPlayers, rCapitaActiva, rCapitaSeleccio, allCapRows) {
           <button id="rSpinBtn" onclick="rDoSpin()" class="btn-gold spin-btn" style="border:none;width:100%;font-family:'DM Sans',sans-serif;font-weight:700;cursor:pointer;background:${selObertaR?'linear-gradient(135deg,#C9A020,var(--gold))':'rgba(255,255,255,0.1)'};color:${selObertaR?'var(--ink)':'var(--silver)'}">${selObertaR?'🎰 GIRAR!':'🔒 Fora de finestra'}</button>`}
     </div>` : '';
 
+  const cdLabelTop = selObertaR
+    ? `<span style="color:#F87171">Selecció tanca en: <span id="rTopCountdown" style="font-family:'Space Mono',monospace"></span></span>`
+    : (cdTarget
+      ? `<span style="color:var(--silver)">Selecció obre en: <span id="rTopCountdown" style="font-family:'Space Mono',monospace;color:var(--gold)"></span></span>`
+      : `<span style="color:var(--silver)">Període tancat</span>`);
+
   el.innerHTML = `
     <div class="section-title">⭐ Ruleta de Capità</div>
-    <div style="text-align:center;margin-bottom:0.8rem;color:var(--silver);font-size:0.85rem">
+    <div style="text-align:center;margin-bottom:0.3rem;color:var(--silver);font-size:0.85rem">
       Equip: <strong style="color:var(--white)">${rParticipant}</strong>
       <button onclick="rLogout()" style="background:none;border:none;color:rgba(255,255,255,0.3);font-size:0.75rem;cursor:pointer;text-decoration:underline;margin-left:0.8rem">Canviar</button>
     </div>
+    <div style="text-align:center;margin-bottom:0.8rem;font-size:0.78rem">${cdLabelTop}</div>
     ${testBanner}
     ${panelActiva}
     ${panelSeleccio}
     ${panelSameJornada}`;
+
+  // Start top countdown
+  if (cdTarget) setTimeout(()=>{
+    ['rTopCountdown','rSelCountdown2','rSelCountdown3'].forEach(id=>{
+      const cd=document.getElementById(id);
+      if(cd){cd.textContent=countdownStr(cdTarget);setInterval(()=>{const c=document.getElementById(id);if(c)c.textContent=countdownStr(cdTarget);},1000);}
+    });
+  },100);
 }
 
 function rDoSpin() {
