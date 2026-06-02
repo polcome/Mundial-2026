@@ -972,7 +972,7 @@ function renderRanking() {
   const finR2 = getFinestra(FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
   const hiddenBanner = !JORNADA_REVELADA && finR2.jornada_inici
     ? `<div style="background:rgba(245,200,66,0.08);border:1px solid rgba(245,200,66,0.2);border-radius:10px;padding:0.8rem 1.2rem;margin-bottom:1rem;font-size:0.82rem;color:var(--silver);display:flex;gap:0.6rem;align-items:center">
-        🔒 <span>Capitans i cartes <strong style="color:var(--gold)">ocults</strong> fins l'inici de jornada — <span id="rankJorCountdown" style="font-family:'Space Mono',monospace;color:var(--gold)"></span></span>
+        🔒 <span>Capitans i cartes <strong style="color:var(--gold)">ocults</strong> fins l'inici de jornada · <span id="rankJorCountdown" style="font-family:'Space Mono',monospace;color:var(--gold)"></span></span>
       </div>`
     : '';
   if (hiddenBanner) {
@@ -2239,10 +2239,12 @@ function countdownStr(targetDate) {
   if (!targetDate) return '';
   const diff = targetDate - new Date();
   if (diff <= 0) return '00:00:00';
-  const h = Math.floor(diff/3600000);
-  const m = Math.floor((diff%3600000)/60000);
-  const s = Math.floor((diff%60000)/1000);
-  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  const days = Math.floor(diff/86400000);
+  const h    = Math.floor((diff%86400000)/3600000);
+  const m    = Math.floor((diff%3600000)/60000);
+  const s    = Math.floor((diff%60000)/1000);
+  if (days > 0) return `${days}d ${String(h).padStart(2,'0')}h ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`;
+  return `${String(h).padStart(2,'0')}h ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`;
 }
 
 // Retorna true si el jugador és capità del participant en la fase/jornada activa
@@ -2357,7 +2359,7 @@ function rRenderMain(rPlayers, rCapitaActiva, rCapitaSeleccio, allCapRows) {
   const labelSel = `${PHASE_LABELS[faseSel]||faseSel} ${jorSel}`;
   const isSameJornada = norm(faseSel)===norm(FASE_ACTIVA_GLOBAL) && norm(jorSel)===norm(JORNADA_ACTIVA_GLOBAL);
 
-  const testBanner = `<div class="test-banner">⚠️ <div><strong>MODE DE PROVES</strong> — Pots girar tantes vegades com vulguis i resetar. En producció, 1 sol intent.</div></div>`;
+  const testBanner = '';
 
   const finR = getFinestra(faseSel, jorSel);
   const araR = new Date();
@@ -2426,9 +2428,7 @@ function rRenderMain(rPlayers, rCapitaActiva, rCapitaSeleccio, allCapRows) {
           </div>`
           : `<div style="background:rgba(255,255,255,0.04);border:1px dashed rgba(255,255,255,0.15);border-radius:8px;padding:0.8rem;font-size:0.8rem;color:var(--silver)">🔒 Finestra tancada · ${cdLabelR}</div>`}
         </div>`}
-      ${rCapitaSeleccio && selObertaR ? `<div style="display:flex;gap:0.6rem;margin-top:0.8rem">
-        <button onclick="rResetCapita()" style="flex:1;background:rgba(224,52,52,0.2);border:1px solid rgba(224,52,52,0.3);color:#F58080;border-radius:8px;padding:0.5rem;cursor:pointer;font-size:0.78rem;font-weight:700">🗑️ Reset ${labelSel}</button>
-      </div>` : ''}
+
     </div>`;
 
   // Si mateixa jornada (no hi ha "propera"), mostra la ruleta normal
@@ -2455,8 +2455,9 @@ function rRenderMain(rPlayers, rCapitaActiva, rCapitaSeleccio, allCapRows) {
 
 function rDoSpin() {
   if (rSpinning) return;
-  // Comprova finestra de selecció
-  if (!SELECCIO_OBERTA && !R_MODE_PROVES) { showToast('La finestra de selecció de capità ha tancat'); return; }
+  if (!SELECCIO_OBERTA) { showToast('La finestra de selecció de capità ha tancat'); return; }
+  // Bloqueja si ja té capità assignat per la jornada de selecció
+  if (rSpinResult) { showToast('Ja tens capità assignat per aquesta jornada!'); return; }
   const rPlayers = getPlayersForPhase(rParticipant, FASE_ACTIVA_GLOBAL);
   if (!rPlayers.length) return;
   rSpinning = true;
@@ -2695,10 +2696,20 @@ function cRenderCartaDual(cartaActiva, cartaSeleccio, historial, isSameJ, faseSe
   const labelAct = `${PHASE_LABELS[FASE_ACTIVA_GLOBAL]||FASE_ACTIVA_GLOBAL} ${JORNADA_ACTIVA_GLOBAL}`;
   const labelSel = `${PHASE_LABELS[faseSel]||faseSel} ${jorSel}`;
 
+  const finSel = getFinestra(FASE_SELECCIO||FASE_ACTIVA_GLOBAL, JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL);
+  const cdTargetC = SELECCIO_OBERTA ? finSel.seleccio_fi : finSel.seleccio_inici;
+  const cdColorC  = SELECCIO_OBERTA ? '#F87171' : 'var(--gold)';
+  const cdLabelC  = SELECCIO_OBERTA ? 'Selecció tanca en' : 'Selecció obre en';
   const header = `<div style="text-align:center;margin-bottom:0.8rem;color:var(--silver);font-size:0.85rem">
     Equip: <strong style="color:var(--white)">${cParticipant}</strong>
     <button onclick="cLogout()" style="background:none;border:none;color:rgba(255,255,255,0.3);font-size:0.75rem;cursor:pointer;text-decoration:underline;margin-left:0.8rem">Canviar</button>
-  </div>`;
+  </div>
+  ${cdTargetC ? `<div style="text-align:center;margin-bottom:0.8rem;font-size:0.78rem;color:var(--silver)">${cdLabelC}: <span id="cTabCountdown" style="font-family:'Space Mono',monospace;color:${cdColorC}"></span></div>` : ''}`;
+  // Start carta tab countdown
+  setTimeout(()=>{
+    const cd=document.getElementById('cTabCountdown');
+    if(cd&&cdTargetC){cd.textContent=countdownStr(cdTargetC);setInterval(()=>{const c=document.getElementById('cTabCountdown');if(c)c.textContent=countdownStr(cdTargetC);},1000);}
+  },100);
 
   // Panel jornada activa
   function renderCartaPanel(cartaData, label, color, isSeleccio) {
@@ -2814,9 +2825,7 @@ function cRenderCarta() {
       <div style="font-size:2.5rem;margin-bottom:0.5rem">🔒</div>
       <div style="font-family:'Bebas Neue',cursive;font-size:1.4rem;color:#F87171;margin-bottom:0.3rem">Carta ja gastada</div>
     </div>
-    <div style="text-align:center;margin-top:1rem">
-      <button onclick="cResetCarta()" style="background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);color:var(--silver);border-radius:8px;padding:0.45rem 1rem;cursor:pointer;font-size:0.78rem">Reset (proves)</button>
-    </div>`;
+`;
   } else { html+=cRenderAccio(def.accio); }
   // Afegeix registre públic de cartes usades
   if (_cartesLog.length) {
@@ -3072,12 +3081,21 @@ function cRenderRuletaCartes() {
 
   const faseLabel = `${PHASE_LABELS[FASE_SELECCIO||FASE_ACTIVA_GLOBAL]||(FASE_SELECCIO||FASE_ACTIVA_GLOBAL)} — ${JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL}`;
   const isProperaJornada = JORNADA_SELECCIO && JORNADA_SELECCIO !== JORNADA_ACTIVA_GLOBAL;
+  const cdTargetW = selOb ? finestra.seleccio_fi : finestra.seleccio_inici;
+  const cdColorW  = selOb ? '#F87171' : 'var(--gold)';
+  const cdLabelW  = selOb ? 'Tanca en' : 'Obre en';
 
   // Header comú
   let html = `<div style="text-align:center;margin-bottom:0.5rem;color:var(--silver);font-size:0.85rem">
     Equip: <strong style="color:var(--white)">${cParticipant}</strong>
     <button onclick="cLogout()" style="background:none;border:none;color:rgba(255,255,255,0.3);font-size:0.75rem;cursor:pointer;text-decoration:underline;margin-left:0.8rem">Canviar</button>
-  </div>`;
+  </div>
+  ${cdTargetW ? `<div style="text-align:center;margin-bottom:0.8rem;font-size:0.78rem;color:var(--silver)">${cdLabelW}: <span id="cWheelCountdown" style="font-family:'Space Mono',monospace;color:${cdColorW}"></span></div>` : ''}`;
+  // Countdown
+  if (cdTargetW) setTimeout(()=>{
+    const cd=document.getElementById('cWheelCountdown');
+    if(cd){cd.textContent=countdownStr(cdTargetW);setInterval(()=>{const c=document.getElementById('cWheelCountdown');if(c)c.textContent=countdownStr(cdTargetW);},1000);}
+  },100);
 
   if (!selOb) {
     // Fora de finestra
