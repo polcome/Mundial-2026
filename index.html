@@ -683,10 +683,25 @@ function calcScoreRow(sc, pos, jugador, fase, jornada, participant) {
   const faseActiva = fase && jornada &&
     norm(fase) === norm(FASE_ACTIVA_GLOBAL) &&
     norm(jornada) === norm(JORNADA_ACTIVA_GLOBAL);
+
+  // Si el jugador en aquest slot és el resultat d'un canvi, només retornem puntuació bruta
+  // Els poders (capità, cartes) van lligats al participant, no al jugador intercanviat
+  const efectiu = faseActiva && participant ? getJugadorEfectiu(participant, jugador) : null;
+  const esCanviat = efectiu?.canviat || false;
+
+  // Anulació: si el nostre slot (jugador original) té carta d'anulació aplicada, puntua 0
   if (faseActiva && jugador && participant && isJugadorAnulat(participant, jugador)) return 0;
+
+  // Gol doble: aplica sempre, fins i tot al jugador rebut per canvi (és poder del participant)
   const golMult = (faseActiva && participant && hasGolDoble(participant)) ? 2 : 1;
   const base = nota + gols * golPts(pos) * golMult + assists * 2 + penalti * 3 * golMult + doblegroga * (-3) + vermella * (-6);
+
   if (!faseActiva || !jugador || !participant) return base;
+
+  // Si és jugador canviat: puntuació bruta, sense multiplicadors de capità ni cartes
+  if (esCanviat) return base;
+
+  // Capità i doble capità: només per als jugadors NO intercanviats
   const cap = _capitansMap[norm(participant)];
   if (cap && norm(jugador) === norm(cap)) return base * getCapitaMultiplier(participant);
   if (isSegonCapita(participant, jugador)) return base * 2;
