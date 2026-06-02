@@ -1081,11 +1081,11 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   const isCap2    = faseAct && pinP && isSegonCapita(pinP, name);
   const capAnulat = faseAct && pinP && isCapita && isCapitaAnulat(pinP); // Only 1st captain affected
   const dispMult  = (isCapita&&pinP)?getCapitaDisplayMult(pinP):(isCap2?2:0);
-  const isVerd    = dispMult===4||(faseAct&&pinP&&hasGolDoble(pinP));
+  const isVerd    = dispMult===3||(faseAct&&pinP&&hasGolDoble(pinP));
   const bCol      = isAnulat?'#F87171':isVerd?'#4ADE80':'var(--gold)';
   const ptsDisp   = isAnulat?0:pts;
   const scoreBubbleZ = ptsDisp!==null?`<div style="position:absolute;top:-7px;right:-7px;z-index:10;background:var(--ink);border:1.5px solid ${bCol};color:${bCol};font-family:'Space Mono',monospace;font-size:0.6rem;font-weight:700;padding:2px 5px;border-radius:5px;white-space:nowrap">${ptsDisp}</div>`:'';
-  const badgeBg   = capAnulat?'rgba(245,200,66,0.4)':dispMult===4?'#22C55E':isCap2?'#22C55E':'var(--gold)';
+  const badgeBg   = capAnulat?'rgba(245,200,66,0.4)':dispMult===3?'#22C55E':isCap2?'#22C55E':'var(--gold)';
   const captainBadgeZ = (isCapita||isCap2)?`<div style="position:absolute;top:-7px;left:-7px;z-index:10;background:${badgeBg};color:var(--ink);font-family:'Bebas Neue',cursive;font-size:0.55rem;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid var(--ink)">${capAnulat?'🚫':`x${dispMult}`}</div>`:'';
   const anulatBadgeZ = isAnulat?`<div style="position:absolute;inset:0;z-index:8;background:rgba(248,113,113,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="font-size:0.8rem">🚫</span></div>`:'';
   const isCanviat = faseAct && isJugadorCanviat(pinP, name);
@@ -1245,16 +1245,16 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
       if (dMultDet>0 && pts2!==null) {
         const rMult = capAnulDet?1:dMultDet;
         const base2 = Math.round(pts2/rMult);
-        const col = dMultDet===4||isDetCap2?'#4ADE80':'var(--gold)';
+        const col = dMultDet===3||isDetCap2?'#4ADE80':'var(--gold)';
         detailLines += `<div class="detail-line" style="border-top:1px solid rgba(245,200,66,0.2);margin-top:4px;padding-top:6px"><span class="dl-label" style="color:var(--silver)">Subtotal base</span><span class="dl-pts neu">${base2} pts</span></div>`;
         if(capAnulDet){
           detailLines+=`<div class="detail-line" style="background:rgba(248,113,113,0.1);border-radius:6px;padding:4px 6px"><span class="dl-label" style="color:#F87171;font-weight:700">🚫 Capità x${dMultDet} ANULAT</span><span class="dl-pts" style="color:#F87171">+0 pts</span></div>`;
         } else {
-          detailLines+=`<div class="detail-line" style="background:${dMultDet===4||isDetCap2?'rgba(34,197,94,0.08)':'rgba(245,200,66,0.08)'};border-radius:6px;padding:4px 6px"><span class="dl-label" style="color:${col};font-weight:700">${dMultDet===4||isDetCap2?'🟢':'⭐'} ${isDetCap2?'2n Capità 🃏':'Capità'} x${dMultDet}${dMultDet===4?' 🃏':''}</span><span class="dl-pts pos" style="color:${col}">+${pts2-base2} pts</span></div>`;
+          detailLines+=`<div class="detail-line" style="background:${dMultDet===3||isDetCap2?'rgba(34,197,94,0.08)':'rgba(245,200,66,0.08)'};border-radius:6px;padding:4px 6px"><span class="dl-label" style="color:${col};font-weight:700">${dMultDet===3||isDetCap2?'🟢':'⭐'} ${isDetCap2?'2n Capità 🃏':'Capità'} x${dMultDet}${dMultDet===3?' 🃏':''}</span><span class="dl-pts pos" style="color:${col}">+${pts2-base2} pts</span></div>`;
         }
       }
-      const tLbl = capAnulDet?'Total (anulat)':dMultDet===4?'🟢 Total x4':dMultDet>0?'⭐ Total Capità':'Total';
-      const tCol = capAnulDet?'var(--silver)':dMultDet===4?'#4ADE80':'var(--gold)';
+      const tLbl = capAnulDet?'Total (anulat)':dMultDet===3?'🟢 Total x3':dMultDet>0?'⭐ Total Capità':'Total';
+      const tCol = capAnulDet?'var(--silver)':dMultDet===3?'#4ADE80':'var(--gold)';
       detailLines += `<div class="detail-total-line"><span>${tLbl}</span><span style="color:${tCol}">${pts2!==null?pts2.toFixed(0):'—'} pts</span></div>`;
     }
 
@@ -1279,13 +1279,13 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
     const listMult     = (isListCapita&&participant)?getCapitaDisplayMult(participant):(isListCap2?2:0);
     const faceActLC2 = norm(phase)===norm(FASE_ACTIVA_GLOBAL)&&norm(jornada)===norm(JORNADA_ACTIVA_GLOBAL);
     const isListCanviat = faceActLC2 && participant && isJugadorCanviat(participant, name);
-    const listBg = isListAnulat?'border-color:rgba(248,113,113,0.4);background:rgba(248,113,113,0.05)':isListCanviat?'border-color:rgba(96,165,250,0.4);background:rgba(96,165,250,0.05)':listMult===4?'border-color:rgba(34,197,94,0.4);background:rgba(34,197,94,0.05)':isListCap2?'border-color:rgba(34,197,94,0.4);background:rgba(34,197,94,0.05)':listMult>0?'border-color:rgba(245,200,66,0.4);background:rgba(245,200,66,0.05)':'';
+    const listBg = isListAnulat?'border-color:rgba(248,113,113,0.4);background:rgba(248,113,113,0.05)':isListCanviat?'border-color:rgba(96,165,250,0.4);background:rgba(96,165,250,0.05)':listMult===3?'border-color:rgba(34,197,94,0.4);background:rgba(34,197,94,0.05)':isListCap2?'border-color:rgba(34,197,94,0.4);background:rgba(34,197,94,0.05)':listMult>0?'border-color:rgba(245,200,66,0.4);background:rgba(245,200,66,0.05)':'';
     return `<div class="pitch-list-row" onclick="toggleDetail('${detailId}')" style="${listBg}">
       <div class="pitch-list-name" style="display:flex;align-items:center;gap:0.7rem">
         ${avatarList}
         <div>
           ${name}<span class="pos-badge ${posClass}" style="margin-left:6px">${pos2}</span>
-          ${(()=>{const ca=participant&&isListCapita&&!isListCap2&&isCapitaAnulat(participant);const dm=(isListCapita&&participant)?getCapitaDisplayMult(participant):(isListCap2?2:0);const isC2=isListCap2&&!isListCapita;if(dm>0)return `<span style="background:${ca?'rgba(245,200,66,0.3)':dm===4||isC2?'#22C55E':'var(--gold)'};color:var(--ink);font-family:'Bebas Neue',cursive;font-size:0.55rem;padding:1px 5px;border-radius:10px;margin-left:4px">${ca?'🚫 ':isC2?'🟢 ':'⭐ '}${isC2?'2n Capità x2':dm===4?'Capità x4':'Capità x2'}${ca?' ANULAT':''}</span>`;return '';})()}
+          ${(()=>{const ca=participant&&isListCapita&&!isListCap2&&isCapitaAnulat(participant);const dm=(isListCapita&&participant)?getCapitaDisplayMult(participant):(isListCap2?2:0);const isC2=isListCap2&&!isListCapita;if(dm>0)return `<span style="background:${ca?'rgba(245,200,66,0.3)':dm===3||isC2?'#22C55E':'var(--gold)'};color:var(--ink);font-family:'Bebas Neue',cursive;font-size:0.55rem;padding:1px 5px;border-radius:10px;margin-left:4px">${ca?'🚫 ':isC2?'🟢 ':'⭐ '}${isC2?'2n Capità x2':dm===3?'Capità x3':'Capità x2'}${ca?' ANULAT':''}</span>`;return '';})()}
           ${isListAnulat?`<span style="background:rgba(248,113,113,0.2);color:#F87171;font-size:0.6rem;padding:1px 5px;border-radius:10px;margin-left:4px">🚫</span>`:''}
           <small>${flag2} ${v(pl,'Equip')}</small>
         </div>
@@ -1528,9 +1528,9 @@ function openPlayerCard(name, participant, phase, jornada) {
     dgroga  > 0 ? `<div class="card-stat-row"><span>🟨 Doble groga</span><span class="val" style="color:#F5C842">-3 pts</span></div>` : '',
     verm    > 0 ? `<div class="card-stat-row"><span>🟥 Targeta vermella</span><span class="val" style="color:#F58080">-6 pts</span></div>` : '',
     (isCardCapita||isCardCap2) && basePts !== null ? (()=>{
-      const col=cardDisp===4||isCardCap2?'#4ADE80':'var(--gold)';
+      const col=cardDisp===3||isCardCap2?'#4ADE80':'var(--gold)';
       if(cardCapAnul) return `<div class="card-divider"></div><div class="card-stat-row"><span style="color:var(--silver)">⭐ Capità</span><span class="val" style="color:var(--silver)">${pts} pts</span></div><div class="card-stat-row" style="background:rgba(248,113,113,0.1);border-radius:6px;padding:4px 6px"><span style="color:#F87171;font-weight:700">🚫 x${cardDisp} ANULAT</span><span class="val" style="color:#F87171">+0 pts</span></div>`;
-      return `<div class="card-divider"></div><div class="card-stat-row"><span style="color:var(--silver)">${isCardCap2?'2n Capità':'Capità'} — subtotal</span><span class="val" style="color:var(--silver)">${basePts} pts</span></div><div class="card-stat-row" style="background:${cardDisp===4||isCardCap2?'rgba(34,197,94,0.1)':'rgba(245,200,66,0.1)'};border-radius:6px;padding:4px 6px"><span style="color:${col};font-weight:700">${cardDisp===4||isCardCap2?'🟢':'⭐'} x${cardDisp} Bonus${isCardCap2?' 🃏 Carta':cardDisp===4?' 🃏':''}</span><span class="val" style="color:${col}">+${pts-basePts} pts</span></div>`;
+      return `<div class="card-divider"></div><div class="card-stat-row"><span style="color:var(--silver)">${isCardCap2?'2n Capità':'Capità'} — subtotal</span><span class="val" style="color:var(--silver)">${basePts} pts</span></div><div class="card-stat-row" style="background:${cardDisp===3||isCardCap2?'rgba(34,197,94,0.1)':'rgba(245,200,66,0.1)'};border-radius:6px;padding:4px 6px"><span style="color:${col};font-weight:700">${cardDisp===3||isCardCap2?'🟢':'⭐'} x${cardDisp} Bonus${isCardCap2?' 🃏 Carta':cardDisp===3?' 🃏':''}</span><span class="val" style="color:${col}">+${pts-basePts} pts</span></div>`;
     })() : '',
   ].filter(Boolean).join('');
 
@@ -1558,7 +1558,7 @@ function openPlayerCard(name, participant, phase, jornada) {
       <div class="card-body">
         <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.3rem">
           <div class="card-name" style="margin-bottom:0">${name}</div>
-          ${(isCardCapita||isCardCap2) ? `<span style="background:${cardCapAnul?'rgba(245,200,66,0.3)':cardDisp===4||isCardCap2?'#22C55E':'var(--gold)'};color:var(--ink);font-family:'Bebas Neue',cursive;font-size:0.8rem;padding:2px 8px;border-radius:20px">${cardCapAnul?'🚫':cardDisp===4||isCardCap2?'🟢':'⭐'} ${isCardCap2?'2n CAPITÀ':'CAPITÀ'} x${cardDisp}${cardCapAnul?' (ANULAT)':''}</span>` : ''}
+          ${(isCardCapita||isCardCap2) ? `<span style="background:${cardCapAnul?'rgba(245,200,66,0.3)':cardDisp===3||isCardCap2?'#22C55E':'var(--gold)'};color:var(--ink);font-family:'Bebas Neue',cursive;font-size:0.8rem;padding:2px 8px;border-radius:20px">${cardCapAnul?'🚫':cardDisp===3||isCardCap2?'🟢':'⭐'} ${isCardCap2?'2n CAPITÀ':'CAPITÀ'} x${cardDisp}${cardCapAnul?' (ANULAT)':''}</span>` : ''}
         </div>
         <div class="card-meta">${flagBadge}${equip ? `<span style="font-size:0.82rem;color:var(--silver)">${equip}</span>` : ''}${posBadge}</div>
         ${canviMsg}${anulatMsg}${statsRows || noDataMsg}
@@ -2538,14 +2538,14 @@ function getCapitaMultiplier(participant) {
   for (const [,rc] of Object.entries(_cartesGastades))
     if (rc.carta==='Anular capita rival' && norm(rc.detall?.rival||'')===norm(participant)) return 1;
   // Prioritat 2: carta "Anular jugador rival" aplicada al capità → capità puntua 0 (gestionat a calcScoreRow)
-  // Prioritat 3: carta pròpia Capita x4
+  // Prioritat 3: carta pròpia Capita x3
   const carta = _cartesGastades[norm(participant)];
-  if (carta?.carta === 'Capita x4') return 4;
+  if (carta?.carta === 'Capita x3') return 3;
   return 2;
 }
 function getCapitaDisplayMult(participant) {
   const carta = _cartesGastades[norm(participant)];
-  if (carta?.carta === 'Capita x4') return 4;
+  if (carta?.carta === 'Capita x3') return 3;
   return 2;
 }
 function isCapitaAnulat(participant) {
@@ -2614,7 +2614,7 @@ function getJugadorEfectiu(participant, jugador) {
 const C_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzChU0LpTDGrqsUEdWbwpcPlK--Ci7RI6G1cuja8p7Jn63rBuGcdPvDj7j47_iMeSOMPA/exec';
 const C_PASSWORDS = {'NTNP':'ntnp2026','MBEMBA':'mbemba2026','PAPI':'papi2026','PEÑA':'pena2026','POLSA':'polsa2026','FERRAN':'ferran2026','MORALES':'morales2026','SIERRA':'sierra2026','PITU':'pitu2026','SAVERIUS':'saverius2026'};
 const CARTES_DEF = {
-  'Capita x4':          {icon:'👑',color:'#F5C842',desc:'El teu capità puntua ×4 durant la jornada activa.',accio:'capita_x4'},
+  'Capita x3':          {icon:'👑',color:'#F5C842',desc:'El teu capità puntua ×3 durant la jornada activa.',accio:'capita_x4'},
   'Anular capita rival':{icon:'🚫',color:'#F87171',desc:"El capità del rival escollit puntua ×1 aquella jornada.",accio:'anular_capita_rival'},
   'Anular jugador rival':{icon:'❌',color:'#FB923C',desc:"Un jugador del rival escollit puntua 0 aquella jornada.",accio:'anular_jugador_rival'},
   'Canvi jugador rival': {icon:'🔀',color:'#60A5FA',desc:'Intercanvies un jugador amb un rival durant una sola jornada.',accio:'canvi_jugador_rival'},
@@ -2821,7 +2821,7 @@ function cRenderCarta() {
   // Afegeix registre públic de cartes usades
   if (_cartesLog.length) {
     const logItems = _cartesLog.map(l => {
-      // l.carta pot ser "Comodi → Capita x4" — mostra carta real
+      // l.carta pot ser "Comodi → Capita x3" — mostra carta real
       const cartaDisplay = l.carta;
       const cartaReal2 = l.carta.includes('→') ? l.carta.split('→')[1].trim() : l.carta;
       const def = CARTES_DEF[cartaReal2]||CARTES_DEF[l.carta]||{icon:'🃏',color:'#C084FC'};
@@ -2858,7 +2858,7 @@ function cRenderAccio(accio) {
     <select id="${id}" style="background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);border-radius:6px;padding:0.45rem 0.7rem;color:var(--white);font-size:0.85rem;flex:1">${opts}</select>
   </div>`;
   switch(accio){
-    case 'capita_x4': return panel('👑 Activar Capità x4',`<p style="font-size:0.85rem;color:var(--silver);margin-bottom:1rem">El teu capità puntua <strong style="color:#4ADE80">x4</strong>.</p>`,'👑 Activar','background:linear-gradient(135deg,#15803D,#22C55E);color:white',"cConfirmar({carta:'Capita x4'})");
+    case 'capita_x4': return panel('👑 Activar Capità x3',`<p style="font-size:0.85rem;color:var(--silver);margin-bottom:1rem">El teu capità puntua <strong style="color:#4ADE80">x3</strong>.</p>`,'👑 Activar','background:linear-gradient(135deg,#15803D,#22C55E);color:white',"cConfirmar({carta:'Capita x3'})");
     case 'anular_capita_rival': return panel('🚫 Anular Capità Rival',fr('Rival:','ac_rival',rivOpts),'🚫 Anular','background:rgba(224,52,52,0.3);border:1px solid rgba(224,52,52,0.5);color:#F87171',"cConfirmarForm('anular_capita_rival')");
     case 'anular_jugador_rival': return panel('❌ Anular Jugador Rival',
       fr('Rival:','aj_rival',rivOpts)+
