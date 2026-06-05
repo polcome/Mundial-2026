@@ -2499,16 +2499,27 @@ function rDoSpin() {
   const btn = document.getElementById('rSpinBtn');
   if (btn) { btn.disabled = true; btn.textContent = '🌀 Girant...'; }
 
+  // Reconstrueix el drum NOMÉS amb jugadors no eliminats
   const track = document.getElementById('rDrumTrack');
-  const container = document.getElementById('rDrumContainer');
+  if (track) {
+    const drumItems = [];
+    for (let i = 0; i < 5; i++) drumItems.push(...rPlayers);
+    track.innerHTML = drumItems.map(pl => {
+      const f = v(pl,'Foto');
+      const av = f
+        ? `<img class="d-avatar" src="${f}" onerror="this.outerHTML='<div class=d-avatar-ph>👤</div>'">`
+        : `<div class="d-avatar-ph">👤</div>`;
+      return `<div class="drum-item">${av}<div><div class="d-name">${v(pl,'Jugador')}</div><div class="d-sub">${v(pl,'Equip')} · ${v(pl,'Posicio')}</div></div></div>`;
+    }).join('');
+  }
 
-  const itemH    = 90;
-  const nPlayers = rPlayers.length;
+  const itemH     = 90;
+  const nPlayers  = rPlayers.length;
   const winnerIdx = Math.floor(Math.random() * nPlayers);
   const winner    = rPlayers[winnerIdx];
 
   const landingItem = 3 * nPlayers + winnerIdx;
-  const finalY      = landingItem * itemH - (itemH / 2 - itemH / 2);
+  const finalY      = landingItem * itemH;
 
   track.style.transition = 'none';
   track.style.transform  = 'translateY(0)';
