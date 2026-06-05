@@ -819,6 +819,22 @@ function getPlayers(participant) {
   return (gData.jugadors || []).filter(r => norm(v(r, 'Participant')) === pN);
 }
 
+// Retorna true si el jugador està eliminat del Mundial
+function isEliminated(jugador) {
+  if (!gData) return false;
+  const pl = (gData.jugadors || []).find(r => norm(v(r,'Jugador')) === norm(jugador));
+  if (!pl) return false;
+  return norm(v(pl,'Eliminat')) === 'si' || norm(v(pl,'Eliminat')) === 'yes' || norm(v(pl,'Eliminat')) === '1';
+}
+
+// Filtra una llista de jugadors deixant només els no eliminats
+function filterActius(players) {
+  return players.filter(pl => {
+    const elim = norm(v(pl,'Eliminat'));
+    return elim !== 'si' && elim !== 'yes' && elim !== '1';
+  });
+}
+
 // Retorna la plantilla activa per a una fase concreta, aplicant els canvis
 // La columna Fase a Canvis indica A PARTIR DE QUINA FASE és actiu el canvi:
 //   r16    → actiu a 16ens, quarts, semis i final
@@ -2476,7 +2492,7 @@ function rDoSpin() {
   if (!SELECCIO_OBERTA) { showToast('La finestra de selecció de capità ha tancat'); return; }
   // Bloqueja si ja té capità assignat per la jornada de selecció
   if (rSpinResult) { showToast('Ja tens capità assignat per aquesta jornada!'); return; }
-  const rPlayers = getPlayersForPhase(rParticipant, FASE_ACTIVA_GLOBAL);
+  const rPlayers = filterActius(getPlayersForPhase(rParticipant, FASE_ACTIVA_GLOBAL));
   if (!rPlayers.length) return;
   rSpinning = true;
 
@@ -2679,7 +2695,10 @@ async function cLoadCarta() {
   if(!el)return;
   el.innerHTML='<div style="text-align:center;padding:3rem"><div class="spinner"></div></div>';
   cAllPlayers={};
-  (gData?.jugadors||[]).forEach(r=>{const p=norm(v(r,'Participant'));if(!cAllPlayers[p])cAllPlayers[p]=[];cAllPlayers[p].push(r);});
+  (gData?.jugadors||[]).forEach(r=>{
+    if(norm(v(r,'Eliminat'))==='si'||norm(v(r,'Eliminat'))==='yes'||norm(v(r,'Eliminat'))==='1') return;
+    const p=norm(v(r,'Participant'));if(!cAllPlayers[p])cAllPlayers[p]=[];cAllPlayers[p].push(r);
+  });
   try {
     const res=await cScriptCall({sheet:'Cartes_Jornada'});
     const rows=res.rows||[];
