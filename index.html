@@ -2544,7 +2544,8 @@ async function rSaveCapita(jugador, rPlayers) {
   }
   clearCache();
   renderRanking();
-  rRenderMain(rPlayers);
+  // Recarrega la ruleta completament (actualitza amb capità assignat)
+  rLoadRuleta();
 }
 
 async function rResetCapita() {
