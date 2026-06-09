@@ -1189,15 +1189,22 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
       byRol[fallbackRol].push(v(pl,'Jugador'));
     }
 
-    // Spread horitzontal per rol
-    const spreads = {POR:0, CEN:40, LD:0, LI:0, MCD:20, MC:40, MCO:0, ED:0, EI:0, DC:20};
+    // Spread horitzontal per rol — dinàmic en base al nombre de jugadors
+    function getSpread(rol, n) {
+      if (n <= 1) return 0;
+      // Laterals i extrems sempre fixos (posicions úniques)
+      if (['LD','LI','ED','EI'].includes(rol)) return 0;
+      // Per la resta, distribuïm uniformement fins al 80% de l'amplada
+      const maxSpread = 76; // % de l'amplada del camp
+      return Math.min(maxSpread, (n - 1) * 22);
+    }
 
     let pins = '';
     for (const [rol, jugadors] of Object.entries(byRol)) {
       if (!jugadors.length) continue;
       const rp = ROL_POS[rol];
       if (!rp) continue;
-      const xSpread = spreads[rol] ?? 35;
+      const xSpread = getSpread(rol, jugadors.length);
       const xs = distribuirX(jugadors, rp.xBase, xSpread);
       jugadors.forEach((nom, i) => {
         const pData = playerDataMap[nom];
