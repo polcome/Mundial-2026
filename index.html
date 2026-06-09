@@ -256,6 +256,8 @@
   .pitch-row.row-def  { bottom:22%; }
   .pitch-row.row-mig  { bottom:46%; }
   .pitch-row.row-dav  { bottom:68%; }
+  /* Posicionament específic per rol */
+  .pitch-pin-wrap { position:absolute; transform:translateX(-50%); }
 
   .player-pin {
     display:flex; flex-direction:column; align-items:center; gap:4px;
@@ -1123,17 +1125,93 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   </div>`;
 }
 
+// Posicions (x%, bottom%) per cada rol específic
+// x=50 és centre, bottom en % de l'altura del camp
+const ROL_POS = {
+  'POR': {bottom:4,  xBase:50},
+  'CEN': {bottom:22, xBase:50},  // centrals — distribuïts al centre
+  'LD':  {bottom:26, xBase:82},  // lateral dret — pujat i obert
+  'LI':  {bottom:26, xBase:18},  // lateral esquerre
+  'MCD': {bottom:40, xBase:50},  // pivot — una mica per sota
+  'MC':  {bottom:48, xBase:50},  // migcampistes centrals
+  'MCO': {bottom:57, xBase:50},  // mitja punta — per sobre dels MC
+  'ED':  {bottom:62, xBase:82},  // extrem dret — obert i lleugerament baix
+  'EI':  {bottom:62, xBase:18},  // extrem esquerre
+  'DC':  {bottom:70, xBase:50},  // davanter centre
+};
+
+// Donada una llista de jugadors amb el mateix rol, distribueix les x
+function distribuirX(jugadors, xBase, spread) {
+  const n = jugadors.length;
+  if (n === 1) return [xBase];
+  const step = spread / (n - 1);
+  return jugadors.map((_, i) => xBase - spread/2 + i * step);
+}
+
 function renderPitch(participant, phase, jornada, tryJ1Fallback) {
   const phasePlayers = getPlayersForPhase(participant, phase);
-  // Classifica per posició
-  const byPos = { POR:[], DEF:[], MIG:[], DAV:[] };
+
+  // Agrupa per posició genèrica (per al càlcul de punts) i per rol (per al visual)
+  const byPos  = { POR:[], DEF:[], MIG:[], DAV:[] };
+  const byRol  = {};
+  const playerDataMap = {};
+
   for (const pl of phasePlayers) {
     const pos = (v(pl,'Posicio')||'MIG').toUpperCase();
+    const rol = (v(pl,'Rol')||'').toUpperCase().trim();
+    const nom = v(pl,'Jugador');
     const key = ['POR','DEF','MIG','DAV'].includes(pos) ? pos : 'MIG';
-    byPos[key].push(v(pl,'Jugador'));
+    byPos[key].push(nom);
+    playerDataMap[nom] = {pos: key, rol, pl};
+    if (rol && ROL_POS[rol]) {
+      if (!byRol[rol]) byRol[rol] = [];
+      byRol[rol].push(nom);
+    }
   }
 
-  // Formació dinàmica: compta jugadors per posició de la plantilla activa
+  // Determina si usem mode ROL (>= 1 jugador amb rol definit) o mode clàssic
+  const totalAmRol = Object.values(byRol).reduce((s,a)=>s+a.length,0);
+  const useRolMode = totalAmRol > 0;
+
+  // ---- MODE ROL: posicionament absolut ----
+  function renderRolMode() {
+    // Jugadors sense rol → afegits al byRol de la seva posició genèrica
+    const noRol = phasePlayers.filter(pl => {
+      const rol = (v(pl,'Rol')||'').toUpperCase().trim();
+      return !rol || !ROL_POS[rol];
+    });
+    // Distribuïm els sense rol dins la seva fila genèrica
+    const genericRows = {POR:'POR', DEF:'CEN', MIG:'MC', DAV:'DC'};
+    for (const pl of noRol) {
+      const pos = (v(pl,'Posicio')||'MIG').toUpperCase();
+      const fallbackRol = genericRows[pos] || 'MC';
+      if (!byRol[fallbackRol]) byRol[fallbackRol] = [];
+      byRol[fallbackRol].push(v(pl,'Jugador'));
+    }
+
+    // Spread horitzontal per rol
+    const spreads = {POR:0, CEN:40, LD:0, LI:0, MCD:20, MC:40, MCO:0, ED:0, EI:0, DC:20};
+
+    let pins = '';
+    for (const [rol, jugadors] of Object.entries(byRol)) {
+      if (!jugadors.length) continue;
+      const rp = ROL_POS[rol];
+      if (!rp) continue;
+      const xSpread = spreads[rol] ?? 35;
+      const xs = distribuirX(jugadors, rp.xBase, xSpread);
+      jugadors.forEach((nom, i) => {
+        const pData = playerDataMap[nom];
+        const pos = pData ? pData.pos : 'MIG';
+        let sc = nom ? getScoreEfectiu(participant, nom, phase, jornada) : null;
+        if (!sc && tryJ1Fallback && jornada==='E1') sc = getScore(participant, nom, phase, 'J1');
+        const pin = playerPin(nom, pos, sc, jornada, participant, phase);
+        pins += `<div class="pitch-pin-wrap" style="left:${xs[i]}%;bottom:${rp.bottom}%">${pin}</div>`;
+      });
+    }
+    return `<div style="position:absolute;inset:0">${pins}</div>`;
+  }
+
+  // ---- MODE CLÀSSIC: files horitzontals ----
   const slots = { POR:0, DEF:0, MIG:0, DAV:0 };
   phasePlayers.forEach(pl => {
     const p = (v(pl,'Posicio')||'MIG').toUpperCase();
@@ -1144,13 +1222,11 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
     const n = slots[pos];
     return Array.from({length:n}, (_,i) => arr[i] || null);
   }
-
   function row(pos, rowClass) {
     const names = getSlots(pos);
     const pins = names.map(name => {
       let sc = name ? getScoreEfectiu(participant, name, phase, jornada) : null;
-    // Fallback J1 only for eliminations (E1 might be stored as J1 in some sheets)
-    if (!sc && tryJ1Fallback && jornada === 'E1') sc = name ? getScore(participant, name, phase, 'J1') : null;
+      if (!sc && tryJ1Fallback && jornada === 'E1') sc = name ? getScore(participant, name, phase, 'J1') : null;
       return playerPin(name, pos, sc, jornada, participant, phase);
     }).join('');
     return `<div class="pitch-row ${rowClass}">${pins}</div>`;
@@ -1315,13 +1391,16 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
     </div>`;
   }).join('');
 
-  return `<div class="pitch-wrap">
-    <div class="pitch">
-      <div class="pitch-lines"></div>
+  const pitchContent = useRolMode ? renderRolMode() : `
       ${row('DAV','row-dav')}
       ${row('MIG','row-mig')}
       ${row('DEF','row-def')}
-      ${row('POR','row-por')}
+      ${row('POR','row-por')}`;
+
+  return `<div class="pitch-wrap">
+    <div class="pitch">
+      <div class="pitch-lines"></div>
+      ${pitchContent}
     </div>
     <div class="pitch-total">⚽ ${totalStr}</div>
   </div>
