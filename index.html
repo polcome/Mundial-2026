@@ -1083,7 +1083,7 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   if (groga > 0) iconParts.push('🟨');
   if (verm > 0)  iconParts.push('🟥');
   const goals = iconParts.length ? `<div class="goal-row">${iconParts.join('')}</div>` : '';
-  const shortName = name.split(' ').pop();
+  const shortName = name;
   // Get flag from players data
   const plData = (gData?.jugadors||[]).find(r => norm(v(r,'Jugador')) === norm(name));
   // flag handled via cs below
