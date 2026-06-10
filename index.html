@@ -632,6 +632,8 @@ function setSyncBar(state) {
 // ============================================================
 function norm(s) { return (s ?? '').toString().trim().toLowerCase().replace(/\s+/g, ' '); }
 function v(row, key) { if (!row) return ''; return (row[key] ?? '').toString().trim(); }
+// Escapa apòstrofs per usar dins strings JS en atributs HTML
+function esc(s) { return (s||'').replace(/'/g, "\'").replace(/"/g, '&quot;'); }
 function parseNota(raw) {
   // Handles: "8.5", "8,5", 8.5, "8" (integer from sheet), ""
   if (raw === '' || raw === null || raw === undefined) return null;
@@ -1034,7 +1036,7 @@ function renderRanking() {
     const phDetails = PHASES.filter(ph => r.byPhase[ph] > 0)
       .map(ph => `<div>${PHASE_LABELS[ph]}: <strong>${r.byPhase[ph].toFixed(0)}</strong></div>`).join('');
     return `
-    <div class="ranking-card rank-${pos}" onclick="openTeam('${r.name}')">
+    <div class="ranking-card rank-${pos}" onclick="openTeam('${esc(r.name)}')">
       <div class="rank-pos">${medal || pos}</div>
       <div>
         <div class="rank-card-name">${r.name}</div>
@@ -1118,7 +1120,7 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   // Use escaped participant name to avoid quote issues in onclick
   const safeParticipant = (participant||_activeParticipant).replace(/'/g, "\'");
   const safeName = name.replace(/'/g, "\'");
-  return `<div class="player-pin" onclick="openPlayerCard('${safeName}','${safeParticipant}','${phase}','${jorn}')" style="cursor:pointer">
+  return `<div class="player-pin" onclick="openPlayerCard('${esc(safeName)}',${esc(safeParticipant)}','${phase}','${jorn}')" style="cursor:pointer">
     <div class="avatar ${avCls}" style="overflow:visible;position:relative;transition:transform 0.15s" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform=''">${innerHtml}${anulatBadgeZ}${scoreBubbleZ}${flagBadgeZ}${captainBadgeZ}${canviBadgeZ}</div>
     <div class="pname">${shortName}</div>
     ${goals}
@@ -1374,7 +1376,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
 
     const photo2 = v(pl,'Foto');
     const avatarList = photo2
-      ? `<img src="${photo2}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.2);flex-shrink:0;cursor:pointer;transition:transform 0.15s" onclick="event.stopPropagation();openPhotoModal('${photo2}','${name}')" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'" onerror="this.style.display='none'">`
+      ? `<img src="${photo2}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.2);flex-shrink:0;cursor:pointer;transition:transform 0.15s" onclick="event.stopPropagation();openPhotoModal('${esc(photo2)}','${esc(name)}')" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'" onerror="this.style.display='none'">`
       : `<div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;border:2px solid rgba(255,255,255,0.15)">👤</div>`;
     const faseActL = norm(phase)===norm(FASE_ACTIVA_GLOBAL) && norm(jornada)===norm(JORNADA_ACTIVA_GLOBAL);
     const isListCapita = faseActL && isCapitaAny(name);
@@ -1551,7 +1553,7 @@ function renderJornades(phase, jorn) {
     return {name: p, pts};
   }).sort((a,b) => b.pts - a.pts);
   viewEl.innerHTML = `<div class="ranking-grid">${ranked.map((r,i) => `
-    <div class="ranking-card rank-${i+1}" onclick="openTeam('${r.name}')">
+    <div class="ranking-card rank-${i+1}" onclick="openTeam('${esc(r.name)}')">
       <div class="rank-pos">${i+1}</div>
       <div><div class="rank-card-name">${r.name}</div><div class="rank-card-sub">${PHASE_LABELS[phase]} · ${jorn}</div></div>
       <div></div>
@@ -3009,7 +3011,7 @@ function cRenderAccio(accio) {
   const rivals=getParticipants().filter(p=>norm(p)!==norm(cParticipant));
   const rivOpts=rivals.map(r=>`<option value="${r}">${r}</option>`).join('');
   const myPl=cAllPlayers[norm(cParticipant)]||[];
-  const myOpts=myPl.map(p=>`<option value="${v(p,'Jugador')}">${v(p,'Jugador')} (${v(p,'Posicio')})</option>`).join('');
+  const myOpts=myPl.map(p=>`<option value="${esc(v(p,'Jugador'))}">${v(p,'Jugador')} (${v(p,'Posicio')})</option>`).join('');
   const panel=(h3,body,btnTxt,btnStyle,fn)=>`<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:16px;padding:1.5rem;max-width:480px;margin:0 auto">
     <div style="font-family:'Space Mono',monospace;font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem">${h3}</div>
     ${body}
@@ -3079,7 +3081,7 @@ function cRenderComodi(){
 }
 function cSelectComodi(carta){cComodiSel=carta;cRenderCarta();}
 function cInitSelectors(){
-  const upd=(a,b)=>{const riv=document.getElementById(a)?.value;const sel=document.getElementById(b);if(!sel||!riv)return;const pls=cAllPlayers[norm(riv)]||[];sel.innerHTML=pls.map(p=>`<option value="${v(p,'Jugador')}">${v(p,'Jugador')} (${v(p,'Equip')})</option>`).join('');};
+  const upd=(a,b)=>{const riv=document.getElementById(a)?.value;const sel=document.getElementById(b);if(!sel||!riv)return;const pls=cAllPlayers[norm(riv)]||[];sel.innerHTML=pls.map(p=>`<option value="${esc(v(p,'Jugador'))}">${v(p,'Jugador')} (${v(p,'Equip')})</option>`).join('');};
   upd('aj_rival','aj_jugador');upd('cjr_rival','cjr_jugador_rival');
   document.getElementById('aj_rival')?.addEventListener('change',()=>upd('aj_rival','aj_jugador'));
   document.getElementById('cjr_rival')?.addEventListener('change',()=>upd('cjr_rival','cjr_jugador_rival'));
