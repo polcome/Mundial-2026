@@ -77,7 +77,9 @@
   .seg-grp{background:#28A04E} .seg-16{background:#1A6BB5} .seg-r8{background:#3A8FD8} .seg-qf{background:#E8A020} .seg-sf{background:#E05050} .seg-fin{background:var(--gold)}
 
   /* TEAM */
-  .team-header { background: linear-gradient(135deg, var(--pitch) 0%, var(--ink) 100%); border: 1px solid var(--glass-border); border-radius: 14px; padding: 1.8rem 2rem; margin-bottom: 1.5rem; display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: center; }
+  .team-header { background: linear-gradient(135deg, var(--pitch) 0%, var(--ink) 100%); border: 1px solid var(--glass-border); border-radius: 14px; padding: 1.8rem 2rem; margin-bottom: 1.5rem; display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: center; position:relative; overflow:hidden; min-height:90px; }
+  .team-header-logo { position:absolute; right:0; top:0; bottom:0; width:45%; object-fit:cover; object-position:center top; border-radius:0 14px 14px 0; opacity:0.55; mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.6) 30%, black 100%); -webkit-mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.6) 30%, black 100%); }
+  .team-header > div:first-child { position:relative; z-index:2; }
   .team-name-big { font-family: 'Bebas Neue', cursive; font-size: 2.5rem; color: var(--gold); line-height: 1; }
   .team-stats-row { display: flex; gap: 1.5rem; margin-top: 0.6rem; }
   .team-stat { text-align: center; }
@@ -1520,7 +1522,7 @@ function _renderTeamFull() {
         <div class="team-stat"><div class="team-stat-val">${goals}</div><div class="team-stat-lbl">Gols</div></div>
         <div class="team-stat"><div class="team-stat-val">${players.length}/11</div><div class="team-stat-lbl">Jugadors</div></div>
       </div>
-    </div></div>
+    </div>${(()=>{const pRow=(gData?.participants||[]).find(r=>norm(v(r,'Nom'))===norm(participant));const logo=pRow?v(pRow,'Logo'):'';return logo?`<img class="team-header-logo" src="${logo}" onerror="this.style.display='none'">`:'';})()}</div>
     <div class="phase-tabs" style="overflow-x:auto;scrollbar-width:none">${phaseTabs}</div>
     ${jornHtml}
     ${pitchHtml}`;
