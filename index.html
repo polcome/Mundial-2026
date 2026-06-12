@@ -2937,11 +2937,14 @@ function cRenderCartaDual(cartaActiva, cartaSeleccio, historial, isSameJ, faseSe
       const def = CARTES_DEF[cartaR2]||CARTES_DEF[l.carta]||{icon:'🃏',color:'#C084FC'};
       const iconD = l.icon||def.icon;
       let detail='';
-      if(l.detall?.rival)detail+=` → <strong>${l.detall.rival}</strong>`;
-      if(l.detall?.jugador)detail+=` (${l.detall.jugador})`;
+      if(l.detall?.rival) detail+=` → <strong>${l.detall.rival}</strong>`;
+      if(l.detall?.jugador && !l.detall?.jugador_meu) detail+=` (${l.detall.jugador})`;
+      if(l.detall?.jugador_meu && l.detall?.jugador_rival)
+        detail+=` (<strong>${l.detall.jugador_meu}</strong> × <strong>${l.detall.jugador_rival}</strong>)`;
+      const cartaLabel1 = l.detall?.via_comodi && !l.carta?.includes('→') ? `Comodí → ${l.carta}` : l.carta;
       return `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.82rem">
         <span style="font-size:1.2rem">${iconD}</span>
-        <div><strong style="color:var(--white)">${l.participant}</strong> ha gastat <strong style="color:${def.color||'var(--gold)'}">${l.carta}</strong>${detail}</div>
+        <div><strong style="color:var(--white)">${l.participant}</strong> ha gastat <strong style="color:${def.color||'var(--gold)'}">${cartaLabel1}</strong>${detail}</div>
       </div>`;
     }).join('');
     html += `<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1.2rem 1.5rem;max-width:480px;margin:0 auto">
@@ -2993,11 +2996,13 @@ function cRenderCarta() {
       const iconDisplay = l.icon || def.icon;
       let detail = '';
       if(l.detall?.rival) detail += ` → <strong>${l.detall.rival}</strong>`;
-      if(l.detall?.jugador) detail += ` (${l.detall.jugador})`;
-      if(l.detall?.jugador_meu) detail += ` ⇄ ${l.detall.jugador_rival}`;
+      if(l.detall?.jugador && !l.detall?.jugador_meu) detail += ` (${l.detall.jugador})`;
+      if(l.detall?.jugador_meu && l.detall?.jugador_rival)
+        detail += ` (<strong>${l.detall.jugador_meu}</strong> × <strong>${l.detall.jugador_rival}</strong>)`;
+      const cartaLabel2 = l.detall?.via_comodi && !cartaDisplay?.includes('→') ? `Comodí → ${cartaDisplay}` : cartaDisplay;
       return `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.82rem">
         <span style="font-size:1.2rem">${iconDisplay}</span>
-        <div><strong style="color:var(--white)">${l.participant}</strong> ha gastat <strong style="color:${def.color||'var(--gold)'}">${cartaDisplay}</strong>${detail}</div>
+        <div><strong style="color:var(--white)">${l.participant}</strong> ha gastat <strong style="color:${def.color||'var(--gold)'}">${cartaLabel2}</strong>${detail}</div>
       </div>`;
     }).join('');
     html += `<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1.2rem 1.5rem;max-width:480px;margin:1.5rem auto 0">
