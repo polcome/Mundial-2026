@@ -70,7 +70,7 @@
   .rank-card-name { font-size: 1.05rem; font-weight: 700; }
   .rank-card-sub { font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--silver); margin-top: 2px; }
   .rank-gols { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--silver); text-align: right; }
-  .rank-pts { font-family: 'Bebas Neue', cursive; font-size: 2rem; color: var(--gold); min-width: 5rem; text-align: right; }
+  .rank-pts { font-family: 'Bebas Neue', cursive; font-size: 2rem; color: var(--gold); min-width: 5rem; text-align: right; flex-shrink:0; white-space:nowrap; }
   .rank-pts span { font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--silver); display: block; margin-top: -4px; }
   .phase-bar { display: flex; height: 4px; border-radius: 2px; overflow: hidden; margin-top: 6px; grid-column: 2/5; }
   .phase-seg { flex: 1; opacity: 0.7; }
@@ -308,6 +308,15 @@
     border-radius:8px; padding:0.65rem 0.9rem;
     font-size:0.85rem;
   }
+  @media(max-width:520px){
+    .pitch-list-row{grid-template-columns:1fr auto}
+    .pitch-list-name{grid-column:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+    .pitch-list-note{grid-column:2;text-align:right}
+    .pitch-list-bonus{grid-column:1;flex-wrap:wrap;gap:3px}
+    .pitch-list-total{grid-column:2;font-size:1.3rem}
+    .pitch-list-name>div{flex-wrap:wrap;gap:3px}
+    .bonus-chip{font-size:0.65rem;padding:1px 4px}
+  }
   .pitch-list-name { font-weight:600; }
   .pitch-list-name small { display:block; font-size:0.65rem; color:var(--silver); font-weight:400; margin-top:1px; }
   .pitch-list-note { text-align:center; }
@@ -351,8 +360,14 @@
   .detail-total-line span:last-child { font-family:'Bebas Neue',cursive; font-size:1.1rem; color:var(--gold); }
 
   @media(max-width:600px){
-    .ranking-card{grid-template-columns:2.5rem 1fr auto}
+    .ranking-card{grid-template-columns:2.5rem 1fr auto;gap:0.5rem;padding:0.8rem}
     .rank-gols{display:none}
+    .rank-pts{font-size:1.4rem;min-width:3.5rem}
+    .rank-card-name{font-size:0.85rem;word-break:break-word;line-height:1.2}
+    .pitch-list-row{flex-wrap:wrap;gap:0.3rem}
+    .pitch-list-name{width:100%;min-width:0}
+    .pitch-list-name>div{flex-wrap:wrap}
+    .pitch-list-pts{min-width:auto;margin-left:auto}
     header{padding:1.5rem 1rem 1rem}
     main{padding:1rem 1rem 4rem}
     .player-pin { width:68px; }
@@ -2958,10 +2973,13 @@ function cRenderCartaDual(cartaActiva, cartaSeleccio, historial, isSameJ, faseSe
       const iconD = l.icon||def.icon;
       let detail='';
       if(l.detall?.rival)detail+=` → <strong>${l.detall.rival}</strong>`;
-      if(l.detall?.jugador)detail+=` (${l.detall.jugador})`;
+      if(l.detall?.jugador && !l.detall?.jugador_meu)detail+=` (${l.detall.jugador})`;
+      if(l.detall?.jugador_meu && l.detall?.jugador_rival)
+        detail+=` (<strong>${l.detall.jugador_meu}</strong> × <strong>${l.detall.jugador_rival}</strong>)`;
+      const cartaLabel1 = l.detall?.via_comodi && !l.carta?.includes('→') ? `Comodí → ${l.carta}` : l.carta;
       return `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.82rem">
         <span style="font-size:1.2rem">${iconD}</span>
-        <div><strong style="color:var(--white)">${l.participant}</strong> ha gastat <strong style="color:${def.color||'var(--gold)'}">${l.carta}</strong>${detail}</div>
+        <div><strong style="color:var(--white)">${l.participant}</strong> ha gastat <strong style="color:${def.color||'var(--gold)'}">${cartaLabel1}</strong>${detail}</div>
       </div>`;
     }).join('');
     html += `<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1.2rem 1.5rem;max-width:480px;margin:0 auto">
@@ -3013,11 +3031,13 @@ function cRenderCarta() {
       const iconDisplay = l.icon || def.icon;
       let detail = '';
       if(l.detall?.rival) detail += ` → <strong>${l.detall.rival}</strong>`;
-      if(l.detall?.jugador) detail += ` (${l.detall.jugador})`;
-      if(l.detall?.jugador_meu) detail += ` ⇄ ${l.detall.jugador_rival}`;
+      if(l.detall?.jugador && !l.detall?.jugador_meu) detail += ` (${l.detall.jugador})`;
+      if(l.detall?.jugador_meu && l.detall?.jugador_rival)
+        detail += ` (<strong>${l.detall.jugador_meu}</strong> × <strong>${l.detall.jugador_rival}</strong>)`;
+      const cartaLabel2 = l.detall?.via_comodi && !cartaDisplay?.includes('→') ? `Comodí → ${cartaDisplay}` : cartaDisplay;
       return `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.82rem">
         <span style="font-size:1.2rem">${iconDisplay}</span>
-        <div><strong style="color:var(--white)">${l.participant}</strong> ha gastat <strong style="color:${def.color||'var(--gold)'}">${cartaDisplay}</strong>${detail}</div>
+        <div><strong style="color:var(--white)">${l.participant}</strong> ha gastat <strong style="color:${def.color||'var(--gold)'}">${cartaLabel2}</strong>${detail}</div>
       </div>`;
     }).join('');
     html += `<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1.2rem 1.5rem;max-width:480px;margin:1.5rem auto 0">
