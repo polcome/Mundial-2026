@@ -70,7 +70,7 @@
   .rank-card-name { font-size: 1.05rem; font-weight: 700; }
   .rank-card-sub { font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--silver); margin-top: 2px; }
   .rank-gols { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--silver); text-align: right; }
-  .rank-pts { font-family: 'Bebas Neue', cursive; font-size: 2rem; color: var(--gold); min-width: 5rem; text-align: right; flex-shrink:0; white-space:nowrap; }
+  .rank-pts { font-family: 'Bebas Neue', cursive; font-size: 2rem; color: var(--gold); min-width: 5rem; text-align: right; }
   .rank-pts span { font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--silver); display: block; margin-top: -4px; }
   .phase-bar { display: flex; height: 4px; border-radius: 2px; overflow: hidden; margin-top: 6px; grid-column: 2/5; }
   .phase-seg { flex: 1; opacity: 0.7; }
@@ -308,15 +308,6 @@
     border-radius:8px; padding:0.65rem 0.9rem;
     font-size:0.85rem;
   }
-  @media(max-width:520px){
-    .pitch-list-row{grid-template-columns:1fr auto}
-    .pitch-list-name{grid-column:1;display:flex;flex-direction:column;gap:2px;min-width:0}
-    .pitch-list-note{grid-column:2;text-align:right}
-    .pitch-list-bonus{grid-column:1;flex-wrap:wrap;gap:3px}
-    .pitch-list-total{grid-column:2;font-size:1.3rem}
-    .pitch-list-name>div{flex-wrap:wrap;gap:3px}
-    .bonus-chip{font-size:0.65rem;padding:1px 4px}
-  }
   .pitch-list-name { font-weight:600; }
   .pitch-list-name small { display:block; font-size:0.65rem; color:var(--silver); font-weight:400; margin-top:1px; }
   .pitch-list-note { text-align:center; }
@@ -360,14 +351,8 @@
   .detail-total-line span:last-child { font-family:'Bebas Neue',cursive; font-size:1.1rem; color:var(--gold); }
 
   @media(max-width:600px){
-    .ranking-card{grid-template-columns:2.5rem 1fr auto;gap:0.5rem;padding:0.8rem}
+    .ranking-card{grid-template-columns:2.5rem 1fr auto}
     .rank-gols{display:none}
-    .rank-pts{font-size:1.4rem;min-width:3.5rem}
-    .rank-card-name{font-size:0.85rem;word-break:break-word;line-height:1.2}
-    .pitch-list-row{flex-wrap:wrap;gap:0.3rem}
-    .pitch-list-name{width:100%;min-width:0}
-    .pitch-list-name>div{flex-wrap:wrap}
-    .pitch-list-pts{min-width:auto;margin-left:auto}
     header{padding:1.5rem 1rem 1rem}
     main{padding:1rem 1rem 4rem}
     .player-pin { width:68px; }
@@ -704,24 +689,27 @@ function calcScoreRow(sc, pos, jugador, fase, jornada, participant) {
     norm(fase) === norm(FASE_ACTIVA_GLOBAL) &&
     norm(jornada) === norm(JORNADA_ACTIVA_GLOBAL);
 
-  // Si el jugador en aquest slot és el resultat d'un canvi, només retornem puntuació bruta
-  // Els poders (capità, cartes) van lligats al participant, no al jugador intercanviat
+  // Si el jugador en aquest slot és el resultat d'un canvi, la puntuació base es
+  // calcula amb la POSICIÓ DEL JUGADOR EFECTIU (qui ha fet l'acció), no la del slot
   const efectiu = faseActiva && participant ? getJugadorEfectiu(participant, jugador) : null;
   const esCanviat = efectiu?.canviat || false;
+  let posBase = pos;
+  if (esCanviat) {
+    const plEf = (gData?.jugadors||[]).find(r => norm(v(r,'Jugador')) === norm(efectiu.jugador));
+    if (plEf) posBase = (v(plEf,'Posicio')||pos).toUpperCase();
+  }
 
   // Anulació: si el nostre slot (jugador original) té carta d'anulació aplicada, puntua 0
   if (faseActiva && jugador && participant && isJugadorAnulat(participant, jugador)) return 0;
 
   // Gol doble: aplica sempre, fins i tot al jugador rebut per canvi (és poder del participant)
   const golMult = (faseActiva && participant && hasGolDoble(participant)) ? 2 : 1;
-  const base = nota + gols * golPts(pos) * golMult + assists * 2 + penalti * 3 * golMult + doblegroga * (-3) + vermella * (-6);
+  const base = nota + gols * golPts(posBase) * golMult + assists * 2 + penalti * 3 * golMult + doblegroga * (-3) + vermella * (-6);
 
   if (!faseActiva || !jugador || !participant) return base;
 
-  // Si és jugador canviat: puntuació bruta, sense multiplicadors de capità ni cartes
-  if (esCanviat) return base;
-
-  // Capità i doble capità: només per als jugadors NO intercanviats
+  // Capità i doble capità: s'apliquen segons el slot del participant DESTÍ,
+  // independentment de si el jugador ha estat intercanviat o no
   const cap = _capitansMap[norm(participant)];
   if (cap && norm(jugador) === norm(cap)) return base * getCapitaMultiplier(participant);
   if (isSegonCapita(participant, jugador)) return base * 2;
@@ -1273,9 +1261,17 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
 
   // Player list
   const listRows = phasePlayers.map((pl, plIdx) => {
-    const name = v(pl,'Jugador'), pos2 = (v(pl,'Posicio')||'MIG').toUpperCase();
+    const name = v(pl,'Jugador'), pos2orig = (v(pl,'Posicio')||'MIG').toUpperCase();
     let sc2 = getScoreEfectiu(participant, name, phase, jornada);
     if (!sc2 && tryJ1Fallback && jornada === 'E1') sc2 = getScoreEfectiu(participant, name, phase, 'J1');
+    // Posició per al càlcul de gols: la del jugador EFECTIU (qui realment ha marcat)
+    const faseActL2 = norm(phase)===norm(FASE_ACTIVA_GLOBAL) && norm(jornada)===norm(JORNADA_ACTIVA_GLOBAL);
+    const efectiu2 = faseActL2 ? getJugadorEfectiu(participant, name) : null;
+    let pos2 = pos2orig;
+    if (efectiu2?.canviat) {
+      const plEf2 = (gData?.jugadors||[]).find(r => norm(v(r,'Jugador')) === norm(efectiu2.jugador));
+      if (plEf2) pos2 = (v(plEf2,'Posicio')||pos2orig).toUpperCase();
+    }
     const note2 = sc2 ? parseNota(v(sc2,'Nota')) : null;
     const g2 = sc2 ? parseInt(v(sc2,'Gols')||0) : 0;
     const a2 = sc2 ? parseInt(v(sc2,'Assistencies')||0) : 0;
@@ -1284,7 +1280,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
     const verm2 = sc2 ? parseInt(v(sc2,'Vermella')||0) : 0;
     const pts2 = calcScoreRow(sc2, pos2, name, phase, jornada, participant);
     const cls2 = note2 === null ? 'score-empty' : note2 >= 8 ? 'score-high' : note2 >= 6.5 ? 'score-mid' : 'score-low';
-    const posClass = `pos-${pos2}`;
+    const posClass = `pos-${pos2orig}`;
     const flag2 = getFlag(v(pl,'Equip'));
     const bonusParts = [];
     if (g2>0) bonusParts.push('⚽×'+g2);
@@ -1607,6 +1603,15 @@ function openPlayerCard(name, participant, phase, jornada) {
   let sc = getScoreEfectiu(participant, name, phase, jornada);
   if (!sc && jornada === 'E1') sc = getScoreEfectiu(participant, name, phase, 'J1');
 
+  // Posició efectiva per al càlcul de gols (jugador que ha rebut via canvi)
+  const faseActCard0 = norm(phase)===norm(FASE_ACTIVA_GLOBAL) && norm(jornada)===norm(JORNADA_ACTIVA_GLOBAL);
+  const efectiuCard = faseActCard0 ? getJugadorEfectiu(participant, name) : null;
+  let posicioGol = posicio;
+  if (efectiuCard?.canviat) {
+    const plEfCard = allPl.find(r => norm(v(r,'Jugador')) === norm(efectiuCard.jugador));
+    if (plEfCard) posicioGol = v(plEfCard,'Posicio') || posicio;
+  }
+
   const nota    = sc ? parseNota(v(sc,'Nota'))              : null;
   const gols    = sc ? parseInt(v(sc,'Gols')||0)            : 0;
   const assists = sc ? parseInt(v(sc,'Assistencies')||0)    : 0;
@@ -1633,12 +1638,12 @@ function openPlayerCard(name, participant, phase, jornada) {
     gols    > 0 ? (() => {
       const faseActG2 = norm(phase)===norm(FASE_ACTIVA_GLOBAL) && norm(jornada)===norm(JORNADA_ACTIVA_GLOBAL);
       const golD2 = faseActG2 && hasGolDoble(participant);
-      const gpB = golPts(posicio);
+      const gpB = golPts(posicioGol);
       if (golD2) {
-        return `<div class="card-stat-row"><span>⚽ Gols (${posicio} +${gpB}pts base)</span><span class="val" style="color:#6EE89A">+${gols*gpB} pts</span></div>` +
+        return `<div class="card-stat-row"><span>⚽ Gols (${posicioGol} +${gpB}pts base)</span><span class="val" style="color:#6EE89A">+${gols*gpB} pts</span></div>` +
                `<div class="card-stat-row" style="background:rgba(34,197,94,0.1);border-radius:6px;padding:3px 6px"><span style="color:#4ADE80;font-weight:700">🟢 Gol Doble 🃏</span><span class="val" style="color:#4ADE80">+${gols*gpB} pts</span></div>`;
       }
-      return `<div class="card-stat-row"><span>⚽ Gols (${posicio} +${gpB}pts/gol)</span><span class="val" style="color:#6EE89A">+${gols*gpB} pts</span></div>`;
+      return `<div class="card-stat-row"><span>⚽ Gols (${posicioGol} +${gpB}pts/gol)</span><span class="val" style="color:#6EE89A">+${gols*gpB} pts</span></div>`;
     })() : '',
     assists > 0 ? `<div class="card-stat-row"><span>🅰️ Assistències x${assists}</span><span class="val" style="color:#7DC3F5">+${assists*2} pts</span></div>` : '',
     penals  > 0 ? (() => {
