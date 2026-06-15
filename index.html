@@ -1444,7 +1444,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
       <div class="pitch-list-note">
         <span class="score-chip ${noJugat2?'score-low':cls2}">${noJugat2?'😴':(note2 !== null ? note2.toFixed(1) : '—')}</span>
       </div>
-      <div class="pitch-list-bonus">${noJugat2?'<span style="color:#F87171;font-size:0.7rem">Pringat</span>':(bonusChips.join('') || '<span style="color:rgba(255,255,255,0.2);font-size:0.7rem">—</span>')}</div>
+      <div class="pitch-list-bonus">${noJugat2?'<span style="color:rgba(255,255,255,0.2);font-size:0.7rem">—</span>':(bonusChips.join('') || '<span style="color:rgba(255,255,255,0.2);font-size:0.7rem">—</span>')}</div>
       <div class="pitch-list-total">${pts2 !== null ? pts2.toFixed(0) : '—'}</div>
       <div class="pitch-detail" id="${detailId}">${detailLines}</div>
     </div>`;
