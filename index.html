@@ -527,6 +527,12 @@ const PHASES = ['grups','r16','r8','qf','sf','final'];
 const PHASE_LABELS = {grups:'Fase de Grups', r16:'16ens de Final', r8:'Vuitens de Final', qf:'Quarts de Final', sf:'Semifinals', final:'Final'};
 // Grups té 3 jornades. La resta són eliminatòries (1 puntuació per partit)
 const PHASE_JORNADES = {grups:['J1','J2','J3'], r16:['E1'], r8:['E1'], qf:['E1'], sf:['E1'], final:['E1']};
+
+// Ordre seqüencial de totes les fase+jornada (per determinar canvis actius)
+const ALL_JORNADES_ORDER = PHASES.flatMap(ph => PHASE_JORNADES[ph].map(j => `${ph}_${j}`));
+function jornadaIndex(fase, jornada) {
+  return ALL_JORNADES_ORDER.indexOf(`${norm(fase)}_${norm(jornada)}`);
+}
 const PHASE_JORN_LABEL = {grups:true, r16:false, r8:false, qf:false, sf:false, final:false};
 const PHASE_ICONS = {grups:'⚽', r16:'🔵', r8:'⚡', qf:'🟠', sf:'🔴', final:'🏆'};
 const PHASE_COLORS = {grups:'seg-grp', r16:'seg-16', r8:'seg-r8', qf:'seg-qf', sf:'seg-sf', final:'seg-fin'};
@@ -610,7 +616,7 @@ function parseSheet(json) {
 // Pestanya "Participants":  Nom | (altres cols opcionals)
 // Pestanya "Jugadors":      Participant | Jugador | Equip | Posicio
 // Pestanya "Puntuacions":   Participant | Jugador | Fase | Jornada | Nota | Gols | Assistencies
-// Pestanya "Canvis":        Participant | Fase | Jugador_Surt | Jugador_Entra | Data
+// Pestanya "Canvis":        Participant | Fase | Jornada | Jugador_Surt | Jugador_Entra | Data
 // ============================================================
 
 // Cache de càlculs costosos — es reseteja quan carreguen dades noves
@@ -892,29 +898,34 @@ function filterActius(players) {
 
 // Retorna la plantilla activa per a una fase concreta, aplicant els canvis
 // La columna Fase a Canvis indica A PARTIR DE QUINA FASE és actiu el canvi:
-//   r16    → actiu a 16ens, quarts, semis i final
-//   qf     → actiu a quarts, semis i final
-//   sf     → actiu a semis i final
-//   final  → actiu només a la final
-// Accepta també: post-grups (=r16), post-r16 (=qf), post-qf (=sf), post-sf (=final)
+// Els canvis ara s'apliquen a nivell de Fase+Jornada (no només Fase).
+// Sheet Canvis: Participant | Fase | Jornada | Jugador_Surt | Jugador_Entra | Data
+// El canvi és actiu des d'aquella Fase+Jornada (inclusiva) fins al final de la competició.
 
 function changeFaseToPhase(rawFase) {
   const f = norm(rawFase);
-  if (f === 'r16' || f.includes('post-grups') || f.includes('grups'))  return 'r16';
-  if (f === 'r8'  || f.includes('post-r16')   || f.includes('16ens'))  return 'r8';
-  if (f === 'qf'  || f.includes('post-r8')    || f.includes('vuitens') || f.includes('octavos')) return 'qf';
-  if (f === 'sf'  || f.includes('post-qf')    || f.includes('quarts')) return 'sf';
-  if (f === 'final'|| f.includes('post-sf')   || f.includes('semis'))  return 'final';
   if (PHASES.includes(f)) return f;
+  // Fallback per a valors antics tipus "post-grups"
+  if (f.includes('post-grups') || f.includes('grups'))  return 'grups';
+  if (f.includes('post-r16')   || f.includes('16ens'))  return 'r16';
+  if (f.includes('post-r8')    || f.includes('vuitens') || f.includes('octavos')) return 'r8';
+  if (f.includes('post-qf')    || f.includes('quarts')) return 'qf';
+  if (f.includes('post-sf')    || f.includes('semis'))  return 'sf';
   return null;
 }
 
-function getPlayersForPhase(participant, phase) {
-  const k = 'roster_' + participant + '_' + phase;
+// jornada és opcional: si no es passa, s'agafa la ÚLTIMA jornada d'aquella fase
+// (compatibilitat amb crides antigues que volen "tota la fase")
+function getPlayersForPhase(participant, phase, jornada) {
+  if (!jornada) {
+    const jorns = PHASE_JORNADES[phase] || [];
+    jornada = jorns[jorns.length - 1] || '';
+  }
+  const k = 'roster_' + participant + '_' + phase + '_' + jornada;
   if (_cache[k]) return _cache[k];
   const allPlayers = getPlayers(participant);
   const changes    = getChanges(participant);
-  const phaseIdx   = PHASES.indexOf(phase);
+  const targetIdx  = jornadaIndex(phase, jornada);
 
   // Jugadors que entren per canvi — els excloem de la plantilla base
   const changeInNames = new Set(changes.map(c => norm(v(c,'Jugador_Entra'))));
@@ -924,12 +935,13 @@ function getPlayersForPhase(participant, phase) {
     .filter(pl => !changeInNames.has(norm(v(pl,'Jugador'))))
     .map(pl => ({ ...pl }));
 
-  // Aplica canvis: substitueix titulars pels nous jugadors si la fase és activa
+  // Aplica canvis en ordre cronològic: substitueix titulars pels nous jugadors
+  // si la fase+jornada del canvi és igual o anterior a la fase+jornada demanada
   for (const c of changes) {
-    const activeFrom    = changeFaseToPhase(v(c, 'Fase'));
-    if (!activeFrom) continue;
-    const activeFromIdx = PHASES.indexOf(activeFrom);
-    if (activeFromIdx < 0 || phaseIdx < activeFromIdx) continue;
+    const cFase    = changeFaseToPhase(v(c, 'Fase')) || norm(v(c,'Fase'));
+    const cJornada = v(c, 'Jornada') || (PHASE_JORNADES[cFase]||[])[0] || '';
+    const changeIdx = jornadaIndex(cFase, cJornada);
+    if (changeIdx < 0 || targetIdx < 0 || targetIdx < changeIdx) continue;
 
     const outName = norm(v(c, 'Jugador_Surt'));
     const inName  = v(c, 'Jugador_Entra');
@@ -946,7 +958,7 @@ function getPlayersForPhase(participant, phase) {
     }
   }
 
-  _cache['roster_' + participant + '_' + phase] = roster;
+  _cache[k] = roster;
   return roster;
 }
 
@@ -1000,9 +1012,16 @@ function calcParticipantTotal(participant) {
   if (_cache[k] !== undefined) return _cache[k];
   let total = 0;
   for (const ph of PHASES) {
-    const phasePlayers = getPlayersForPhase(participant, ph);
-    for (const pl of phasePlayers) {
-      total += calcPlayerPhasePts(participant, v(pl,'Jugador'), ph);
+    for (const jorn of PHASE_JORNADES[ph] || []) {
+      // Roster específic d'AQUESTA jornada (respecta canvis fets jornada a jornada)
+      const jornPlayers = getPlayersForPhase(participant, ph, jorn);
+      for (const pl of jornPlayers) {
+        const jugador = v(pl,'Jugador');
+        const pos = v(pl,'Posicio') || 'DAV';
+        const sc = getScoreEfectiu(participant, jugador, ph, jorn);
+        const pts = calcScoreRow(sc, pos, jugador, ph, jorn, participant);
+        if (pts !== null) total += pts;
+      }
     }
   }
   _cache[k] = total;
@@ -1038,7 +1057,16 @@ function getRanking() {
       grogues: calcParticipantStat(p, 'DobleGroga'),
       vermelles: calcParticipantStat(p, 'Vermella'),
       byPhase: PHASES.reduce((a, ph) => {
-        a[ph] = getPlayersForPhase(p, ph).reduce((s, pl) => s + calcPlayerPhasePts(p, v(pl,'Jugador'), ph), 0);
+        a[ph] = (PHASE_JORNADES[ph]||[]).reduce((s, jorn) => {
+          const jornPlayers = getPlayersForPhase(p, ph, jorn);
+          return s + jornPlayers.reduce((s2, pl) => {
+            const jugador = v(pl,'Jugador');
+            const pos = v(pl,'Posicio') || 'DAV';
+            const sc = getScoreEfectiu(p, jugador, ph, jorn);
+            const pts = calcScoreRow(sc, pos, jugador, ph, jorn, p);
+            return s2 + (pts || 0);
+          }, 0);
+        }, 0);
         return a;
       }, {})
     }))
@@ -1101,7 +1129,7 @@ function renderRanking() {
       .map(ph => `<div>${PHASE_LABELS[ph]}: <strong>${r.byPhase[ph].toFixed(0)}</strong></div>`).join('');
 
     // Comptador de jugadors que ja han puntuat a la jornada activa
-    const teamPlayers = getPlayersForPhase(r.name, FASE_ACTIVA_GLOBAL);
+    const teamPlayers = getPlayersForPhase(r.name, FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
     const totalActius = teamPlayers.filter(pl => !isEliminated(v(pl,'Jugador'))).length;
     const jaPuntuat = teamPlayers.filter(pl => {
       if (isEliminated(v(pl,'Jugador'))) return false;
@@ -1231,7 +1259,7 @@ function distribuirX(jugadors, xBase, spread) {
 }
 
 function renderPitch(participant, phase, jornada, tryJ1Fallback) {
-  const phasePlayers = getPlayersForPhase(participant, phase);
+  const phasePlayers = getPlayersForPhase(participant, phase, jornada);
 
   // Agrupa per posició genèrica (per al càlcul de punts) i per rol (per al visual)
   const byPos  = { POR:[], DEF:[], MIG:[], DAV:[] };
@@ -1572,8 +1600,13 @@ function _renderTeamFull() {
 
   // Phase tabs — sense passar participant als botons
   const phaseTabs = PHASES.map(ph => {
-    const phTotal = getPlayersForPhase(participant, ph)
-      .reduce((s,pl) => s + calcPlayerPhasePts(participant, v(pl,'Jugador'), ph), 0);
+    const phTotal = (PHASE_JORNADES[ph]||[]).reduce((sum, jorn) => {
+      const jornPl = getPlayersForPhase(participant, ph, jorn);
+      return sum + jornPl.reduce((s,pl) => {
+        const sc = getScoreEfectiu(participant, v(pl,'Jugador'), ph, jorn);
+        return s + (calcScoreRow(sc, v(pl,'Posicio'), v(pl,'Jugador'), ph, jorn, participant) || 0);
+      }, 0);
+    }, 0);
     const badge = phTotal > 0 ? `<span class="pts-badge">${phTotal.toFixed(0)}</span>` : '';
     const active = ph === _activePhase ? ' active' : '';
     return `<button class="phase-tab-btn${active}" onclick="selectPhase('${ph}')">${PHASE_ICONS[ph]} ${PHASE_LABELS[ph]}${badge}</button>`;
@@ -1586,9 +1619,9 @@ function _renderTeamFull() {
       ['J1','J2','J3'].map(j => {
         const active = j === _activeJornada;
         // Calcula punts de la jornada
-        const jPlayers = getPlayersForPhase(participant, 'grups');
+        const jPlayers = getPlayersForPhase(participant, 'grups', j);
         const jPts = jPlayers.reduce((s, pl) => {
-          const sc = getScore(participant, v(pl,'Jugador'), 'grups', j);
+          const sc = getScoreEfectiu(participant, v(pl,'Jugador'), 'grups', j);
           return s + (calcScoreRow(sc, v(pl,'Posicio'), v(pl,'Jugador'), 'grups', j, participant) || 0);
         }, 0);
         const badge = jPts > 0 ? `<span style="background:rgba(245,200,66,0.15);color:var(--gold);font-size:0.55rem;padding:1px 5px;border-radius:8px;margin-left:4px">${jPts}</span>` : '';
@@ -1639,7 +1672,7 @@ function renderJornades(phase, jorn) {
   if (!participants.length) { viewEl.innerHTML = '<div class="empty-state"><div class="big-icon">📅</div><p>Afegeix dades al Google Sheet.</p></div>'; return; }
   // Usa el mateix sistema de càlcul que la classificació (calcScoreRow amb efectes de capità/cartes)
   const ranked = participants.map(p => {
-    const players = getPlayersForPhase(p, phase);
+    const players = getPlayersForPhase(p, phase, jorn);
     const pts = players.reduce((sum, pl) => {
       const name = v(pl,'Jugador');
       const pos  = v(pl,'Posicio');
@@ -1833,16 +1866,16 @@ function renderJugadorsTab() {
 
       const phasesToCheck = filterFase ? [filterFase] : PHASES;
       for (const ph of phasesToCheck) {
-        // Only include player if they're in the roster for this phase
-        const roster = getPlayersForPhase(p, ph);
-        const inRoster = roster.some(pl => norm(v(pl,'Jugador')) === norm(name));
-        if (!inRoster) continue;
-
         const jorns = PHASE_JORNADES[ph];
         let phPts=0, phGols=0, phAssists=0, phPenals=0, phDG=0, phV=0;
         const jornDetails = [];
 
         for (const jorn of jorns) {
+          // Comprova si el jugador era titular EN AQUESTA jornada concreta
+          const jornRoster = getPlayersForPhase(p, ph, jorn);
+          const inRosterJorn = jornRoster.some(pl => norm(v(pl,'Jugador')) === norm(name));
+          if (!inRosterJorn) continue;
+
           const sc = getScore(p, name, ph, jorn);
           if (!sc || v(sc,'Nota')==='') continue;
           const nota = parseNota(v(sc,'Nota'));
@@ -1980,8 +2013,7 @@ function populateJugadorsFilters() {
 // ============================================================
 function phaseLabel(rawFase) {
   const p = changeFaseToPhase(rawFase);
-  const labels = { r16: 'Actiu des de 16ens', r8: 'Actiu des de Vuitens', qf: 'Actiu des de Quarts', sf: 'Actiu des de Semis', final: 'Actiu a la Final' };
-  return labels[p] || rawFase;
+  return PHASE_LABELS[p] || rawFase;
 }
 
 function renderCanvis() {
@@ -1996,7 +2028,7 @@ function renderCanvis() {
       <div class="phase-label">${p}</div>
       <div class="changes-grid">${changes.map(c => `
         <div class="change-card">
-          <div class="change-phase">${phaseLabel(v(c,'Fase'))}</div>
+          <div class="change-phase">Actiu des de ${phaseLabel(v(c,'Fase'))}${v(c,'Jornada') ? ' ' + v(c,'Jornada') : ''}</div>
           <div class="change-names">
             <span class="change-out">${v(c,'Jugador_Surt')}</span>
             <span style="color:var(--silver)">→</span>
@@ -2057,7 +2089,7 @@ function renderAdminPanel() {
         <strong>Puntuacions</strong><br>
         <code style="font-size:0.75rem;background:rgba(255,255,255,0.07);padding:2px 6px;border-radius:4px">Participant | Jugador | Fase | Jornada | Nota | Gols | Assistencies</code><br><br>
         <strong>Canvis</strong><br>
-        <code style="font-size:0.75rem;background:rgba(255,255,255,0.07);padding:2px 6px;border-radius:4px">Participant | Fase | Jugador_Surt | Jugador_Entra | Data</code>
+        <code style="font-size:0.75rem;background:rgba(255,255,255,0.07);padding:2px 6px;border-radius:4px">Participant | Fase | Jornada | Jugador_Surt | Jugador_Entra | Data</code>
       </p>
     </div>
     <div class="admin-card">
@@ -2536,8 +2568,10 @@ async function rLoadRuleta() {
   if (!el) return;
   el.innerHTML = `<div style="text-align:center;padding:3rem"><div class="spinner"></div><p style="color:var(--silver);margin-top:0.5rem">Carregant...</p></div>`;
 
-  // Jugadors de l'equip (de la fase activa)
-  const rPlayers = getPlayersForPhase(rParticipant, FASE_ACTIVA_GLOBAL);
+  // Jugadors de l'equip (de la fase/jornada de SELECCIÓ, no la activa)
+  const rFaseSel = FASE_SELECCIO || FASE_ACTIVA_GLOBAL;
+  const rJornSel = JORNADA_SELECCIO || JORNADA_ACTIVA_GLOBAL;
+  const rPlayers = getPlayersForPhase(rParticipant, rFaseSel, rJornSel);
 
   // Carrega capitans de les dues jornades (activa + selecció)
   let rCapitaActiva = null, rCapitaSeleccio = null, allCapitansRows = [];
@@ -2699,7 +2733,9 @@ function rDoSpin() {
   if (!SELECCIO_OBERTA) { showToast('La finestra de selecció de capità ha tancat'); return; }
   // Bloqueja si ja té capità assignat per la jornada de selecció
   if (rSpinResult) { showToast('Ja tens capità assignat per aquesta jornada!'); return; }
-  const rPlayers = filterActius(getPlayersForPhase(rParticipant, FASE_ACTIVA_GLOBAL));
+  const rFaseSelSpin = FASE_SELECCIO || FASE_ACTIVA_GLOBAL;
+  const rJornSelSpin = JORNADA_SELECCIO || JORNADA_ACTIVA_GLOBAL;
+  const rPlayers = filterActius(getPlayersForPhase(rParticipant, rFaseSelSpin, rJornSelSpin));
   if (!rPlayers.length) return;
   rSpinning = true;
 
