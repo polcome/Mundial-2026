@@ -1086,12 +1086,25 @@ function renderRanking() {
     }).join('');
     const phDetails = PHASES.filter(ph => r.byPhase[ph] > 0)
       .map(ph => `<div>${PHASE_LABELS[ph]}: <strong>${r.byPhase[ph].toFixed(0)}</strong></div>`).join('');
+
+    // Comptador de jugadors que ja han puntuat a la jornada activa
+    const teamPlayers = getPlayersForPhase(r.name, FASE_ACTIVA_GLOBAL);
+    const totalActius = teamPlayers.filter(pl => !isEliminated(v(pl,'Jugador'))).length;
+    const jaPuntuat = teamPlayers.filter(pl => {
+      if (isEliminated(v(pl,'Jugador'))) return false;
+      const sc = getScore(r.name, v(pl,'Jugador'), FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
+      return sc && v(sc,'Nota') !== '';
+    }).length;
+    const jugatLabel = totalActius > 0
+      ? `<span style="margin-left:0.5rem;opacity:0.85">· ${JORNADA_ACTIVA_GLOBAL}: ${jaPuntuat}/${totalActius} ja han jugat</span>`
+      : '';
+
     return `
     <div class="ranking-card rank-${pos}" onclick="openTeam('${esc(r.name)}')">
       <div class="rank-pos">${medal || pos}</div>
       <div>
         <div class="rank-card-name">${r.name}</div>
-        <div class="rank-card-sub">${getPlayers(r.name).length} jugadors · ${r.goals} ⚽</div>
+        <div class="rank-card-sub">${getPlayers(r.name).length} jugadors · ${r.goals} ⚽${jugatLabel}</div>
         <div class="phase-bar">${segs}</div>
       </div>
       <div class="rank-gols">${phDetails}</div>
