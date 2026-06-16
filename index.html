@@ -1017,6 +1017,15 @@ function calcParticipantGoals(participant) {
     .reduce((sum, r) => sum + (parseInt(v(r,'Gols') || 0)), 0);
 }
 
+// Suma genèrica d'una columna de Puntuacions per a un participant
+function calcParticipantStat(participant, col) {
+  if (!gData) return 0;
+  const pN = norm(participant);
+  return (gData.puntuacions || [])
+    .filter(r => norm(v(r,'Participant')) === pN)
+    .reduce((sum, r) => sum + (parseInt(v(r,col) || 0)), 0);
+}
+
 function getRanking() {
   if (_cache.ranking) return _cache.ranking;
   _cache.ranking = getParticipants()
@@ -1024,6 +1033,10 @@ function getRanking() {
       name: p,
       total: calcParticipantTotal(p),
       goals: calcParticipantGoals(p),
+      penals: calcParticipantStat(p, 'Penalti'),
+      assists: calcParticipantStat(p, 'Assistencies'),
+      grogues: calcParticipantStat(p, 'DobleGroga'),
+      vermelles: calcParticipantStat(p, 'Vermella'),
       byPhase: PHASES.reduce((a, ph) => {
         a[ph] = getPlayersForPhase(p, ph).reduce((s, pl) => s + calcPlayerPhasePts(p, v(pl,'Jugador'), ph), 0);
         return a;
@@ -1104,7 +1117,7 @@ function renderRanking() {
       <div class="rank-pos">${medal || pos}</div>
       <div>
         <div class="rank-card-name">${r.name}</div>
-        <div class="rank-card-sub">${getPlayers(r.name).length} jugadors · ${r.goals} ⚽${jugatLabel}</div>
+        <div class="rank-card-sub">${getPlayers(r.name).length} jugadors${r.goals>0?` · ${r.goals} ⚽`:''}${r.assists>0?` · ${r.assists} 🅰️`:''}${r.penals>0?` · ${r.penals} 🥅`:''}${r.grogues>0?` · ${r.grogues} 🟨`:''}${r.vermelles>0?` · ${r.vermelles} 🟥`:''}${jugatLabel}</div>
         <div class="phase-bar">${segs}</div>
       </div>
       <div class="rank-gols">${phDetails}</div>
