@@ -1610,12 +1610,15 @@ function renderJornades(phase, jorn) {
   if (!gData) { viewEl.innerHTML = '<div class="loading-state"><div class="spinner"></div></div>'; return; }
   const participants = getParticipants();
   if (!participants.length) { viewEl.innerHTML = '<div class="empty-state"><div class="big-icon">📅</div><p>Afegeix dades al Google Sheet.</p></div>'; return; }
+  // Usa el mateix sistema de càlcul que la classificació (calcScoreRow amb efectes de capità/cartes)
   const ranked = participants.map(p => {
     const players = getPlayersForPhase(p, phase);
     const pts = players.reduce((sum, pl) => {
-      const sc = getScore(p, pl['Jugador'], phase, jorn);
-      if (!sc || sc['Nota'] === '' || sc['Nota'] === null) return sum;
-      return sum + parseFloat(sc['Nota']||0) + parseInt(sc['Gols']||0)*5 + parseInt(sc['Assistencies']||0)*3;
+      const name = v(pl,'Jugador');
+      const pos  = v(pl,'Posicio');
+      const sc = getScoreEfectiu(p, name, phase, jorn);
+      const pts2 = calcScoreRow(sc, pos, name, phase, jorn, p);
+      return sum + (pts2 || 0);
     }, 0);
     return {name: p, pts};
   }).sort((a,b) => b.pts - a.pts);
