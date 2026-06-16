@@ -700,6 +700,20 @@ function golPts(pos) {
 }
 
 // Càlcul complet d'un jugador per a una jornada/eliminatòria
+// Versió pura: nota+gols+assists+penals+targetes, SENSE cap efecte de capità ni cartes
+// S'usa a la pestanya Jugadors per mostrar el rendiment real, independent de l'equip
+function calcScoreRowCrua(sc, pos) {
+  if (!sc || v(sc,'Nota') === '') return null;
+  if (noHaJugat(sc)) return 0;
+  const nota       = notaToPts(parseNota(v(sc,'Nota')));
+  const gols       = parseInt(v(sc,'Gols') || 0);
+  const assists    = parseInt(v(sc,'Assistencies') || 0);
+  const penalti    = parseInt(v(sc,'Penalti') || 0);
+  const doblegroga = parseInt(v(sc,'DobleGroga') || 0);
+  const vermella   = parseInt(v(sc,'Vermella') || 0);
+  return nota + gols * golPts(pos) + assists * 2 + penalti * 3 + doblegroga * (-3) + vermella * (-6);
+}
+
 function calcScoreRow(sc, pos, jugador, fase, jornada, participant) {
   if (!sc || v(sc,'Nota') === '') return null;
   // Nota = 0 exacte -> el jugador no ha jugat cap minut, puntuació total = 0
@@ -1795,7 +1809,7 @@ function renderJugadorsTab() {
           const pen = parseInt(v(sc,'Penalti')||0);
           const dg = parseInt(v(sc,'DobleGroga')||0);
           const vm = parseInt(v(sc,'Vermella')||0);
-          const pts = calcScoreRow(sc, posicio, name, ph, jorn, p);
+          const pts = calcScoreRowCrua(sc, posicio);
           if (nota !== null) { notaSum += nota; notaCount++; }
           phPts += pts||0; phGols += g; phAssists += a; phPenals += pen; phDG += dg; phV += vm;
           jornDetails.push({ jorn, nota, g, a, pen, dg, vm, pts });
