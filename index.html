@@ -438,8 +438,16 @@
   <section class="section" id="tab-jugadors">
     <div class="section-title">⚽ Taula de Jugadors</div>
     <div id="jugadorsFilters" style="display:flex;gap:0.6rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center">
+      <input id="filterNom" type="text" placeholder="🔎 Cerca jugador..." oninput="renderJugadorsTab()" style="background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);border-radius:6px;padding:0.4rem 0.7rem;color:var(--white);font-size:0.82rem;min-width:160px">
       <select id="filterEquip" onchange="renderJugadorsTab()" style="background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);border-radius:6px;padding:0.4rem 0.7rem;color:var(--white);font-size:0.82rem">
         <option value="">Tots els equips</option>
+      </select>
+      <select id="filterPos" onchange="renderJugadorsTab()" style="background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);border-radius:6px;padding:0.4rem 0.7rem;color:var(--white);font-size:0.82rem">
+        <option value="">Totes les posicions</option>
+        <option value="POR">Porter</option>
+        <option value="DEF">Defensa</option>
+        <option value="MIG">Migcampista</option>
+        <option value="DAV">Davanter</option>
       </select>
       <select id="filterFase" onchange="renderJugadorsTab()" style="background:rgba(255,255,255,0.07);border:1px solid var(--glass-border);border-radius:6px;padding:0.4rem 0.7rem;color:var(--white);font-size:0.82rem">
         <option value="">Totes les fases</option>
@@ -1759,6 +1767,8 @@ function renderJugadorsTab() {
 
   const filterEquip = document.getElementById('filterEquip')?.value || '';
   const filterFase  = document.getElementById('filterFase')?.value  || '';
+  const filterPos   = document.getElementById('filterPos')?.value   || '';
+  const filterNom   = (document.getElementById('filterNom')?.value  || '').trim().toLowerCase();
   const sortBy      = document.getElementById('sortBy')?.value      || 'pts';
 
   const participants = getParticipants();
@@ -1782,6 +1792,8 @@ function renderJugadorsTab() {
       const foto   = plData ? v(plData,'Foto')    : '';
 
       if (filterEquip && norm(p) !== norm(filterEquip)) continue;
+      if (filterPos && (posicio||'').toUpperCase() !== filterPos) continue;
+      if (filterNom && !name.toLowerCase().includes(filterNom)) continue;
 
       // Accumulate stats across phases/jornades
       let totalPts=0, totalGols=0, totalAssists=0, totalPenals=0;
