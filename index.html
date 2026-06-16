@@ -1109,7 +1109,7 @@ function renderRanking() {
       return sc && v(sc,'Nota') !== '';
     }).length;
     const jugatLabel = totalActius > 0
-      ? `<span style="margin-left:0.5rem;opacity:0.85">· ${JORNADA_ACTIVA_GLOBAL}: ${jaPuntuat}/${totalActius} ja han jugat</span>`
+      ? `<span style="opacity:0.85">${JORNADA_ACTIVA_GLOBAL}: ${jaPuntuat}/${totalActius} ja han jugat</span>`
       : '';
 
     return `
@@ -1117,7 +1117,8 @@ function renderRanking() {
       <div class="rank-pos">${medal || pos}</div>
       <div>
         <div class="rank-card-name">${r.name}</div>
-        <div class="rank-card-sub">${getPlayers(r.name).length} jugadors${r.goals>0?` · ${r.goals} ⚽`:''}${r.assists>0?` · ${r.assists} 🅰️`:''}${r.penals>0?` · ${r.penals} 🥅`:''}${r.grogues>0?` · ${r.grogues} 🟨`:''}${r.vermelles>0?` · ${r.vermelles} 🟥`:''}${jugatLabel}</div>
+        <div class="rank-card-sub">${[r.goals>0?`${r.goals} ⚽`:'',r.assists>0?`${r.assists} 🅰️`:'',r.penals>0?`${r.penals} 🥅`:'',r.grogues>0?`${r.grogues} 🟨`:'',r.vermelles>0?`${r.vermelles} 🟥`:''].filter(Boolean).join(' · ')}</div>
+        ${jugatLabel?`<div class="rank-card-sub" style="margin-top:2px">${jugatLabel}</div>`:''}
         <div class="phase-bar">${segs}</div>
       </div>
       <div class="rank-gols">${phDetails}</div>
