@@ -529,7 +529,7 @@ const PHASE_LABELS = {grups:'Fase de Grups', r16:'16ens de Final', r8:'Vuitens d
 const PHASE_JORNADES = {grups:['J1','J2','J3'], r16:['E1'], r8:['E1'], qf:['E1'], sf:['E1'], final:['E1']};
 
 // Ordre seqüencial de totes les fase+jornada (per determinar canvis actius)
-const ALL_JORNADES_ORDER = PHASES.flatMap(ph => PHASE_JORNADES[ph].map(j => `${ph}_${j}`));
+const ALL_JORNADES_ORDER = PHASES.flatMap(ph => PHASE_JORNADES[ph].map(j => `${norm(ph)}_${norm(j)}`));
 function jornadaIndex(fase, jornada) {
   return ALL_JORNADES_ORDER.indexOf(`${norm(fase)}_${norm(jornada)}`);
 }
