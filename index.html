@@ -1260,7 +1260,7 @@ const ROL_GRID = {
   'EI':  { row:1, cols:[0] },
   'ED':  { row:1, cols:[4] },
   'MI':  { row:2, cols:[0] },
-  'MCO': { row:2, cols:[2] },
+  'MCO': { row:2, cols:[1,2,3] },
   'MD':  { row:2, cols:[4] },
   'MC':  { row:3, cols:[1,2,3] },
   'MCD': { row:4, cols:[1,2,3] },
@@ -1274,9 +1274,9 @@ const ROL_GRID = {
 // Rols amb sufix numèric explícit (DC0/DC1/DC2, MC0/MC1/MC2, MCD0/MCD1/MCD2, DFC0/DFC1/DFC2):
 // l'usuari tria exactament la columna. El 0 és la columna central del rol,
 // l'1 és la columna esquerra, el 2 és la columna dreta.
-const ROL_NUM_BASES = ['DC','MC','MCD','CEN','DFC'];
+const ROL_NUM_BASES = ['DC','MC','MCD','CEN','DFC','MCO'];
 function resoldreRolNumerat(rol) {
-  const m = rol.match(/^(DC|MCD|MC|DFC|CEN)([012])$/);
+  const m = rol.match(/^(DC|MCD|MC|DFC|CEN|MCO)([012])$/);
   if (!m) return null;
   const base = m[1] === 'DFC' ? 'CEN' : m[1];
   const grid = ROL_GRID[base];
