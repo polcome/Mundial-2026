@@ -243,7 +243,7 @@
   .pitch-grid {
     position:absolute; inset:6% 4%; z-index:2;
     display:grid;
-    grid-template-rows: repeat(8, 1fr);
+    grid-template-rows: repeat(9, 1fr);
     grid-template-columns: repeat(5, 1fr);
     row-gap: 2px;
   }
@@ -1265,10 +1265,10 @@ const ROL_GRID = {
   'MC':  { row:3, cols:[1,2,3] },
   'MCD': { row:4, cols:[1,2,3] },
   'LI':  { row:5, cols:[0] },
-  'CEN': { row:5, cols:[1,2,3] },
   'LD':  { row:5, cols:[4] },
-  'DFC': { row:5, cols:[1,2,3] },  // alias de CEN, tal com surt a l'Excel
-  'POR': { row:7, cols:[2] },
+  'CEN': { row:6, cols:[1,2,3] },
+  'DFC': { row:6, cols:[1,2,3] },  // alias de CEN, tal com surt a l'Excel
+  'POR': { row:8, cols:[2] },
 };
 
 // Rols amb sufix numèric explícit (DC0/DC1/DC2, MC0/MC1/MC2, MCD0/MCD1/MCD2, DFC0/DFC1/DFC2):
