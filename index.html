@@ -1252,7 +1252,6 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
 }
 
 // Posicions (x%, bottom%) per cada rol específic
-// x=50 és centre, bottom en % de l'altura del camp
 // Graella de 8 files (0=dalt/DAV ... 7=avall/POR) x 5 columnes (0..4)
 // Cada rol té una llista de cel.les disponibles; si hi ha mes jugadors que
 // cel.les definides pel rol, es reparteixen ampliant les columnes disponibles.
@@ -1268,8 +1267,26 @@ const ROL_GRID = {
   'LI':  { row:5, cols:[0] },
   'CEN': { row:5, cols:[1,2,3] },
   'LD':  { row:5, cols:[4] },
+  'DFC': { row:5, cols:[1,2,3] },  // alias de CEN, tal com surt a l'Excel
   'POR': { row:7, cols:[2] },
 };
+
+// Rols amb sufix numèric explícit (DC0/DC1/DC2, MC0/MC1/MC2, MCD0/MCD1/MCD2, DFC0/DFC1/DFC2):
+// l'usuari tria exactament la columna. El 0 és la columna central del rol,
+// l'1 és la columna esquerra, el 2 és la columna dreta.
+const ROL_NUM_BASES = ['DC','MC','MCD','CEN','DFC'];
+function resoldreRolNumerat(rol) {
+  const m = rol.match(/^(DC|MCD|MC|DFC|CEN)([012])$/);
+  if (!m) return null;
+  const base = m[1] === 'DFC' ? 'CEN' : m[1];
+  const grid = ROL_GRID[base];
+  if (!grid || grid.cols.length < 3) return null;
+  // cols ve ordenat d'esquerra a dreta, ex: [1,2,3] -> esquerra=1, centre=2, dreta=3
+  const sufMap = { '1': grid.cols[0], '0': grid.cols[1], '2': grid.cols[2] };
+  const col = sufMap[m[2]];
+  if (col === undefined) return null;
+  return { row: grid.row, col };
+}
 
 // Reparteix N jugadors entre les columnes disponibles d'un rol.
 // Si n <= cols.length, usa les primeres n columnes (centrades si calen menys).
@@ -1294,6 +1311,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
   // Agrupa per posició genèrica (per al càlcul de punts) i per rol (per al visual)
   const byPos  = { POR:[], DEF:[], MIG:[], DAV:[] };
   const byRol  = {};
+  const byRolNum  = {}; // rols amb sufix numèric: nom -> {row,col}
   const playerDataMap = {};
 
   for (const pl of phasePlayers) {
@@ -1303,14 +1321,18 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
     const key = ['POR','DEF','MIG','DAV'].includes(pos) ? pos : 'MIG';
     byPos[key].push(nom);
     playerDataMap[nom] = {pos: key, rol, pl};
-    if (rol && ROL_GRID[rol]) {
+
+    const numerat = resoldreRolNumerat(rol);
+    if (numerat) {
+      byRolNum[nom] = numerat;
+    } else if (rol && ROL_GRID[rol]) {
       if (!byRol[rol]) byRol[rol] = [];
       byRol[rol].push(nom);
     }
   }
 
   // Determina si usem mode ROL (>= 1 jugador amb rol definit) o mode clàssic
-  const totalAmRol = Object.values(byRol).reduce((s,a)=>s+a.length,0);
+  const totalAmRol = Object.values(byRol).reduce((s,a)=>s+a.length,0) + Object.keys(byRolNum).length;
   const useRolMode = totalAmRol > 0;
 
   // ---- MODE ROL: graella fixa 8 files x 5 columnes, sense solapaments ----
@@ -1318,7 +1340,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
     // Jugadors sense rol -> afegits al byRol de la seva posicio generica
     const noRol = phasePlayers.filter(pl => {
       const rol = (v(pl,'Rol')||'').toUpperCase().trim();
-      return !rol || !ROL_GRID[rol];
+      return !byRolNum[v(pl,'Jugador')] && (!rol || !ROL_GRID[rol]);
     });
     const genericRows = {POR:'POR', DEF:'CEN', MIG:'MC', DAV:'DC'};
     for (const pl of noRol) {
@@ -1328,28 +1350,38 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
       byRol[fallbackRol].push(v(pl,'Jugador'));
     }
 
-    // Cel.les ocupades: row -> Set(cols), per evitar que dos rols diferents xoquin
+    // Cel.les ocupades: "row_col" -> true, per evitar que dos jugadors xoquin
     const occupied = {};
-    function markOccupied(row, col) {
-      if (!occupied[row]) occupied[row] = new Set();
-      occupied[row].add(col);
-    }
+    function markOccupied(row, col) { occupied[`${row}_${col}`] = true; }
+    function isOccupied(row, col)   { return !!occupied[`${row}_${col}`]; }
 
     let cellsHtml = '';
+
+    function renderUnaCel(nom, row, col) {
+      markOccupied(row, col);
+      const pData = playerDataMap[nom];
+      const pos = pData ? pData.pos : 'MIG';
+      let sc = nom ? getScoreEfectiu(participant, nom, phase, jornada) : null;
+      if (!sc && tryJ1Fallback && jornada==='E1') sc = getScore(participant, nom, phase, 'J1');
+      const pin = playerPin(nom, pos, sc, jornada, participant, phase);
+      cellsHtml += `<div class="pitch-cell" style="grid-row:${row+1};grid-column:${col+1}">${pin}</div>`;
+    }
+
+    // 1a passada: rols numerats — cel·la exacta triada per l'usuari
+    for (const [nom, {row, col}] of Object.entries(byRolNum)) {
+      renderUnaCel(nom, row, col);
+    }
+
+    // 2a passada: rols genèrics — repartiment automàtic evitant cel·les ja ocupades
     for (const [rol, jugadors] of Object.entries(byRol)) {
       if (!jugadors.length) continue;
       const rg = ROL_GRID[rol];
       if (!rg) continue;
-      const cols = assignarColumnes(rg.cols, jugadors.length);
+      const colsLliures = rg.cols.filter(c => !isOccupied(rg.row, c));
+      const cols = assignarColumnes(colsLliures.length ? colsLliures : rg.cols, jugadors.length);
       jugadors.forEach((nom, i) => {
         const col = cols[i] ?? cols[cols.length-1];
-        markOccupied(rg.row, col);
-        const pData = playerDataMap[nom];
-        const pos = pData ? pData.pos : 'MIG';
-        let sc = nom ? getScoreEfectiu(participant, nom, phase, jornada) : null;
-        if (!sc && tryJ1Fallback && jornada==='E1') sc = getScore(participant, nom, phase, 'J1');
-        const pin = playerPin(nom, pos, sc, jornada, participant, phase);
-        cellsHtml += `<div class="pitch-cell" style="grid-row:${rg.row+1};grid-column:${col+1}">${pin}</div>`;
+        renderUnaCel(nom, rg.row, col);
       });
     }
     return `<div class="pitch-grid">${cellsHtml}</div>`;
