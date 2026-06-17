@@ -226,7 +226,7 @@
   /* ---- PITCH ---- */
   .pitch-wrap { position:relative; width:100%; max-width:480px; margin:0 auto 1rem; }
   .pitch {
-    position:relative; width:100%; padding-bottom:145%;
+    position:relative; width:100%; padding-bottom:175%;
     background:
       linear-gradient(180deg,
         #1a5c2a 0%, #1e6830 8.33%, #1a5c2a 8.33%,
@@ -237,7 +237,25 @@
         #1a5c2a 66.66%, #1e6830 66.66%, #1e6830 75%,
         #1a5c2a 75%, #1a5c2a 83.33%, #1e6830 83.33%,
         #1e6830 91.66%, #1a5c2a 91.66%, #1a5c2a 100%);
-    border-radius:10px; overflow:hidden; border:2px solid rgba(255,255,255,0.15);
+    border-radius:10px; overflow:visible; border:2px solid rgba(255,255,255,0.15);
+  }
+  /* Graella de posicionament: 8 files x 5 columnes, cada jugador en una cel·la fixa */
+  .pitch-grid {
+    position:absolute; inset:6% 4%; z-index:2;
+    display:grid;
+    grid-template-rows: repeat(8, 1fr);
+    grid-template-columns: repeat(5, 1fr);
+    row-gap: 2px;
+  }
+  .pitch-cell {
+    display:flex; align-items:center; justify-content:center;
+    min-width:0; min-height:0; overflow:visible;
+    position:relative;
+  }
+  @media (max-width:480px) {
+    .pitch-grid { row-gap:0; }
+    .pitch-cell .player-pin .avatar { width:34px !important; height:34px !important; }
+    .pitch-cell .player-pin .pname { font-size:0.6rem !important; max-width:54px; }
   }
   .pitch-lines {
     position:absolute; inset:0;
@@ -262,11 +280,11 @@
   .pitch-pin-wrap { position:absolute; transform:translateX(-50%); }
 
   .player-pin {
-    display:flex; flex-direction:column; align-items:center; gap:4px;
-    cursor:default; width:88px;
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+    cursor:default; width:100%; max-width:88px;
   }
   .player-pin .avatar {
-    width:58px; height:58px; border-radius:50%;
+    width:clamp(34px, 11vw, 58px); height:clamp(34px, 11vw, 58px); border-radius:50%;
     background: linear-gradient(135deg, #1e3a5f, #2d5a8e);
     border:3px solid rgba(255,255,255,0.3);
     display:flex; align-items:center; justify-content:center;
@@ -1235,27 +1253,39 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
 
 // Posicions (x%, bottom%) per cada rol específic
 // x=50 és centre, bottom en % de l'altura del camp
-const ROL_POS = {
-  'POR': {bottom:3,  xBase:50},
-  'CEN': {bottom:20, xBase:50},  // centrals
-  'LD':  {bottom:25, xBase:84},  // lateral dret
-  'LI':  {bottom:25, xBase:16},  // lateral esquerre
-  'MCD': {bottom:39, xBase:50},  // pivot
-  'MC':  {bottom:51, xBase:50},  // migcampistes centrals
-  'MD':  {bottom:51, xBase:83},  // migcampista dret (interior dret)
-  'MI':  {bottom:51, xBase:17},  // migcampista esquerre (interior esquerre)
-  'MCO': {bottom:62, xBase:50},  // mitja punta
-  'ED':  {bottom:67, xBase:84},  // extrem dret
-  'EI':  {bottom:67, xBase:16},  // extrem esquerre
-  'DC':  {bottom:76, xBase:50},  // davanter centre
+// Graella de 8 files (0=dalt/DAV ... 7=avall/POR) x 5 columnes (0..4)
+// Cada rol té una llista de cel.les disponibles; si hi ha mes jugadors que
+// cel.les definides pel rol, es reparteixen ampliant les columnes disponibles.
+const ROL_GRID = {
+  'DC':  { row:0, cols:[1,2,3] },
+  'EI':  { row:1, cols:[0] },
+  'ED':  { row:1, cols:[4] },
+  'MI':  { row:2, cols:[0] },
+  'MCO': { row:2, cols:[2] },
+  'MD':  { row:2, cols:[4] },
+  'MC':  { row:3, cols:[1,2,3] },
+  'MCD': { row:4, cols:[1,2,3] },
+  'LI':  { row:5, cols:[0] },
+  'CEN': { row:5, cols:[1,2,3] },
+  'LD':  { row:5, cols:[4] },
+  'POR': { row:7, cols:[2] },
 };
 
-// Donada una llista de jugadors amb el mateix rol, distribueix les x
-function distribuirX(jugadors, xBase, spread) {
-  const n = jugadors.length;
-  if (n === 1) return [xBase];
-  const step = spread / (n - 1);
-  return jugadors.map((_, i) => xBase - spread/2 + i * step);
+// Reparteix N jugadors entre les columnes disponibles d'un rol.
+// Si n <= cols.length, usa les primeres n columnes (centrades si calen menys).
+// Si n > cols.length (cas rar), reparteix entre totes les 5 columnes del centre.
+function assignarColumnes(cols, n) {
+  if (n <= cols.length) {
+    if (n === cols.length) return cols;
+    if (n === 1) return [cols[Math.floor(cols.length/2)]];
+    // Centra n columnes dins les disponibles
+    const start = Math.floor((cols.length - n) / 2);
+    return cols.slice(start, start + n);
+  }
+  // Més jugadors que columnes definides: reparteix entre 0..4
+  const span = Math.min(n, 5);
+  const start = Math.floor((5 - span) / 2);
+  return Array.from({length:span}, (_,i) => start + i);
 }
 
 function renderPitch(participant, phase, jornada, tryJ1Fallback) {
@@ -1273,7 +1303,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
     const key = ['POR','DEF','MIG','DAV'].includes(pos) ? pos : 'MIG';
     byPos[key].push(nom);
     playerDataMap[nom] = {pos: key, rol, pl};
-    if (rol && ROL_POS[rol]) {
+    if (rol && ROL_GRID[rol]) {
       if (!byRol[rol]) byRol[rol] = [];
       byRol[rol].push(nom);
     }
@@ -1283,14 +1313,13 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
   const totalAmRol = Object.values(byRol).reduce((s,a)=>s+a.length,0);
   const useRolMode = totalAmRol > 0;
 
-  // ---- MODE ROL: posicionament absolut ----
+  // ---- MODE ROL: graella fixa 8 files x 5 columnes, sense solapaments ----
   function renderRolMode() {
-    // Jugadors sense rol → afegits al byRol de la seva posició genèrica
+    // Jugadors sense rol -> afegits al byRol de la seva posicio generica
     const noRol = phasePlayers.filter(pl => {
       const rol = (v(pl,'Rol')||'').toUpperCase().trim();
-      return !rol || !ROL_POS[rol];
+      return !rol || !ROL_GRID[rol];
     });
-    // Distribuïm els sense rol dins la seva fila genèrica
     const genericRows = {POR:'POR', DEF:'CEN', MIG:'MC', DAV:'DC'};
     for (const pl of noRol) {
       const pos = (v(pl,'Posicio')||'MIG').toUpperCase();
@@ -1299,36 +1328,31 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
       byRol[fallbackRol].push(v(pl,'Jugador'));
     }
 
-    // Spread horitzontal per rol — dinàmic en base al nombre de jugadors
-    function getSpread(rol, n) {
-      if (n <= 1) return 0;
-      // Laterals i extrems sempre fixos (posicions úniques)
-      if (['LD','LI','ED','EI','MD','MI'].includes(rol)) return 0;
-      // Per MC/MCD amb 2 jugadors, obrir-los més
-      if (['MC','MCO'].includes(rol) && n === 2) return 52;
-      if (rol === 'MCD' && n === 2) return 36;
-      // Per la resta, distribuïm uniformement
-      const maxSpread = 76;
-      return Math.min(maxSpread, (n - 1) * 22);
+    // Cel.les ocupades: row -> Set(cols), per evitar que dos rols diferents xoquin
+    const occupied = {};
+    function markOccupied(row, col) {
+      if (!occupied[row]) occupied[row] = new Set();
+      occupied[row].add(col);
     }
 
-    let pins = '';
+    let cellsHtml = '';
     for (const [rol, jugadors] of Object.entries(byRol)) {
       if (!jugadors.length) continue;
-      const rp = ROL_POS[rol];
-      if (!rp) continue;
-      const xSpread = getSpread(rol, jugadors.length);
-      const xs = distribuirX(jugadors, rp.xBase, xSpread);
+      const rg = ROL_GRID[rol];
+      if (!rg) continue;
+      const cols = assignarColumnes(rg.cols, jugadors.length);
       jugadors.forEach((nom, i) => {
+        const col = cols[i] ?? cols[cols.length-1];
+        markOccupied(rg.row, col);
         const pData = playerDataMap[nom];
         const pos = pData ? pData.pos : 'MIG';
         let sc = nom ? getScoreEfectiu(participant, nom, phase, jornada) : null;
         if (!sc && tryJ1Fallback && jornada==='E1') sc = getScore(participant, nom, phase, 'J1');
         const pin = playerPin(nom, pos, sc, jornada, participant, phase);
-        pins += `<div class="pitch-pin-wrap" style="left:${xs[i]}%;bottom:${rp.bottom}%">${pin}</div>`;
+        cellsHtml += `<div class="pitch-cell" style="grid-row:${rg.row+1};grid-column:${col+1}">${pin}</div>`;
       });
     }
-    return `<div style="position:absolute;inset:0">${pins}</div>`;
+    return `<div class="pitch-grid">${cellsHtml}</div>`;
   }
 
   // ---- MODE CLÀSSIC: files horitzontals ----
