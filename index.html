@@ -553,6 +553,23 @@ function jornadaIndex(fase, jornada) {
 }
 const PHASE_JORN_LABEL = {grups:true, r16:false, r8:false, qf:false, sf:false, final:false};
 const PHASE_ICONS = {grups:'⚽', r16:'🔵', r8:'⚡', qf:'🟠', sf:'🔴', final:'🏆'};
+
+// Retorna totes les fase+jornada ESTRICTAMENT ANTERIORS a la donada, en ordre
+// cronològic (de la més antiga a la més recent), amb el format original
+// (no normalitzat) per mostrar-les a la UI. Útil per construir desplegables
+// d'històric de capitans/cartes de jornades ja tancades.
+function getJornadesAnteriors(fase, jornada) {
+  const targetIdx = jornadaIndex(fase, jornada);
+  if (targetIdx <= 0) return [];
+  const result = [];
+  for (const ph of PHASES) {
+    for (const jorn of PHASE_JORNADES[ph] || []) {
+      const idx = jornadaIndex(ph, jorn);
+      if (idx >= 0 && idx < targetIdx) result.push({ fase: ph, jornada: jorn });
+    }
+  }
+  return result;
+}
 const PHASE_COLORS = {grups:'seg-grp', r16:'seg-16', r8:'seg-r8', qf:'seg-qf', sf:'seg-sf', final:'seg-fin'};
 
 // Google Sheets API — lectura pública
@@ -1685,8 +1702,8 @@ let _activeJornada = 'J1';
 
 function selectTeam(participant) {
   _activeParticipant = participant;
-  _activePhase = 'grups';
-  _activeJornada = 'J1';
+  _activePhase = FASE_ACTIVA_GLOBAL || 'grups';
+  _activeJornada = JORNADA_ACTIVA_GLOBAL || 'J1';
   const sel = document.getElementById('teamSelect');
   if (sel && sel.value !== participant) sel.value = participant;
   _renderTeamFull();
@@ -1694,7 +1711,7 @@ function selectTeam(participant) {
 
 function selectPhase(phase) {
   _activePhase = phase;
-  _activeJornada = 'J1';
+  _activeJornada = (norm(phase) === norm(FASE_ACTIVA_GLOBAL)) ? (JORNADA_ACTIVA_GLOBAL || 'J1') : 'J1';
   _renderTeamFull();
 }
 
@@ -2811,6 +2828,31 @@ function rRenderMain(rPlayers, rCapitaActiva, rCapitaSeleccio, allCapRows) {
     },100);
   }
 
+  // Desplegable d'històric de capitans de jornades anteriors (tancat per defecte)
+  const jornadesAntCap = getJornadesAnteriors(FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
+  const histCapHtml = jornadesAntCap.length ? `
+    <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;margin-bottom:1rem;overflow:hidden">
+      <button onclick="toggleDetail('histCapitansBox')" style="width:100%;background:none;border:none;display:flex;align-items:center;justify-content:space-between;padding:0.9rem 1.2rem;cursor:pointer;font-family:'Space Mono',monospace;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold)">
+        <span>📜 Històric de capitans (jornades anteriors)</span>
+        <span style="font-size:0.9rem">▾</span>
+      </button>
+      <div id="histCapitansBox" class="pitch-detail" style="margin:0;border-radius:0;padding:0 1.2rem 1rem">
+        ${jornadesAntCap.map(({fase, jornada}) => {
+          const lbl = `${PHASE_LABELS[fase]||fase} ${jornada}`;
+          const slot = capitansSlot(fase, jornada);
+          const entries = Object.entries(slot);
+          if (!entries.length) return `<div style="margin-top:0.8rem"><div style="font-size:0.75rem;color:var(--silver);margin-bottom:0.3rem">${lbl}</div><div style="font-size:0.78rem;color:rgba(255,255,255,0.3);padding:0.4rem 0">Sense capitans registrats</div></div>`;
+          // Recupera el nom "bonic" del participant a partir d'allCapRows si cal, sinó usa la clau normalitzada
+          const items = entries.map(([pNorm, cap]) => {
+            const realName = (allCapRows||[]).find(r => norm(v(r,'Participant'))===pNorm);
+            const dispName = realName ? v(realName,'Participant') : pNorm.toUpperCase();
+            return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.8rem"><span style="color:var(--silver)">${dispName}</span><strong style="color:var(--white)">${cap}</strong></div>`;
+          }).join('');
+          return `<div style="margin-top:0.8rem"><div style="font-size:0.75rem;color:var(--silver);margin-bottom:0.3rem">${lbl}</div>${items}</div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
   // Panel jornada activa (revelada)
   const panelActiva = `
     <div style="background:var(--glass);border:1px solid rgba(245,200,66,0.3);border-radius:16px;padding:1.2rem 1.5rem;margin-bottom:1rem">
@@ -2875,6 +2917,7 @@ function rRenderMain(rPlayers, rCapitaActiva, rCapitaSeleccio, allCapRows) {
     </div>
     <div style="text-align:center;margin-bottom:0.8rem;font-size:0.78rem">${cdLabelTop}</div>
     ${testBanner}
+    ${histCapHtml}
     ${panelActiva}
     ${panelSeleccio}
     ${panelSameJornada}`;
@@ -3245,7 +3288,42 @@ function cRenderCartaDual(cartaActiva, cartaSeleccio, historial, isSameJ, faseSe
       </div>`;}).join('')}
     </div>` : '';
 
+  // Desplegable d'històric de cartes de jornades anteriors (tancat per defecte)
+  const jornadesAntCar = getJornadesAnteriors(FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
+  const histCarHtml = jornadesAntCar.length ? `
+    <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;margin-bottom:1rem;overflow:hidden">
+      <button onclick="toggleDetail('histCartesBox')" style="width:100%;background:none;border:none;display:flex;align-items:center;justify-content:space-between;padding:0.9rem 1.2rem;cursor:pointer;font-family:'Space Mono',monospace;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold)">
+        <span>📜 Històric de cartes (jornades anteriors)</span>
+        <span style="font-size:0.9rem">▾</span>
+      </button>
+      <div id="histCartesBox" class="pitch-detail" style="margin:0;border-radius:0;padding:0 1.2rem 1rem">
+        ${jornadesAntCar.map(({fase, jornada}) => {
+          const lbl = `${PHASE_LABELS[fase]||fase} ${jornada}`;
+          const slot = cartesSlot(fase, jornada);
+          const entries = Object.entries(slot);
+          if (!entries.length) return `<div style="margin-top:0.8rem"><div style="font-size:0.75rem;color:var(--silver);margin-bottom:0.3rem">${lbl}</div><div style="font-size:0.78rem;color:rgba(255,255,255,0.3);padding:0.4rem 0">Sense cartes gastades</div></div>`;
+          const items = entries.map(([pNorm, cData]) => {
+            const def = CARTES_DEF[cData.carta]||{icon:'🃏',color:'#F5C842'};
+            const dispName = pNorm.toUpperCase();
+            let detail='';
+            if(cData.detall?.rival) detail+=` → <strong style="color:var(--white)">${cData.detall.rival}</strong>`;
+            if(cData.detall?.jugador && !cData.detall?.jugador_meu) detail+=` (${cData.detall.jugador})`;
+            if(cData.detall?.jugador_meu && cData.detall?.jugador_rival) detail+=` (<strong>${cData.detall.jugador_meu}</strong> × <strong>${cData.detall.jugador_rival}</strong>)`;
+            const cartaLbl = cData.via_comodi ? `Comodí → ${cData.carta}` : cData.carta;
+            return `<div style="display:flex;align-items:center;gap:0.5rem;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.8rem">
+              <span>${def.icon}</span>
+              <span style="color:var(--silver)">${dispName}</span>
+              <strong style="color:${def.color||'var(--gold)'}">${cartaLbl}</strong>
+              <span style="color:var(--silver);font-size:0.75rem">${detail}</span>
+            </div>`;
+          }).join('');
+          return `<div style="margin-top:0.8rem"><div style="font-size:0.75rem;color:var(--silver);margin-bottom:0.3rem">${lbl}</div>${items}</div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
   let html = header;
+  html += histCarHtml;
   if (isSameJ) {
     // Mateixa jornada: la selecció és per a la jornada actual
     html += renderCartaPanel(cartaActiva, `🎰 Carta ${labelAct}`, '#F5C842', true);
