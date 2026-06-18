@@ -1086,6 +1086,50 @@ function calcParticipantGoals(participant) {
     .reduce((sum, r) => sum + (parseInt(v(r,'Gols') || 0)), 0);
 }
 
+// Puntuació "crua": suma de tots els jugadors de l'equip, totes les jornades,
+// SENSE efectes de capità ni cartes — criteri de desempat #1
+function calcParticipantTotalCrua(participant) {
+  const k = 'totalcrua_' + participant;
+  if (_cache[k] !== undefined) return _cache[k];
+  let total = 0;
+  for (const ph of PHASES) {
+    for (const jorn of PHASE_JORNADES[ph] || []) {
+      const jornPlayers = getPlayersForPhase(participant, ph, jorn);
+      for (const pl of jornPlayers) {
+        const jugador = v(pl,'Jugador');
+        const pos = v(pl,'Posicio') || 'DAV';
+        const sc = getScoreEfectiu(participant, jugador, ph, jorn);
+        const pts = calcScoreRowCrua(sc, pos);
+        if (pts !== null) total += pts;
+      }
+    }
+  }
+  _cache[k] = total;
+  return total;
+}
+
+// Puntuació individual més alta entre tots els jugadors de l'equip, en una sola
+// jornada (puntuació efectiva, amb capità/cartes) — criteri de desempat #3
+function calcParticipantMaxJugador(participant) {
+  const k = 'maxjug_' + participant;
+  if (_cache[k] !== undefined) return _cache[k];
+  let max = -Infinity;
+  for (const ph of PHASES) {
+    for (const jorn of PHASE_JORNADES[ph] || []) {
+      const jornPlayers = getPlayersForPhase(participant, ph, jorn);
+      for (const pl of jornPlayers) {
+        const jugador = v(pl,'Jugador');
+        const pos = v(pl,'Posicio') || 'DAV';
+        const sc = getScoreEfectiu(participant, jugador, ph, jorn);
+        const pts = calcScoreRow(sc, pos, jugador, ph, jorn, participant);
+        if (pts !== null && pts > max) max = pts;
+      }
+    }
+  }
+  _cache[k] = max === -Infinity ? 0 : max;
+  return _cache[k];
+}
+
 // Suma genèrica d'una columna de Puntuacions per a un participant
 function calcParticipantStat(participant, col) {
   if (!gData) return 0;
@@ -1101,7 +1145,9 @@ function getRanking() {
     .map(p => ({
       name: p,
       total: calcParticipantTotal(p),
+      totalCrua: calcParticipantTotalCrua(p),
       goals: calcParticipantGoals(p),
+      maxJugador: calcParticipantMaxJugador(p),
       penals: calcParticipantStat(p, 'Penalti'),
       assists: calcParticipantStat(p, 'Assistencies'),
       grogues: calcParticipantStat(p, 'DobleGroga'),
@@ -1120,7 +1166,14 @@ function getRanking() {
         return a;
       }, {})
     }))
-    .sort((a, b) => b.total - a.total || b.goals - a.goals);
+    // Criteri principal: puntuació total (amb efectes). Empat ->
+    // 1) puntuació crua (sense capità/cartes), 2) gols acumulats, 3) millor jugador individual
+    .sort((a, b) =>
+      b.total - a.total ||
+      b.totalCrua - a.totalCrua ||
+      b.goals - a.goals ||
+      b.maxJugador - a.maxJugador
+    );
   return _cache.ranking;
 }
 
