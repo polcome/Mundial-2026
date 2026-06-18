@@ -934,6 +934,38 @@ function changeFaseToPhase(rawFase) {
 
 // jornada és opcional: si no es passa, s'agafa la ÚLTIMA jornada d'aquella fase
 // (compatibilitat amb crides antigues que volen "tota la fase")
+// ============================================================
+// ROL EFECTIU PER JORNADA
+// A la pestanya "Jugadors" cada fila pot tenir, a més de la columna
+// "Rol" (valor per defecte), columnes opcionals "Rol_<fase>_<jornada>"
+// (ex: Rol_grups_j1, Rol_grups_j2, Rol_r16_e1...) que permeten registrar
+// un canvi de sistema sense reescriure l'històric: només s'omple la
+// columna de la jornada on canvia; les jornades anteriors no es toquen.
+// Resolució: busca la columna exacta de la jornada demanada; si és buida,
+// retrocedeix jornada a jornada fins trobar-ne una amb valor; si cap en
+// té, fa servir la columna "Rol" base.
+function rolColKey(row, fase, jornada) {
+  const target = norm(`rol_${fase}_${jornada}`).replace(/\s+/g, '');
+  for (const key of Object.keys(row)) {
+    if (norm(key).replace(/\s+/g, '') === target) return key;
+  }
+  return null;
+}
+function getRolEfectiu(playerRow, fase, jornada) {
+  if (!playerRow) return '';
+  const idx = jornadaIndex(fase, jornada);
+  if (idx >= 0) {
+    // Retrocedeix des de la jornada demanada fins J1/E1 de l'inici, buscant valor
+    for (let i = idx; i >= 0; i--) {
+      const [fFase, fJorn] = ALL_JORNADES_ORDER[i].split('_');
+      const key = rolColKey(playerRow, fFase, fJorn);
+      const val = key ? v(playerRow, key) : '';
+      if (val) return val.toUpperCase().trim();
+    }
+  }
+  return (v(playerRow, 'Rol') || '').toUpperCase().trim();
+}
+
 function getPlayersForPhase(participant, phase, jornada) {
   if (!jornada) {
     const jorns = PHASE_JORNADES[phase] || [];
@@ -1316,7 +1348,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
 
   for (const pl of phasePlayers) {
     const pos = (v(pl,'Posicio')||'MIG').toUpperCase();
-    const rol = (v(pl,'Rol')||'').toUpperCase().trim();
+    const rol = getRolEfectiu(pl, phase, jornada);
     const nom = v(pl,'Jugador');
     const key = ['POR','DEF','MIG','DAV'].includes(pos) ? pos : 'MIG';
     byPos[key].push(nom);
@@ -1339,7 +1371,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
   function renderRolMode() {
     // Jugadors sense rol -> afegits al byRol de la seva posicio generica
     const noRol = phasePlayers.filter(pl => {
-      const rol = (v(pl,'Rol')||'').toUpperCase().trim();
+      const rol = getRolEfectiu(pl, phase, jornada);
       return !byRolNum[v(pl,'Jugador')] && (!rol || !ROL_GRID[rol]);
     });
     const genericRows = {POR:'POR', DEF:'CEN', MIG:'MC', DAV:'DC'};
@@ -2141,7 +2173,8 @@ function renderAdminPanel() {
         <strong>Participants</strong><br>
         <code style="font-size:0.75rem;background:rgba(255,255,255,0.07);padding:2px 6px;border-radius:4px">Nom</code><br><br>
         <strong>Jugadors</strong><br>
-        <code style="font-size:0.75rem;background:rgba(255,255,255,0.07);padding:2px 6px;border-radius:4px">Participant | Jugador | Equip | Posicio</code><br><br>
+        <code style="font-size:0.75rem;background:rgba(255,255,255,0.07);padding:2px 6px;border-radius:4px">Participant | Jugador | Equip | Posicio | Rol</code><br>
+        <span style="font-size:0.72rem;opacity:0.75">+ columnes opcionals <code style="background:rgba(255,255,255,0.07);padding:1px 4px;border-radius:3px">Rol_grups_j1, Rol_grups_j2, Rol_grups_j3, Rol_r16_e1, Rol_r8_e1, Rol_qf_e1, Rol_sf_e1, Rol_final_e1</code> — només cal omplir la cel·la de la jornada en què canvia el rol d'un jugador; si la deixes buida, es manté el rol de la jornada anterior (i si totes estan buides, s'usa la columna "Rol" base).</span><br><br>
         <strong>Puntuacions</strong><br>
         <code style="font-size:0.75rem;background:rgba(255,255,255,0.07);padding:2px 6px;border-radius:4px">Participant | Jugador | Fase | Jornada | Nota | Gols | Assistencies</code><br><br>
         <strong>Canvis</strong><br>
