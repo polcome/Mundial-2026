@@ -1051,10 +1051,11 @@ function getScoreEfectiu(participant, jugador, fase, jornada) {
 
 // Retorna true si el jugador ha estat intercanviat per carta
 function isJugadorCanviat(participant, jugador, fase, jornada) {
-  const canvi = getCanviInfo(participant, fase, jornada);
-  if (!canvi) return false;
-  if (norm(participant) === norm(canvi.participant)) return norm(jugador) === norm(canvi.jugadorMeu);
-  return norm(jugador) === norm(canvi.jugadorRival);
+  const canvis = getCanviInfo(participant, fase, jornada);
+  return canvis.some(canvi => {
+    if (norm(participant) === norm(canvi.participant)) return norm(jugador) === norm(canvi.jugadorMeu);
+    return norm(jugador) === norm(canvi.jugadorRival);
+  });
 }
 
 function getChanges(participant) {
@@ -1594,8 +1595,8 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
     // Canvi jugador — prepend banner (no substitueix les línies de stats)
     let canviBanner = '';
     if (participant) {
-      const canviDet = getCanviInfo(participant, phase, jornada);
-      if (canviDet) {
+      const canvisDet = getCanviInfo(participant, phase, jornada);
+      for (const canviDet of canvisDet) {
         const isMeuDet = norm(participant)===norm(canviDet.participant)&&norm(name)===norm(canviDet.jugadorMeu);
         const isRivalDet = norm(participant)===norm(canviDet.rival)&&norm(name)===norm(canviDet.jugadorRival);
         const jugadorEf = isMeuDet ? canviDet.jugadorRival : isRivalDet ? canviDet.jugadorMeu : null;
@@ -1604,6 +1605,7 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
             <span style="color:#60A5FA;font-weight:700;font-size:0.82rem">🔀 Carta: Canvi de jugador</span>
             <span style="color:var(--silver);font-size:0.75rem">Puntua <strong style="color:var(--white)">${jugadorEf}</strong> (intercanviat per carta rival)</span>
           </div>`;
+          break;
         }
       }
     }
@@ -1935,12 +1937,12 @@ function openPlayerCard(name, participant, phase, jornada) {
   // Canvi jugador info
   let canviCardInfo = null;
   if (participant) {
-    const canviCard = getCanviInfo(participant, phase, jornada);
-    if (canviCard) {
+    const canvisCard = getCanviInfo(participant, phase, jornada);
+    for (const canviCard of canvisCard) {
       const isMeuCard = norm(participant)===norm(canviCard.participant)&&norm(name)===norm(canviCard.jugadorMeu);
       const isRivalCard = norm(participant)===norm(canviCard.rival)&&norm(name)===norm(canviCard.jugadorRival);
-      if (isMeuCard) canviCardInfo = {jugadorEfectiu: canviCard.jugadorRival, rival: canviCard.rival, tipus:'sortint'};
-      if (isRivalCard) canviCardInfo = {jugadorEfectiu: canviCard.jugadorMeu, rival: canviCard.participant, tipus:'entrant'};
+      if (isMeuCard) { canviCardInfo = {jugadorEfectiu: canviCard.jugadorRival, rival: canviCard.rival, tipus:'sortint'}; break; }
+      if (isRivalCard) { canviCardInfo = {jugadorEfectiu: canviCard.jugadorMeu, rival: canviCard.participant, tipus:'entrant'}; break; }
     }
   }
   const noDataMsg = !sc ? '<div style="color:var(--silver);font-size:0.82rem;opacity:0.7;text-align:center;padding:0.5rem 0">Sense puntuació registrada</div>' : '';
@@ -3083,37 +3085,46 @@ function isSegonCapita(participant, jugador, fase, jornada) {
 }
 
 // Retorna {rival, jugadorMeu, jugadorRival} si hi ha canvi actiu per a participant
+// Retorna TOTS els canvis de jugador (carta "Canvi jugador rival") que afecten
+// aquest participant en la fase/jornada donada: tant si ELL té la carta activa
+// contra algú (com a "atacant"), com si ALGÚ ALTRE l'ha triat com a rival seu
+// (com a "víctima"). Un mateix participant pot ser alhora atacant d'un canvi i
+// víctima d'un altre canvi diferent en la mateixa jornada — per això es
+// retorna sempre un array, mai un sol objecte.
 function getCanviInfo(participant, fase, jornada) {
   const cartesMap = cartesSlot(fase, jornada);
-  // El participant ha usat la carta de canvi
+  const result = [];
+  // El participant ha usat la seva pròpia carta de canvi (és l'atacant)
   const cartaP = cartesMap[norm(participant)];
   if (cartaP?.carta === 'Canvi jugador rival') {
-    return { participant, rival: cartaP.detall?.rival, jugadorMeu: cartaP.detall?.jugador_meu, jugadorRival: cartaP.detall?.jugador_rival };
+    result.push({ participant, rival: cartaP.detall?.rival, jugadorMeu: cartaP.detall?.jugador_meu, jugadorRival: cartaP.detall?.jugador_rival });
   }
-  // Un rival ha usat la carta de canvi contra aquest participant
+  // Un o més rivals han usat la carta de canvi contra aquest participant (és la víctima)
   for (const [pNorm, rc] of Object.entries(cartesMap)) {
+    if (pNorm === norm(participant)) continue; // ja l'hem afegit a dalt si era el seu cas
     if (rc.carta === 'Canvi jugador rival' && norm(rc.detall?.rival||'') === norm(participant)) {
-      return { participant: pNorm, rival: participant, jugadorMeu: rc.detall?.jugador_meu, jugadorRival: rc.detall?.jugador_rival };
+      result.push({ participant: pNorm, rival: participant, jugadorMeu: rc.detall?.jugador_meu, jugadorRival: rc.detall?.jugador_rival });
     }
   }
-  return null;
+  return result;
 }
 
 // Per a un jugador en un equip, retorna el jugador "real" que puntua (aplicant canvis)
 // Si el jugador ha estat intercanviat, retorna el jugador que ve de l'altre equip
 function getJugadorEfectiu(participant, jugador, fase, jornada) {
-  const canvi = getCanviInfo(participant, fase, jornada);
-  if (!canvi) return { jugador, participant, canviat: false };
-  // participant és el "propietari" de la carta
-  if (norm(participant) === norm(canvi.participant)) {
-    // Soc el que té la carta: el meu jugador (jugadorMeu) és substituït pel rival (jugadorRival)
-    if (norm(jugador) === norm(canvi.jugadorMeu)) {
-      return { jugador: canvi.jugadorRival, participant: canvi.rival, canviat: true, jugadorOriginal: canvi.jugadorMeu, rival: canvi.rival };
-    }
-  } else {
-    // Soc el rival: el meu jugador (jugadorRival) és substituït pel del qui té la carta (jugadorMeu)
-    if (norm(jugador) === norm(canvi.jugadorRival)) {
-      return { jugador: canvi.jugadorMeu, participant: canvi.participant, canviat: true, jugadorOriginal: canvi.jugadorRival, rival: canvi.participant };
+  const canvis = getCanviInfo(participant, fase, jornada);
+  for (const canvi of canvis) {
+    // participant és el "propietari" de la carta
+    if (norm(participant) === norm(canvi.participant)) {
+      // Soc el que té la carta: el meu jugador (jugadorMeu) és substituït pel rival (jugadorRival)
+      if (norm(jugador) === norm(canvi.jugadorMeu)) {
+        return { jugador: canvi.jugadorRival, participant: canvi.rival, canviat: true, jugadorOriginal: canvi.jugadorMeu, rival: canvi.rival };
+      }
+    } else {
+      // Soc el rival: el meu jugador (jugadorRival) és substituït pel del qui té la carta (jugadorMeu)
+      if (norm(jugador) === norm(canvi.jugadorRival)) {
+        return { jugador: canvi.jugadorMeu, participant: canvi.participant, canviat: true, jugadorOriginal: canvi.jugadorRival, rival: canvi.participant };
+      }
     }
   }
   return { jugador, participant, canviat: false };
