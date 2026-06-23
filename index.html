@@ -3135,14 +3135,14 @@ function getJugadorEfectiu(participant, jugador, fase, jornada) {
     if (norm(participant) === norm(canvi.participant)) {
       // Soc el que té la carta: el meu jugador (jugadorMeu) és substituït pel rival (jugadorRival)
       if (norm(jugador) === norm(canvi.jugadorMeu)) {
-        // Si el meu jugador cedit té escut, la carta queda nul·la completament (Opció A)
-        if (teEscut(participant, jugador, fase, jornada)) return { jugador, participant, canviat: false };
+        // Si el jugador rival que vull prendre té escut → carta nul·la, mantinc el meu (Opció A)
+        if (teEscut(canvi.rival, canvi.jugadorRival, fase, jornada)) return { jugador, participant, canviat: false };
         return { jugador: canvi.jugadorRival, participant: canvi.rival, canviat: true, jugadorOriginal: canvi.jugadorMeu, rival: canvi.rival };
       }
     } else {
       // Soc el rival: el meu jugador (jugadorRival) és substituït pel del qui té la carta (jugadorMeu)
       if (norm(jugador) === norm(canvi.jugadorRival)) {
-        // Si el meu jugador que volen prendre té escut, la carta queda nul·la completament (Opció A)
+        // Si el meu jugador té escut → carta nul·la, mantinc el meu (Opció A)
         if (teEscut(participant, jugador, fase, jornada)) return { jugador, participant, canviat: false };
         return { jugador: canvi.jugadorMeu, participant: canvi.participant, canviat: true, jugadorOriginal: canvi.jugadorRival, rival: canvi.participant };
       }
