@@ -3519,6 +3519,7 @@ function cRenderAccio(accio) {
         🛡️ El jugador triat no podrà ser <strong style="color:#38BDF8">anulat</strong>, <strong style="color:#38BDF8">intercanviat</strong> ni tenir el seu efecte de <strong style="color:#38BDF8">capità anulat</strong> per cartes rivals durant aquesta jornada.
       </div>`,
       '🛡️ Activar Escut','background:linear-gradient(135deg,#0369A1,#38BDF8);color:white',"cConfirmarForm('blindar_jugador')");
+    case 'gol_doble': return panel('⚽ Gol Doble',`<p style="font-size:0.85rem;color:var(--silver);margin-bottom:1rem">Tots els gols valen el doble.</p>`,'⚽ Activar','background:linear-gradient(135deg,#15803D,#22C55E);color:white',"cConfirmar({carta:'Gol doble'})");
     case 'comodi': return cRenderComodi();
     default: return `<p style="color:var(--silver)">${accio}</p>`;
   }
