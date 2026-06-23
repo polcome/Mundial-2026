@@ -3184,7 +3184,7 @@ const CARTES_DEF = {
   'Doble capita':        {icon:'⭐',color:'#FBBF24',desc:'Tens dos capitans. El segon jugador també puntua ×2.',accio:'doble_capita'},
   'Gol doble':           {icon:'⚽',color:'#4ADE80',desc:'Tots els gols del teu equip valen el doble de punts.',accio:'gol_doble'},
   'Blindar jugador':     {icon:'🛡️',color:'#38BDF8',desc:'Protegeix un jugador teu durant la jornada: no pot ser anulat, intercanviat ni tenir el seu efecte de capità anulat per cap carta rival.',accio:'blindar_jugador'},
-  'Comodi':              {icon:'🃏',color:'#C084FC',desc:"Tries qualsevol de les altres 8 cartes.",accio:'comodi'},
+  'Comodi':              {icon:'🃏',color:'#F472B6',desc:"Tries qualsevol de les altres 8 cartes.",accio:'comodi'},
 };
 let cParticipant='', cCartaData=null, cComodiSel='', cAllPlayers={};
 
@@ -3739,11 +3739,10 @@ function cRenderRuletaCartes() {
   } else {
     // Finestra oberta — mostra la roda
     const cartaNames = Object.keys(CARTES_DEF);
-    const nCartes = cartaNames.length; // 8
+    const nCartes = cartaNames.length;
     const sliceAngle = 360 / nCartes;
-    const colors = ['#F5C842','#F87171','#FB923C','#60A5FA','#A78BFA','#FBBF24','#4ADE80','#C084FC'];
 
-    // SVG wheel
+    // SVG wheel — usa els colors de CARTES_DEF directament (sempre sincronitzat amb el nº de cartes)
     const cx = 150, cy = 150, r = 130, rText = 90;
     let paths = '';
     let texts = '';
@@ -3755,7 +3754,8 @@ function cRenderRuletaCartes() {
       const x2 = cx + r * Math.cos(endAngle);
       const y2 = cy + r * Math.sin(endAngle);
       const def = CARTES_DEF[carta];
-      paths += `<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 0,1 ${x2},${y2} Z" fill="${colors[i]}" stroke="#0A0F1E" stroke-width="2" opacity="0.9"/>`;
+      const segColor = def.color || '#C084FC';
+      paths += `<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 0,1 ${x2},${y2} Z" fill="${segColor}" stroke="#0A0F1E" stroke-width="2" opacity="0.9"/>`;
       // Text al mig del segment
       const midAngle = ((i + 0.5) * sliceAngle - 90) * Math.PI / 180;
       const tx = cx + rText * Math.cos(midAngle);
