@@ -1603,6 +1603,9 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
         const isRivalDet = norm(participant)===norm(canviDet.rival)&&norm(name)===norm(canviDet.jugadorRival);
         const jugadorEf = isMeuDet ? canviDet.jugadorRival : isRivalDet ? canviDet.jugadorMeu : null;
         if (jugadorEf) {
+          // Comprova que el canvi realment s'ha aplicat (pot estar nul·lat per escut)
+          const ef = getJugadorEfectiu(participant, name, phase, jornada);
+          if (!ef.canviat) break; // Escut actiu — carta nul·la, no mostrar banner
           canviBanner = `<div class="detail-line" style="background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.3);border-radius:6px;padding:6px 8px;margin-bottom:4px;flex-direction:column;align-items:flex-start;gap:2px">
             <span style="color:#60A5FA;font-weight:700;font-size:0.82rem">🔀 Carta: Canvi de jugador</span>
             <span style="color:var(--silver);font-size:0.75rem">Puntua <strong style="color:var(--white)">${jugadorEf}</strong> (intercanviat per carta rival)</span>
@@ -1945,8 +1948,13 @@ function openPlayerCard(name, participant, phase, jornada) {
     for (const canviCard of canvisCard) {
       const isMeuCard = norm(participant)===norm(canviCard.participant)&&norm(name)===norm(canviCard.jugadorMeu);
       const isRivalCard = norm(participant)===norm(canviCard.rival)&&norm(name)===norm(canviCard.jugadorRival);
-      if (isMeuCard) { canviCardInfo = {jugadorEfectiu: canviCard.jugadorRival, rival: canviCard.rival, tipus:'sortint'}; break; }
-      if (isRivalCard) { canviCardInfo = {jugadorEfectiu: canviCard.jugadorMeu, rival: canviCard.participant, tipus:'entrant'}; break; }
+      if (isMeuCard || isRivalCard) {
+        // Comprova que el canvi realment s'ha aplicat (pot estar nul·lat per escut)
+        const ef = getJugadorEfectiu(participant, name, phase, jornada);
+        if (!ef.canviat) break; // Escut actiu — carta nul·la, no mostrar info
+        if (isMeuCard) { canviCardInfo = {jugadorEfectiu: canviCard.jugadorRival, rival: canviCard.rival, tipus:'sortint'}; break; }
+        if (isRivalCard) { canviCardInfo = {jugadorEfectiu: canviCard.jugadorMeu, rival: canviCard.participant, tipus:'entrant'}; break; }
+      }
     }
   }
   const noDataMsg = !sc ? '<div style="color:var(--silver);font-size:0.82rem;opacity:0.7;text-align:center;padding:0.5rem 0">Sense puntuació registrada</div>' : '';
