@@ -3065,16 +3065,30 @@ function jKey(fase, jornada) { return `${norm(fase)}_${norm(jornada)}`; }
 function capitansSlot(fase, jornada) { return _capitansMap[jKey(fase, jornada)] || {}; }
 function cartesSlot(fase, jornada) { return _cartesGastades[jKey(fase, jornada)] || {}; }
 
-// Retorna true si la jornada donada no s'ha revelat encara i per tant els efectes
-// de cartes i capitans s'han d'ocultar a tothom (excepte el propi participant).
-// S'aplica tant a la jornada activa com a la de selecció quan la finestra no ha obert.
+// Retorna true si la jornada donada NO s'ha revelat encara i per tant els efectes
+// de cartes i capitans s'han d'ocultar a tothom.
+// Una jornada és "oculta" si:
+//   - és la jornada de SELECCIÓ (la propera, encara no revelada), o
+//   - és la jornada ACTIVA però encara no ha revelat (JORNADA_REVELADA = false)
+// Les jornades PASSADES (ja revelades) sempre són visibles.
 function esJornadaOculta(fase, jornada) {
-  if (JORNADA_REVELADA) return false; // J2 ja revelada → tot visible
   const faseN = norm(fase), jorN = norm(jornada);
-  // Jornada activa no revelada → oculta
-  if (faseN === norm(FASE_ACTIVA_GLOBAL) && jorN === norm(JORNADA_ACTIVA_GLOBAL)) return true;
-  // Jornada de selecció (ex: J3 mentre J2 és activa) → sempre oculta fins que es reveli
-  if (faseN === norm(FASE_SELECCIO||FASE_ACTIVA_GLOBAL) && jorN === norm(JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL)) return true;
+  const faseActN = norm(FASE_ACTIVA_GLOBAL), jorActN = norm(JORNADA_ACTIVA_GLOBAL);
+  const faseSelN = norm(FASE_SELECCIO||FASE_ACTIVA_GLOBAL);
+  const jorSelN  = norm(JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL);
+
+  // Jornada de SELECCIÓ (ex: J3 mentre J2 és activa) → sempre oculta fins que sigui l'activa revelada
+  const esSeleccio = faseN === faseSelN && jorN === jorSelN;
+  // Jornada ACTIVA no revelada → oculta
+  const esActivaNoRevelada = faseN === faseActN && jorN === jorActN && !JORNADA_REVELADA;
+
+  // Si la jornada de selecció coincideix amb l'activa (cas normal quan no hi ha finestra anticipada),
+  // aplica la mateixa lògica: oculta si no revelada
+  if (esSeleccio && esActivaNoRevelada) return true;
+  if (esSeleccio && faseN !== faseActN) return true; // selecció d'una altra fase → oculta
+  if (esSeleccio && jorN !== jorActN) return true;   // selecció d'una altra jornada → oculta
+  if (esActivaNoRevelada) return true;
+
   return false;
 }
 
