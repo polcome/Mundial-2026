@@ -1322,20 +1322,23 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   // La foto va al fons (z-index 1), el 👤 de fallback a z-index 0 (queda amagat si hi ha foto)
   // scoreBubble i flagBadge van a z-index 10 per sobre de tot
   const pinP = participant||_activeParticipant;
-  const isCapita  = isCapitaAny(name, phase, jorn);
-  const isAnulat  = pinP && isJugadorAnulat(pinP, name, phase, jorn);
-  const isCap2    = pinP && isSegonCapita(pinP, name, phase, jorn);
-  const capAnulat = pinP && isCapita && isCapitaAnulat(pinP, phase, jorn); // Only 1st captain affected
+  // Si la jornada no s'ha revelat, no mostrem cap efecte de capità/cartes
+  // (ni al propi equip ni al dels rivals) per evitar que es pugui espiar
+  const jorOculta = esJornadaOculta(phase, jorn);
+  const isCapita  = !jorOculta && isCapitaAny(name, phase, jorn);
+  const isAnulat  = !jorOculta && pinP && isJugadorAnulat(pinP, name, phase, jorn);
+  const isCap2    = !jorOculta && pinP && isSegonCapita(pinP, name, phase, jorn);
+  const capAnulat = !jorOculta && pinP && isCapita && isCapitaAnulat(pinP, phase, jorn);
   const dispMult  = (isCapita&&pinP)?getCapitaDisplayMult(pinP, phase, jorn):(isCap2?2:0);
-  const isVerd    = dispMult===3||(pinP&&hasGolDoble(pinP, phase, jorn));
+  const isVerd    = dispMult===3||(!jorOculta&&pinP&&hasGolDoble(pinP, phase, jorn));
   const bCol      = isAnulat?'#F87171':isVerd?'#4ADE80':'var(--gold)';
   const ptsDisp   = isAnulat?0:pts;
   const scoreBubbleZ = ptsDisp!==null?`<div style="position:absolute;top:-7px;right:-7px;z-index:10;background:var(--ink);border:1.5px solid ${bCol};color:${bCol};font-family:'Space Mono',monospace;font-size:0.6rem;font-weight:700;padding:2px 5px;border-radius:5px;white-space:nowrap">${ptsDisp}</div>`:'';
   const badgeBg   = capAnulat?'rgba(245,200,66,0.4)':dispMult===3?'#22C55E':isCap2?'#22C55E':'var(--gold)';
   const captainBadgeZ = (isCapita||isCap2)?`<div style="position:absolute;top:-7px;left:-7px;z-index:10;background:${badgeBg};color:var(--ink);font-family:'Bebas Neue',cursive;font-size:0.55rem;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid var(--ink)">${capAnulat?'🚫':`x${dispMult}`}</div>`:'';
   const anulatBadgeZ = isAnulat?`<div style="position:absolute;inset:0;z-index:8;background:rgba(248,113,113,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="font-size:0.8rem">🚫</span></div>`:'';
-  const isCanviat = isJugadorCanviat(pinP, name, phase, jorn);
-  const isBlinded = pinP && teEscut(pinP, name, phase, jorn);
+  const isCanviat = !jorOculta && isJugadorCanviat(pinP, name, phase, jorn);
+  const isBlinded = !jorOculta && pinP && teEscut(pinP, name, phase, jorn);
   const canviBadgeZ = isCanviat ? `<div style="position:absolute;bottom:-8px;right:-6px;z-index:15;background:#60A5FA;color:var(--ink);font-size:0.55rem;font-weight:800;padding:1px 4px;border-radius:4px;border:1px solid var(--ink);font-family:'Space Mono',monospace">🔀</div>` : '';
   const escutBadgeZ = isBlinded ? `<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);z-index:15;background:#0EA5E9;color:#fff;font-size:0.7rem;padding:1px 5px;border-radius:4px;border:1px solid rgba(255,255,255,0.4)">🛡️</div>` : '';
   const flagBadgeZ = cs ? `<div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);z-index:10;background:${cs.color};color:#fff;font-size:0.58rem;font-weight:800;padding:1px 5px;border-radius:4px;font-family:'Space Mono',monospace;white-space:nowrap;border:1px solid rgba(255,255,255,0.3)">${cs.abbr}</div>` : '';
@@ -1614,11 +1617,11 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
         }
       }
     }
-    const isDetCap   = isCapitaAny(name, phase, jornada);
-    const isDetCap2  = participant && isSegonCapita(participant,name, phase, jornada);
+    const isDetCap   = !esJornadaOculta(phase,jornada) && isCapitaAny(name, phase, jornada);
+    const isDetCap2  = !esJornadaOculta(phase,jornada) && participant && isSegonCapita(participant,name, phase, jornada);
     const capAnulDet = participant && isDetCap && !isDetCap2 && isCapitaAnulat(participant, phase, jornada); // Only 1st captain
     const dMultDet   = (isDetCap&&participant)?getCapitaDisplayMult(participant, phase, jornada):(isDetCap2?2:0);
-    if (participant && isJugadorAnulat(participant, name, phase, jornada)) {
+    if (!esJornadaOculta(phase,jornada) && participant && isJugadorAnulat(participant, name, phase, jornada)) {
       detailLines = canviBanner + `<div class="detail-line" style="background:rgba(248,113,113,0.1);border-radius:6px;padding:6px 8px;justify-content:flex-start;gap:0.5rem">
         <span>🚫</span><span style="color:#F87171;font-size:0.78rem"><strong>Carta: Anulació de jugador</strong> — Puntua 0 aquesta jornada</span>
       </div>`;
@@ -1659,12 +1662,12 @@ function renderPitch(participant, phase, jornada, tryJ1Fallback) {
     const avatarList = photo2
       ? `<img src="${photo2}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.2);flex-shrink:0;cursor:pointer;transition:transform 0.15s" onclick="event.stopPropagation();openPhotoModal('${esc(photo2)}','${esc(name)}')" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'" onerror="this.style.display='none'">`
       : `<div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;border:2px solid rgba(255,255,255,0.15)">👤</div>`;
-    const isListCapita = isCapitaAny(name, phase, jornada);
-    const isListAnulat = participant && isJugadorAnulat(participant,name, phase, jornada);
-    const isListCap2   = participant && isSegonCapita(participant,name, phase, jornada);
+    const isListCapita = !esJornadaOculta(phase,jornada) && isCapitaAny(name, phase, jornada);
+    const isListAnulat = !esJornadaOculta(phase,jornada) && participant && isJugadorAnulat(participant,name, phase, jornada);
+    const isListCap2   = !esJornadaOculta(phase,jornada) && participant && isSegonCapita(participant,name, phase, jornada);
     const listMult     = (isListCapita&&participant)?getCapitaDisplayMult(participant, phase, jornada):(isListCap2?2:0);
-    const isListCanviat = participant && isJugadorCanviat(participant, name, phase, jornada);
-    const isListBlinded = participant && teEscut(participant, name, phase, jornada);
+    const isListCanviat = !esJornadaOculta(phase,jornada) && participant && isJugadorCanviat(participant, name, phase, jornada);
+    const isListBlinded = !esJornadaOculta(phase,jornada) && participant && teEscut(participant, name, phase, jornada);
     const listBg = isListAnulat?'border-color:rgba(248,113,113,0.4);background:rgba(248,113,113,0.05)':isListCanviat?'border-color:rgba(96,165,250,0.4);background:rgba(96,165,250,0.05)':isListBlinded?'border-color:rgba(56,189,248,0.4);background:rgba(56,189,248,0.05)':listMult===3?'border-color:rgba(34,197,94,0.4);background:rgba(34,197,94,0.05)':isListCap2?'border-color:rgba(34,197,94,0.4);background:rgba(34,197,94,0.05)':listMult>0?'border-color:rgba(245,200,66,0.4);background:rgba(245,200,66,0.05)':'';
     return `<div class="pitch-list-row" onclick="toggleDetail('${detailId}')" style="${listBg}">
       <div class="pitch-list-name" style="display:flex;align-items:center;gap:0.7rem">
@@ -1902,8 +1905,8 @@ function openPlayerCard(name, participant, phase, jornada) {
     ? `<img class="card-photo" src="${foto}" onerror="this.outerHTML='<div class=card-no-photo>👤</div>'">`
     : `<div class="card-no-photo">👤</div>`;
 
-  const isCardCapita = isCapitaAny(name, phase, jornada);
-  const isCardCap2   = participant && isSegonCapita(participant,name, phase, jornada);
+  const isCardCapita = !esJornadaOculta(phase,jornada) && isCapitaAny(name, phase, jornada);
+  const isCardCap2   = !esJornadaOculta(phase,jornada) && participant && isSegonCapita(participant,name, phase, jornada);
   const cardCapAnul  = participant && isCardCapita && !isCardCap2 && isCapitaAnulat(participant, phase, jornada);
   const cardDisp     = (isCardCapita&&participant)?getCapitaDisplayMult(participant, phase, jornada):(isCardCap2?2:0);
   const cardReal     = cardCapAnul?1:cardDisp;
@@ -1940,7 +1943,7 @@ function openPlayerCard(name, participant, phase, jornada) {
     })() : '',
   ].filter(Boolean).join('');
 
-  const isCardAnulat = participant && isJugadorAnulat(participant, name, phase, jornada);
+  const isCardAnulat = !esJornadaOculta(phase,jornada) && participant && isJugadorAnulat(participant, name, phase, jornada);
   // Canvi jugador info
   let canviCardInfo = null;
   if (participant) {
@@ -3061,6 +3064,19 @@ function rLogout() {
 function jKey(fase, jornada) { return `${norm(fase)}_${norm(jornada)}`; }
 function capitansSlot(fase, jornada) { return _capitansMap[jKey(fase, jornada)] || {}; }
 function cartesSlot(fase, jornada) { return _cartesGastades[jKey(fase, jornada)] || {}; }
+
+// Retorna true si la jornada donada no s'ha revelat encara i per tant els efectes
+// de cartes i capitans s'han d'ocultar a tothom (excepte el propi participant).
+// S'aplica tant a la jornada activa com a la de selecció quan la finestra no ha obert.
+function esJornadaOculta(fase, jornada) {
+  if (JORNADA_REVELADA) return false; // J2 ja revelada → tot visible
+  const faseN = norm(fase), jorN = norm(jornada);
+  // Jornada activa no revelada → oculta
+  if (faseN === norm(FASE_ACTIVA_GLOBAL) && jorN === norm(JORNADA_ACTIVA_GLOBAL)) return true;
+  // Jornada de selecció (ex: J3 mentre J2 és activa) → sempre oculta fins que es reveli
+  if (faseN === norm(FASE_SELECCIO||FASE_ACTIVA_GLOBAL) && jorN === norm(JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL)) return true;
+  return false;
+}
 
 function getCapitaMultiplier(participant, fase, jornada) {
   const capMap = capitansSlot(fase, jornada);
