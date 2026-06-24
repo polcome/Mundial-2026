@@ -3335,11 +3335,16 @@ function cRenderCartaDual(cartaActiva, cartaSeleccio, historial, isSameJ, faseSe
       if (!gastada) return '';
       let d='';
       // Cerca el detall per fase+jornada+carta per evitar confondre jornades amb la mateixa carta
+      const targetFase = isSeleccio ? norm(faseSel) : norm(FASE_ACTIVA_GLOBAL);
+      const targetJorn = isSeleccio ? norm(jorSel) : norm(JORNADA_ACTIVA_GLOBAL);
+      console.log('[detall] isSeleccio:', isSeleccio, 'cerca:', targetFase, targetJorn, cartaData.carta);
+      console.log('[detall] historial:', historial.map(h=>({fase:norm(h.fase),jornada:norm(h.jornada),carta:h.carta,detall:h.detall})));
       const jornadaMatch = historial.find(h=>
         norm(h.carta)===norm(cartaData.carta) &&
-        norm(h.fase)===(isSeleccio ? norm(faseSel) : norm(FASE_ACTIVA_GLOBAL)) &&
-        norm(h.jornada)===(isSeleccio ? norm(jorSel) : norm(JORNADA_ACTIVA_GLOBAL))
+        norm(h.fase)===targetFase &&
+        norm(h.jornada)===targetJorn
       );
+      console.log('[detall] match:', jornadaMatch);
       try{const p=JSON.parse(jornadaMatch?.detall||'{}');
         if(p.rival)d+=` → <strong>${p.rival}</strong>`;
         if(p.jugador)d+=` (${p.jugador})`;
