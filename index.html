@@ -2354,15 +2354,18 @@ async function reloadData() {
     });
     // Filtra privacitat: jornada activa si no revelada; jornada selecció sempre si diferent
     const savedC=sessionStorage.getItem('cartes_auth');
+    const savedR2=sessionStorage.getItem('ruleta_auth');
     const myC=savedC?norm(savedC):null;
+    const myR2=savedR2?norm(savedR2):null;
+    const isMineC=(p)=>(myC&&p===myC)||(myR2&&p===myR2);
     const activeKey = jKey(FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
     const selKey = jKey(FASE_SELECCIO||FASE_ACTIVA_GLOBAL, JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL);
     if(!JORNADA_REVELADA && _cartesGastades[activeKey]){
-      Object.keys(_cartesGastades[activeKey]).forEach(p=>{if(p!==myC)delete _cartesGastades[activeKey][p];});
-      _cartesLog=_cartesLog.filter(l=>norm(l.participant)===myC);
+      Object.keys(_cartesGastades[activeKey]).forEach(p=>{if(!isMineC(p))delete _cartesGastades[activeKey][p];});
+      _cartesLog=_cartesLog.filter(l=>isMineC(norm(l.participant)));
     }
     if(selKey !== activeKey && _cartesGastades[selKey]){
-      Object.keys(_cartesGastades[selKey]).forEach(p=>{if(p!==myC)delete _cartesGastades[selKey][p];});
+      Object.keys(_cartesGastades[selKey]).forEach(p=>{if(!isMineC(p))delete _cartesGastades[selKey][p];});
     }
   } catch(e){console.warn('Cartes reload:',e);}
 
@@ -2392,14 +2395,17 @@ async function reloadData() {
     });
     // Filtra privacitat: jornada activa si no revelada; jornada selecció sempre si diferent
     const savedA=sessionStorage.getItem('ruleta_auth');
+    const savedC2=sessionStorage.getItem('cartes_auth');
     const myA=savedA?norm(savedA):null;
+    const myC2=savedC2?norm(savedC2):null;
+    const isMineA=(p)=>(myA&&p===myA)||(myC2&&p===myC2);
     const activeKeyC = jKey(FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
     const selKeyC = jKey(FASE_SELECCIO||FASE_ACTIVA_GLOBAL, JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL);
     if(!JORNADA_REVELADA && _capitansMap[activeKeyC]){
-      Object.keys(_capitansMap[activeKeyC]).forEach(p=>{if(p!==myA)delete _capitansMap[activeKeyC][p];});
+      Object.keys(_capitansMap[activeKeyC]).forEach(p=>{if(!isMineA(p))delete _capitansMap[activeKeyC][p];});
     }
     if(selKeyC !== activeKeyC && _capitansMap[selKeyC]){
-      Object.keys(_capitansMap[selKeyC]).forEach(p=>{if(p!==myA)delete _capitansMap[selKeyC][p];});
+      Object.keys(_capitansMap[selKeyC]).forEach(p=>{if(!isMineA(p))delete _capitansMap[selKeyC][p];});
     }
   } catch(e){console.warn('Capitans reload:',e);}
 
@@ -3328,7 +3334,13 @@ function cRenderCartaDual(cartaActiva, cartaSeleccio, historial, isSameJ, faseSe
     const detall = (() => {
       if (!gastada) return '';
       let d='';
-      try{const p=JSON.parse(historial.find(h=>h.carta===cartaData.carta)?.detall||'{}');
+      // Cerca el detall per fase+jornada+carta per evitar confondre jornades amb la mateixa carta
+      const jornadaMatch = historial.find(h=>
+        norm(h.carta)===norm(cartaData.carta) &&
+        norm(h.fase)===(isSeleccio ? norm(faseSel) : norm(FASE_ACTIVA_GLOBAL)) &&
+        norm(h.jornada)===(isSeleccio ? norm(jorSel) : norm(JORNADA_ACTIVA_GLOBAL))
+      );
+      try{const p=JSON.parse(jornadaMatch?.detall||'{}');
         if(p.rival)d+=` → <strong>${p.rival}</strong>`;
         if(p.jugador)d+=` (${p.jugador})`;
       }catch(e){}
@@ -4022,18 +4034,21 @@ async function init() {
     const activeCapKey = jKey(FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
     const selCapKey = jKey(FASE_SELECCIO||FASE_ACTIVA_GLOBAL, JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL);
     const savedAuth = sessionStorage.getItem('ruleta_auth');
-    const myNorm = savedAuth ? norm(savedAuth) : null;
+    const savedCartesAuth2 = sessionStorage.getItem('cartes_auth');
+    // Manté el participant de qualsevol de les dues sessions (pot ser el mateix o diferent)
+    const myNormR = savedAuth ? norm(savedAuth) : null;
+    const myNormC = savedCartesAuth2 ? norm(savedCartesAuth2) : null;
+    const isMine = (p) => (myNormR && p === myNormR) || (myNormC && p === myNormC);
     // Jornada activa: oculta si no revelada
     if (!JORNADA_REVELADA && _capitansMap[activeCapKey]) {
       Object.keys(_capitansMap[activeCapKey]).forEach(pNorm => {
-        if (pNorm !== myNorm) delete _capitansMap[activeCapKey][pNorm];
+        if (!isMine(pNorm)) delete _capitansMap[activeCapKey][pNorm];
       });
     }
     // Jornada de selecció: oculta SEMPRE que sigui diferent de l'activa
-    // (és la propera jornada, encara no revelada independentment de si J2 ho és)
     if (selCapKey !== activeCapKey && _capitansMap[selCapKey]) {
       Object.keys(_capitansMap[selCapKey]).forEach(pNorm => {
-        if (pNorm !== myNorm) delete _capitansMap[selCapKey][pNorm];
+        if (!isMine(pNorm)) delete _capitansMap[selCapKey][pNorm];
       });
     }
     // Si hi ha sessió activa, carrega el capità d'aquell participant per a la jornada activa
