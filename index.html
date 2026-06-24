@@ -3275,11 +3275,11 @@ async function cLoadCarta() {
 
     // Carta jornada ACTIVA (revelada)
     const myRowAct = rows.find(r=>norm(r[0])===norm(cParticipant)&&norm(r[1])===norm(FASE_ACTIVA_GLOBAL)&&norm(r[2])===norm(JORNADA_ACTIVA_GLOBAL));
-    const cartaActiva = myRowAct ? {carta:(myRowAct[3]||'').trim(),estat:(myRowAct[4]||'disponible').trim()} : null;
+    const cartaActiva = myRowAct ? {carta:(myRowAct[3]||'').trim(),estat:(myRowAct[4]||'disponible').trim(),detall:(myRowAct[5]||'')} : null;
 
     // Carta jornada SELECCIÓ (propera)
     const myRowSel = isSameJ ? myRowAct : rows.find(r=>norm(r[0])===norm(cParticipant)&&norm(r[1])===norm(faseSel3)&&norm(r[2])===norm(jorSel3));
-    const cartaSeleccio = myRowSel ? {carta:(myRowSel[3]||'').trim(),estat:(myRowSel[4]||'disponible').trim()} : null;
+    const cartaSeleccio = myRowSel ? {carta:(myRowSel[3]||'').trim(),estat:(myRowSel[4]||'disponible').trim(),detall:(myRowSel[5]||'')} : null;
 
     // Historial de totes les jornades del participant
     const historial = rows.filter(r=>norm(r[0])===norm(cParticipant)).map(r=>({
@@ -3334,20 +3334,12 @@ function cRenderCartaDual(cartaActiva, cartaSeleccio, historial, isSameJ, faseSe
     const detall = (() => {
       if (!gastada) return '';
       let d='';
-      // Cerca el detall per fase+jornada+carta per evitar confondre jornades amb la mateixa carta
-      const targetFase = isSeleccio ? norm(faseSel) : norm(FASE_ACTIVA_GLOBAL);
-      const targetJorn = isSeleccio ? norm(jorSel) : norm(JORNADA_ACTIVA_GLOBAL);
-      console.log('[detall] isSeleccio:', isSeleccio, 'cerca:', targetFase, targetJorn, cartaData.carta);
-      console.log('[detall] historial:', historial.map(h=>({fase:norm(h.fase),jornada:norm(h.jornada),carta:h.carta,detall:h.detall})));
-      const jornadaMatch = historial.find(h=>
-        norm(h.carta)===norm(cartaData.carta) &&
-        norm(h.fase)===targetFase &&
-        norm(h.jornada)===targetJorn
-      );
-      console.log('[detall] match:', jornadaMatch);
-      try{const p=JSON.parse(jornadaMatch?.detall||'{}');
+      // Usa el detall directament de la carta d'aquesta jornada (no busca per nom de carta
+      // al historial, cosa que podia confondre jornades amb la mateixa carta ex: Doble capita J2 i J3)
+      try{const p=JSON.parse(cartaData.detall||'{}');
         if(p.rival)d+=` → <strong>${p.rival}</strong>`;
         if(p.jugador)d+=` (${p.jugador})`;
+        if(p.jugador_meu&&p.jugador_rival)d+=` (${p.jugador_meu} × ${p.jugador_rival})`;
       }catch(e){}
       return d;
     })();
@@ -4040,7 +4032,6 @@ async function init() {
     const selCapKey = jKey(FASE_SELECCIO||FASE_ACTIVA_GLOBAL, JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL);
     const savedAuth = sessionStorage.getItem('ruleta_auth');
     const savedCartesAuth2 = sessionStorage.getItem('cartes_auth');
-    // Manté el participant de qualsevol de les dues sessions (pot ser el mateix o diferent)
     const myNormR = savedAuth ? norm(savedAuth) : null;
     const myNormC = savedCartesAuth2 ? norm(savedCartesAuth2) : null;
     const isMine = (p) => (myNormR && p === myNormR) || (myNormC && p === myNormC);
