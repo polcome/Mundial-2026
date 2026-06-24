@@ -2352,22 +2352,17 @@ async function reloadData() {
         _cartesLog.push({participant:nom,carta:cLog,detall:d,icon:iLog});
       }
     });
-    // La privacitat pre-revelació aplica a l'slot de la jornada ACTIVA i també al de SELECCIÓ
-    // (les jornades passades ja són sempre públiques/revelades)
-    if(!JORNADA_REVELADA){
-      const savedC=sessionStorage.getItem('cartes_auth');
-      const myC=savedC?norm(savedC):null;
-      // Filtra jornada activa
-      const activeKey = jKey(FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
-      if(_cartesGastades[activeKey]){
-        Object.keys(_cartesGastades[activeKey]).forEach(p=>{if(p!==myC)delete _cartesGastades[activeKey][p];});
-      }
-      // Filtra jornada de selecció (pot ser diferent de l'activa, ex: J3 mentre J2 és activa)
-      const selKey = jKey(FASE_SELECCIO||FASE_ACTIVA_GLOBAL, JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL);
-      if(selKey !== activeKey && _cartesGastades[selKey]){
-        Object.keys(_cartesGastades[selKey]).forEach(p=>{if(p!==myC)delete _cartesGastades[selKey][p];});
-      }
+    // Filtra privacitat: jornada activa si no revelada; jornada selecció sempre si diferent
+    const savedC=sessionStorage.getItem('cartes_auth');
+    const myC=savedC?norm(savedC):null;
+    const activeKey = jKey(FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
+    const selKey = jKey(FASE_SELECCIO||FASE_ACTIVA_GLOBAL, JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL);
+    if(!JORNADA_REVELADA && _cartesGastades[activeKey]){
+      Object.keys(_cartesGastades[activeKey]).forEach(p=>{if(p!==myC)delete _cartesGastades[activeKey][p];});
       _cartesLog=_cartesLog.filter(l=>norm(l.participant)===myC);
+    }
+    if(selKey !== activeKey && _cartesGastades[selKey]){
+      Object.keys(_cartesGastades[selKey]).forEach(p=>{if(p!==myC)delete _cartesGastades[selKey][p];});
     }
   } catch(e){console.warn('Cartes reload:',e);}
 
@@ -2395,20 +2390,16 @@ async function reloadData() {
         }
       });
     });
-    // La privacitat pre-revelació aplica a l'slot de la jornada ACTIVA i també al de SELECCIÓ
-    if(!JORNADA_REVELADA){
-      const savedA=sessionStorage.getItem('ruleta_auth');
-      const myA=savedA?norm(savedA):null;
-      // Filtra jornada activa
-      const activeKey = jKey(FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
-      if(_capitansMap[activeKey]){
-        Object.keys(_capitansMap[activeKey]).forEach(p=>{if(p!==myA)delete _capitansMap[activeKey][p];});
-      }
-      // Filtra jornada de selecció (pot ser diferent de l'activa)
-      const selKey = jKey(FASE_SELECCIO||FASE_ACTIVA_GLOBAL, JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL);
-      if(selKey !== activeKey && _capitansMap[selKey]){
-        Object.keys(_capitansMap[selKey]).forEach(p=>{if(p!==myA)delete _capitansMap[selKey][p];});
-      }
+    // Filtra privacitat: jornada activa si no revelada; jornada selecció sempre si diferent
+    const savedA=sessionStorage.getItem('ruleta_auth');
+    const myA=savedA?norm(savedA):null;
+    const activeKeyC = jKey(FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
+    const selKeyC = jKey(FASE_SELECCIO||FASE_ACTIVA_GLOBAL, JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL);
+    if(!JORNADA_REVELADA && _capitansMap[activeKeyC]){
+      Object.keys(_capitansMap[activeKeyC]).forEach(p=>{if(p!==myA)delete _capitansMap[activeKeyC][p];});
+    }
+    if(selKeyC !== activeKeyC && _capitansMap[selKeyC]){
+      Object.keys(_capitansMap[selKeyC]).forEach(p=>{if(p!==myA)delete _capitansMap[selKeyC][p];});
     }
   } catch(e){console.warn('Capitans reload:',e);}
 
@@ -3973,26 +3964,22 @@ async function init() {
       }
     });
     console.log('Cartes carregades (jornades):', Object.keys(_cartesGastades).length);
-    // Si la jornada no ha revelat, amaga les cartes dels rivals de la jornada ACTIVA
-    // i també de la jornada de SELECCIÓ (pot ser diferent, ex: J3 mentre J2 és activa)
-    if (!JORNADA_REVELADA) {
-      const savedCartesAuth = sessionStorage.getItem('cartes_auth');
-      const myCartesNorm = savedCartesAuth ? norm(savedCartesAuth) : null;
-      // Filtra jornada activa
-      const activeKey = jKey(FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
-      if(_cartesGastades[activeKey]){
-        Object.keys(_cartesGastades[activeKey]).forEach(pNorm => {
-          if (pNorm !== myCartesNorm) delete _cartesGastades[activeKey][pNorm];
-        });
-      }
-      // Filtra jornada de selecció
-      const selKey = jKey(FASE_SELECCIO||FASE_ACTIVA_GLOBAL, JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL);
-      if(selKey !== activeKey && _cartesGastades[selKey]){
-        Object.keys(_cartesGastades[selKey]).forEach(pNorm => {
-          if (pNorm !== myCartesNorm) delete _cartesGastades[selKey][pNorm];
-        });
-      }
+    const savedCartesAuth = sessionStorage.getItem('cartes_auth');
+    const myCartesNorm = savedCartesAuth ? norm(savedCartesAuth) : null;
+    const activeKey = jKey(FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
+    const selKey = jKey(FASE_SELECCIO||FASE_ACTIVA_GLOBAL, JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL);
+    // Jornada activa: oculta si no revelada
+    if (!JORNADA_REVELADA && _cartesGastades[activeKey]) {
+      Object.keys(_cartesGastades[activeKey]).forEach(pNorm => {
+        if (pNorm !== myCartesNorm) delete _cartesGastades[activeKey][pNorm];
+      });
       _cartesLog = _cartesLog.filter(l => norm(l.participant) === myCartesNorm);
+    }
+    // Jornada de selecció: oculta SEMPRE que sigui diferent de l'activa
+    if (selKey !== activeKey && _cartesGastades[selKey]) {
+      Object.keys(_cartesGastades[selKey]).forEach(pNorm => {
+        if (pNorm !== myCartesNorm) delete _cartesGastades[selKey][pNorm];
+      });
     }
   } catch(e){console.warn('Cartes_Jornada:',e);}
   // Popula selector d'equips
@@ -4030,28 +4017,26 @@ async function init() {
         }
       });
     });
-    // Si la jornada no ha revelat encara, amaga els capitans d'altri de la jornada
-    // ACTIVA i també de la jornada de SELECCIÓ
+    // Filtra privacitat: la jornada ACTIVA s'oculta si no ha revelat;
+    // la jornada de SELECCIÓ s'oculta SEMPRE que sigui diferent de l'activa revelada.
     const activeCapKey = jKey(FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
-    if (!JORNADA_REVELADA) {
-      const savedAuth = sessionStorage.getItem('ruleta_auth');
-      const myNorm = savedAuth ? norm(savedAuth) : null;
-      // Filtra jornada activa
-      if (_capitansMap[activeCapKey]) {
-        Object.keys(_capitansMap[activeCapKey]).forEach(pNorm => {
-          if (pNorm !== myNorm) delete _capitansMap[activeCapKey][pNorm];
-        });
-      }
-      // Filtra jornada de selecció
-      const selCapKey = jKey(FASE_SELECCIO||FASE_ACTIVA_GLOBAL, JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL);
-      if(selCapKey !== activeCapKey && _capitansMap[selCapKey]){
-        Object.keys(_capitansMap[selCapKey]).forEach(pNorm => {
-          if (pNorm !== myNorm) delete _capitansMap[selCapKey][pNorm];
-        });
-      }
+    const selCapKey = jKey(FASE_SELECCIO||FASE_ACTIVA_GLOBAL, JORNADA_SELECCIO||JORNADA_ACTIVA_GLOBAL);
+    const savedAuth = sessionStorage.getItem('ruleta_auth');
+    const myNorm = savedAuth ? norm(savedAuth) : null;
+    // Jornada activa: oculta si no revelada
+    if (!JORNADA_REVELADA && _capitansMap[activeCapKey]) {
+      Object.keys(_capitansMap[activeCapKey]).forEach(pNorm => {
+        if (pNorm !== myNorm) delete _capitansMap[activeCapKey][pNorm];
+      });
+    }
+    // Jornada de selecció: oculta SEMPRE que sigui diferent de l'activa
+    // (és la propera jornada, encara no revelada independentment de si J2 ho és)
+    if (selCapKey !== activeCapKey && _capitansMap[selCapKey]) {
+      Object.keys(_capitansMap[selCapKey]).forEach(pNorm => {
+        if (pNorm !== myNorm) delete _capitansMap[selCapKey][pNorm];
+      });
     }
     // Si hi ha sessió activa, carrega el capità d'aquell participant per a la jornada activa
-    const savedAuth = sessionStorage.getItem('ruleta_auth');
     if (savedAuth) {
       rSpinResult = (_capitansMap[activeCapKey] || {})[norm(savedAuth)] || null;
       rParticipant = savedAuth;
