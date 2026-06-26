@@ -1099,10 +1099,20 @@ function calcParticipantTotal(participant) {
 
 function calcParticipantGoals(participant) {
   if (!gData) return 0;
-  const pN = norm(participant);
-  return (gData.puntuacions || [])
-    .filter(r => norm(v(r,'Participant')) === pN)
-    .reduce((sum, r) => sum + (parseInt(v(r,'Gols') || 0)), 0);
+  const k = 'goals_' + participant;
+  if (_cache[k] !== undefined) return _cache[k];
+  let total = 0;
+  for (const ph of PHASES) {
+    for (const jorn of PHASE_JORNADES[ph] || []) {
+      const jornPlayers = getPlayersForPhase(participant, ph, jorn);
+      for (const pl of jornPlayers) {
+        const sc = getScoreEfectiu(participant, v(pl,'Jugador'), ph, jorn);
+        if (sc) total += parseInt(v(sc,'Gols') || 0);
+      }
+    }
+  }
+  _cache[k] = total;
+  return total;
 }
 
 // Puntuació "crua": suma de tots els jugadors de l'equip, totes les jornades,
@@ -1149,13 +1159,24 @@ function calcParticipantMaxJugador(participant) {
   return _cache[k];
 }
 
-// Suma genèrica d'una columna de Puntuacions per a un participant
+// Suma genèrica d'una columna de Puntuacions per a un participant,
+// respectant els canvis de jugador per carta (usa getScoreEfectiu)
 function calcParticipantStat(participant, col) {
   if (!gData) return 0;
-  const pN = norm(participant);
-  return (gData.puntuacions || [])
-    .filter(r => norm(v(r,'Participant')) === pN)
-    .reduce((sum, r) => sum + (parseInt(v(r,col) || 0)), 0);
+  const k = `stat_${col}_${participant}`;
+  if (_cache[k] !== undefined) return _cache[k];
+  let total = 0;
+  for (const ph of PHASES) {
+    for (const jorn of PHASE_JORNADES[ph] || []) {
+      const jornPlayers = getPlayersForPhase(participant, ph, jorn);
+      for (const pl of jornPlayers) {
+        const sc = getScoreEfectiu(participant, v(pl,'Jugador'), ph, jorn);
+        if (sc) total += parseInt(v(sc, col) || 0);
+      }
+    }
+  }
+  _cache[k] = total;
+  return total;
 }
 
 function getRanking() {
