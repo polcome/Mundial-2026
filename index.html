@@ -2657,11 +2657,99 @@ function renderAdminPanel() {
       </div>
       <button class="btn-gold btn-sm" onclick="navigator.clipboard.writeText('https://polcome.github.io/Mundial-2026/').then(()=>showToast('✅ URL copiada!'))">📋 Copiar URL</button>
     </div>
+    <div class="admin-card">
+      <h3>🌟 Calcular 11 Ideals</h3>
+      <p style="font-size:0.82rem;color:var(--silver);line-height:1.6;margin-bottom:0.8rem">
+        Escriu al Sheet <strong style="color:var(--gold)">11_Ideals</strong> els 11 millors jugadors de cada jornada amb puntuació. Posa tu manualment el camp <code style="background:rgba(255,255,255,0.07);padding:1px 4px;border-radius:3px">Rol_11ideal</code> per al posicionament exacte al camp.
+      </p>
+      <p style="font-size:0.78rem;color:rgba(245,200,66,0.6);margin-bottom:0.8rem">⚠️ Sobreescriu les files ja existents de les jornades calculades.</p>
+      <button class="btn-gold btn-sm" onclick="adminCalcIdeal11()" id="btnCalcIdeal11">🌟 Calcular i escriure 11 Ideals</button>
+      <div id="ideal11AdminLog" style="margin-top:0.8rem;font-size:0.78rem;color:var(--silver);font-family:'Space Mono',monospace;line-height:1.8"></div>
+    </div>
   </div>
 
   <div style="margin-top:0.5rem">
     <button onclick="logoutAdmin()" style="background:rgba(224,52,52,0.2);border:1px solid rgba(224,52,52,0.3);color:#F58080;border-radius:8px;padding:0.5rem 1rem;cursor:pointer;font-size:0.82rem">🚪 Tancar sessió admin</button>
   </div>`;
+}
+
+async function adminCalcIdeal11() {
+  const btn = document.getElementById('btnCalcIdeal11');
+  const log = document.getElementById('ideal11AdminLog');
+  if (!gData) { showToast('Carrega les dades primer'); return; }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Calculant...';
+  log.innerHTML = '';
+
+  const addLog = (msg) => { log.innerHTML += msg + '<br>'; };
+
+  try {
+    // Troba totes les jornades amb puntuació
+    const jornadesAmbPunts = [];
+    for (const ph of PHASES) {
+      for (const jorn of PHASE_JORNADES[ph] || []) {
+        const hasPunts = (gData.puntuacions||[]).some(r =>
+          norm(v(r,'Fase'))===norm(ph) && norm(v(r,'Jornada'))===norm(jorn) && v(r,'Nota')!==''
+        );
+        if (hasPunts) jornadesAmbPunts.push({fase:ph, jorn});
+      }
+    }
+
+    if (!jornadesAmbPunts.length) {
+      addLog('❌ Cap jornada amb puntuació trobada.');
+      return;
+    }
+
+    addLog(`📊 Trobades ${jornadesAmbPunts.length} jornades amb puntuació...`);
+
+    let totalEscrites = 0;
+    for (const {fase, jorn} of jornadesAmbPunts) {
+      const ideal = calcIdeal11(fase, jorn);
+      if (!ideal.length) {
+        addLog(`⚠️ ${fase} ${jorn}: cap jugador amb posició vàlida.`);
+        continue;
+      }
+
+      addLog(`✏️ Escrivint ${ideal.length} jugadors per ${fase} ${jorn}...`);
+
+      // Esborra les files existents d'aquesta jornada i escriu les noves
+      const rows = ideal.map(p => ({
+        fase, jornada: jorn,
+        jugador: p.name,
+        puntuacio: p.pts !== null ? p.pts.toFixed(2) : '0'
+      }));
+
+      const res = await rPost({
+        action: 'set_ideal11',
+        fase, jornada: jorn,
+        rows: JSON.stringify(rows)
+      });
+
+      if (res?.ok) {
+        addLog(`✅ ${fase} ${jorn}: ${ideal.length} jugadors escrits.`);
+        totalEscrites += ideal.length;
+      } else {
+        addLog(`❌ ${fase} ${jorn}: error — ${res?.error || 'resposta desconeguda'}`);
+      }
+    }
+
+    addLog(`<strong style="color:var(--gold)">✅ Total: ${totalEscrites} files escrites al Sheet.</strong>`);
+    addLog(`Ara pots afegir el <strong>Rol_11ideal</strong> manualment a cada jugador.`);
+
+    // Recarrega _ideal11Rols
+    fetchSheet('11_Ideals').then(parseSheet).then(rows => {
+      _ideal11Rols = rows;
+      showToast('✅ 11 Ideals escrits al Sheet!');
+    }).catch(()=>{});
+
+  } catch(e) {
+    addLog(`❌ Error inesperat: ${e.message}`);
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🌟 Calcular i escriure 11 Ideals';
+  }
 }
 
 function toggleDetail(id) {
