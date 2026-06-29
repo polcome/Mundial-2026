@@ -254,13 +254,8 @@
         #132f52 91.66%, #0f2a4a 91.66%, #0f2a4a 100%);
     border-radius:10px; overflow:visible; border:2px solid rgba(96,165,250,0.25);
   }
-  .pitch-ideal .pitch-grid {
-    position:absolute; inset:6% 4%; z-index:2;
-    display:grid;
-    grid-template-rows: repeat(9, 1fr);
-    grid-template-columns: repeat(5, 1fr);
-    row-gap: 2px;
-  }
+  /* Graella de posicionament: 9 files x 5 columnes, cada jugador en una cel·la fixa */
+  .pitch-grid {
     position:absolute; inset:6% 4%; z-index:2;
     display:grid;
     grid-template-rows: repeat(9, 1fr);
