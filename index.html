@@ -1335,14 +1335,16 @@ function playerPin(name, pos, sc, jorn, participant, phase) {
   const goals = iconParts.length ? `<div class="goal-row">${iconParts.join('')}</div>` : '';
   const shortName = name;
   // Get flag from players data
-  const plData = (gData?.jugadors||[]).find(r => norm(v(r,'Jugador')) === norm(name));
+  const pinP = participant||_activeParticipant;
+  const allPlData = gData?.jugadors || [];
+  const plData = (pinP
+    ? allPlData.find(r => norm(v(r,'Participant'))===norm(pinP) && norm(v(r,'Jugador'))===norm(name))
+    : null)
+    || allPlData.find(r => norm(v(r,'Jugador'))===norm(name));
   // flag handled via cs below
   const cs = plData ? getCountryStyle(v(plData,'Equip')) : null;
 
   const photoUrl = plData ? v(plData,'Foto') : '';
-  // La foto va al fons (z-index 1), el 👤 de fallback a z-index 0 (queda amagat si hi ha foto)
-  // scoreBubble i flagBadge van a z-index 10 per sobre de tot
-  const pinP = participant||_activeParticipant;
   // Si la jornada no s'ha revelat, no mostrem cap efecte de capità/cartes
   // (ni al propi equip ni al dels rivals) per evitar que es pugui espiar
   const jorOculta = esJornadaOculta(phase, jorn);
