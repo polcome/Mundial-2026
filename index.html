@@ -423,6 +423,7 @@
   <button class="tab-btn" data-tab="teams">👥 Equips</button>
   <button class="tab-btn" data-tab="jornades">📅 Jornades</button>
   <button class="tab-btn" data-tab="jugadors">⚽ Jugadors</button>
+  <button class="tab-btn" data-tab="ideal11">🌟 11 Ideals</button>
   <button class="tab-btn" data-tab="canvis">🔄 Canvis</button>
   <button class="tab-btn" data-tab="ruleta">⭐ Capità</button>
   <button class="tab-btn" data-tab="cartes">🃏 Carta</button>
@@ -490,6 +491,10 @@
       </select>
     </div>
     <div id="jugadorsView"></div>
+  </section>
+
+  <section class="section" id="tab-ideal11">
+    <div id="ideal11View"></div>
   </section>
 
   <section class="section" id="tab-canvis">
@@ -577,6 +582,9 @@ const SHEETS_API = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/va
 const SHEETS_BASE = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=`;
 
 let gData = null; // dades llegides del Sheet
+let _ideal11Rols = []; // files de la pestanya 11_Ideals: [{Fase, Jornada, Jugador, Rol_11ideal}]
+let _ideal11ActiveFase = null;
+let _ideal11ActiveJorn = null;
 let isAdmin = false;
 let currentTeamTab = null;
 let currentJornada = {phase: 'grups', jorn: 'J1'};
@@ -662,14 +670,16 @@ async function loadAllData() {
   clearCache();
   setSyncBar('loading');
   try {
-    const [parts, jugadors, punts, canvis] = await Promise.all([
+    const [parts, jugadors, punts, canvis, ideal11] = await Promise.all([
       fetchSheet('Participants').then(parseSheet).catch(e => { console.warn('Participants:', e); return []; }),
       fetchSheet('Jugadors').then(parseSheet).catch(e => { console.warn('Jugadors:', e); return []; }),
       fetchSheet('Puntuacions').then(parseSheet).catch(e => { console.warn('Puntuacions:', e); return []; }),
       fetchSheet('Canvis').then(parseSheet).catch(e => { console.warn('Canvis:', e); return []; }),
+      fetchSheet('11_Ideals').then(parseSheet).catch(e => { console.warn('11_Ideals:', e); return []; }),
     ]);
 
     gData = { participants: parts, jugadors, puntuacions: punts, canvis };
+    _ideal11Rols = ideal11 || [];
 
     setSyncBar('done');
     document.getElementById('lastUpdate').textContent =
@@ -2010,6 +2020,274 @@ function openPlayerCard(name, participant, phase, jornada) {
 // ============================================================
 // RENDER JUGADORS TAB
 // ============================================================
+// ============================================================
+// 11 IDEALS
+// ============================================================
+// Selecciona els 11 millors jugadors d'una jornada respectant:
+// 1 POR, mínim 3 DEF, mínim 2 MIG, màxim 5 DAV
+// Ordenació per puntuació crua (nota + stats, sense capitans ni cartes)
+function calcIdeal11(fase, jornada) {
+  if (!gData) return [];
+  const scored = [];
+  // Agafa tots els jugadors únics que hagin puntuat en aquesta jornada
+  const seen = new Set();
+  for (const sc of (gData.puntuacions || [])) {
+    if (norm(v(sc,'Fase')) !== norm(fase) || norm(v(sc,'Jornada')) !== norm(jornada)) continue;
+    if (v(sc,'Nota') === '') continue;
+    const nomJ = v(sc,'Jugador');
+    if (!nomJ || seen.has(norm(nomJ))) continue;
+    seen.add(norm(nomJ));
+    // Busca la posició del jugador a gData.jugadors
+    const plData = (gData.jugadors||[]).find(r => norm(v(r,'Jugador')) === norm(nomJ));
+    const pos = plData ? (v(plData,'Posicio')||'').toUpperCase() : '';
+    if (!pos) continue; // sense posició no el podem col·locar
+    const foto = plData ? v(plData,'Foto') : '';
+    const equip = plData ? v(plData,'Equip') : '';
+    const pts = calcScoreRowCrua(sc, pos);
+    if (pts === null) continue;
+    scored.push({ name: nomJ, pos, foto, equip, pts, sc });
+  }
+
+  // Ordena per punts descendents
+  scored.sort((a,b) => b.pts - a.pts);
+
+  // Selecciona el millor POR
+  const selected = [];
+  const usedNames = new Set();
+
+  const pick = (posFilter, count) => {
+    let picked = 0;
+    for (const p of scored) {
+      if (picked >= count) break;
+      if (usedNames.has(norm(p.name))) continue;
+      if (p.pos !== posFilter) continue;
+      selected.push(p);
+      usedNames.add(norm(p.name));
+      picked++;
+    }
+  };
+
+  pick('POR', 1);
+  pick('DEF', 3); // mínim 3 DEF
+  pick('MIG', 2); // mínim 2 MIG
+
+  // Omple fins a 11 amb el millor disponible (DEF, MIG o DAV), respectant màx 5 DAV i màx 5 DEF
+  const defCount = () => selected.filter(p=>p.pos==='DEF').length;
+  const migCount = () => selected.filter(p=>p.pos==='MIG').length;
+  const davCount = () => selected.filter(p=>p.pos==='DAV').length;
+
+  while (selected.length < 11) {
+    let added = false;
+    for (const p of scored) {
+      if (usedNames.has(norm(p.name))) continue;
+      if (p.pos === 'POR') continue; // ja tenim porter
+      if (p.pos === 'DEF' && defCount() >= 5) continue; // màx 5 DEF
+      if (p.pos === 'DAV' && davCount() >= 5) continue; // màx 5 DAV
+      if (p.pos === 'MIG' && migCount() >= 5) continue; // màx 5 MIG
+      selected.push(p);
+      usedNames.add(norm(p.name));
+      added = true;
+      break;
+    }
+    if (!added) break; // no hi ha més jugadors disponibles
+  }
+
+  return selected;
+}
+
+function renderIdeal11Tab() {
+  const el = document.getElementById('ideal11View');
+  if (!gData) { el.innerHTML = '<p style="color:var(--silver);padding:1rem">Carregant...</p>'; return; }
+
+  // Construeix la llista de jornades disponibles (que tinguin puntuacions)
+  const jornadesDisp = [];
+  for (const ph of PHASES) {
+    for (const jorn of PHASE_JORNADES[ph] || []) {
+      const hasPunts = (gData.puntuacions||[]).some(r =>
+        norm(v(r,'Fase'))===norm(ph) && norm(v(r,'Jornada'))===norm(jorn) && v(r,'Nota')!==''
+      );
+      if (hasPunts) jornadesDisp.push({fase:ph, jorn});
+    }
+  }
+
+  if (!jornadesDisp.length) {
+    el.innerHTML = '<div class="empty-state"><div class="big-icon">🌟</div><p>Encara no hi ha jornades amb puntuació.</p></div>';
+    return;
+  }
+
+  // Jornada activa per defecte
+  if (!_ideal11ActiveFase || !_ideal11ActiveJorn) {
+    _ideal11ActiveFase = jornadesDisp[jornadesDisp.length-1].fase;
+    _ideal11ActiveJorn = jornadesDisp[jornadesDisp.length-1].jorn;
+  }
+
+  const fase = _ideal11ActiveFase;
+  const jorn = _ideal11ActiveJorn;
+
+  // Botons de selecció de jornada
+  const btnsFase = PHASES.map(ph => {
+    const jorns = jornadesDisp.filter(j=>j.fase===ph);
+    if (!jorns.length) return '';
+    const btnsJorn = jorns.map(j => {
+      const actJ = norm(j.fase)===norm(fase) && norm(j.jorn)===norm(jorn);
+      return `<button onclick="_ideal11ActiveFase='${j.fase}';_ideal11ActiveJorn='${j.jorn}';renderIdeal11Tab()"
+        style="background:${actJ?'var(--gold)':'rgba(255,255,255,0.07)'};color:${actJ?'var(--ink)':'var(--white)'};border:1px solid ${actJ?'var(--gold)':'var(--glass-border)'};border-radius:6px;padding:0.35rem 0.9rem;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:'Space Mono',monospace">
+        ${PHASE_LABELS[ph]||ph} ${j.jorn}
+      </button>`;
+    }).join('');
+    return `<div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap">
+      <span style="font-size:0.72rem;color:var(--silver);font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:0.05em">${PHASE_ICONS[ph]||''} ${PHASE_LABELS[ph]||ph}</span>
+      ${btnsJorn}
+    </div>`;
+  }).filter(Boolean).join('');
+
+  // Calcula l'11 ideal
+  const ideal = calcIdeal11(fase, jorn);
+  const totalPts = ideal.reduce((s,p)=>s+(p.pts||0),0);
+  const totalGols = ideal.reduce((s,p)=>s+parseInt(v(p.sc,'Gols')||0),0);
+  const totalAss  = ideal.reduce((s,p)=>s+parseInt(v(p.sc,'Assistencies')||0),0);
+
+  // Llegeix els rols de la pestanya 11_Ideals
+  const rolsJornada = _ideal11Rols.filter(r =>
+    norm(v(r,'Fase'))===norm(fase) && norm(v(r,'Jornada'))===norm(jorn)
+  );
+  const getRol = (name) => {
+    const r = rolsJornada.find(r => norm(v(r,'Jugador'))===norm(name));
+    return r ? (v(r,'Rol_11ideal')||'').toUpperCase().trim() : '';
+  };
+
+  // Construeix el camp amb playerPin (mode ROL si hi ha rols, sinó mode clàssic per posició)
+  const hasRols = rolsJornada.length > 0;
+
+  // Genera els pins dels jugadors seleccionats usant playerPin directament
+  // Per al camp, construïm una estructura 9×5 igual que renderPitch
+  let pitchHtml = '';
+
+  if (hasRols) {
+    // Mode ROL: construïm la graella igual que renderRolMode
+    const grid = Array.from({length:9}, ()=>Array(5).fill(null));
+    const noRol = [];
+
+    for (const p of ideal) {
+      const rol = getRol(p.name);
+      if (!rol) { noRol.push(p); continue; }
+      let row, col;
+      // Intenta resolució numèrica (DC1, MC2, etc.)
+      const numRes = resoldreRolNumerat(rol);
+      if (numRes) { row = numRes.row; col = numRes.col; }
+      else {
+        const gridDef = ROL_GRID[rol];
+        if (gridDef) {
+          row = gridDef.row;
+          col = gridDef.cols[Math.floor(gridDef.cols.length/2)]; // columna central per defecte
+        } else { noRol.push(p); continue; }
+      }
+      if (grid[row][col]) noRol.push(grid[row][col]); // col·lisió
+      grid[row][col] = p;
+    }
+
+    // Renderitza la graella
+    const cells = [];
+    for (let r=0; r<9; r++) {
+      for (let c=0; c<5; c++) {
+        const p = grid[r][c];
+        if (p) {
+          // Genera pin amb playerPin (sense participant, mode crua)
+          cells.push(`<div class="pitch-cell" style="grid-row:${r+1};grid-column:${c+1}">${playerPin(p.name, p.pos, p.sc, jorn, null, fase)}</div>`);
+        } else {
+          cells.push(`<div class="pitch-cell" style="grid-row:${r+1};grid-column:${c+1}"></div>`);
+        }
+      }
+    }
+
+    // Jugadors sense rol: fila extra a sobre
+    const noRolPins = noRol.map(p=>
+      `<div style="flex:0 0 auto">${playerPin(p.name, p.pos, p.sc, jorn, null, fase)}</div>`
+    ).join('');
+    const noRolHtml = noRol.length ? `
+      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;justify-content:center;padding:0.5rem;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:0.5rem">
+        <span style="width:100%;text-align:center;font-size:0.7rem;color:var(--silver);font-family:'Space Mono',monospace">Sense rol assignat</span>
+        ${noRolPins}
+      </div>` : '';
+
+    pitchHtml = `${noRolHtml}<div class="pitch-wrap"><div class="pitch-inner"><div class="pitch-grid">${cells.join('')}</div></div></div>`;
+
+  } else {
+    // Mode clàssic per posició (sense rols del Sheet)
+    const byPos = { POR:[], DEF:[], MIG:[], DAV:[] };
+    for (const p of ideal) if (byPos[p.pos]) byPos[p.pos].push(p);
+
+    const rows = ['DAV','MIG','DEF','POR'];
+    const rowsHtml = rows.map(pos => {
+      if (!byPos[pos]?.length) return '';
+      const pins = byPos[pos].map(p=>
+        `<div style="flex:0 0 auto">${playerPin(p.name, p.pos, p.sc, jorn, null, fase)}</div>`
+      ).join('');
+      return `<div style="display:flex;justify-content:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.4rem">${pins}</div>`;
+    }).join('');
+
+    pitchHtml = `<div class="pitch-wrap"><div class="pitch-inner" style="position:relative;width:100%;padding-bottom:175%;background:radial-gradient(ellipse at 50% 30%,#2d7a3a,#1a4d23) no-repeat;border-radius:12px">
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-around;padding:1rem 0.5rem">
+        ${rowsHtml}
+      </div>
+    </div></div>`;
+  }
+
+  // Llista de jugadors
+  const listHtml = ideal.map((p,i) => {
+    const nota = parseNota(v(p.sc,'Nota'));
+    const g = parseInt(v(p.sc,'Gols')||0);
+    const a = parseInt(v(p.sc,'Assistencies')||0);
+    const pen = parseInt(v(p.sc,'Penalti')||0);
+    const dg = parseInt(v(p.sc,'DobleGroga')||0);
+    const vm = parseInt(v(p.sc,'Vermella')||0);
+    const cs = getCountryStyle(p.equip);
+    const flagHtml = cs ? `<span style="background:${cs.color};color:#fff;font-size:0.6rem;font-weight:800;padding:1px 5px;border-radius:3px;font-family:'Space Mono',monospace">${cs.abbr}</span>` : '';
+    const posColors = {POR:'#F5C842',DEF:'#4ADE80',MIG:'#60A5FA',DAV:'#F87171'};
+    const bonusParts = [];
+    if (g>0) bonusParts.push(`⚽×${g}`);
+    if (a>0) bonusParts.push(`🅰️×${a}`);
+    if (pen>0) bonusParts.push(`🥅×${pen}`);
+    if (dg>0) bonusParts.push(`🟨`);
+    if (vm>0) bonusParts.push(`🟥`);
+    return `<div class="pitch-list-row" style="cursor:default">
+      <div class="pitch-list-name" style="display:flex;align-items:center;gap:0.6rem">
+        <span style="font-family:'Space Mono',monospace;font-size:0.7rem;color:var(--silver);min-width:16px">${i+1}</span>
+        ${p.foto ? `<img src="${p.foto}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">` : ''}
+        <div>
+          <span style="font-weight:700">${p.name}</span>
+          <span style="background:${posColors[p.pos]||'#888'};color:var(--ink);font-size:0.6rem;font-weight:800;padding:1px 5px;border-radius:3px;margin-left:4px;font-family:'Space Mono',monospace">${p.pos}</span>
+          ${flagHtml}
+          ${bonusParts.length?`<span style="font-size:0.72rem;color:var(--silver);margin-left:4px">${bonusParts.join(' ')}</span>`:''}
+        </div>
+      </div>
+      <div class="pitch-list-note"><span class="score-chip ${nota>=8?'score-high':nota>=6.5?'score-mid':'score-low'}">${nota!==null?nota.toFixed(1):'—'}</span></div>
+      <div class="pitch-list-total" style="color:var(--gold);font-weight:700">${p.pts!==null?p.pts.toFixed(0):'—'}</div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:1rem">${btnsFase}</div>
+    <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1rem;margin-bottom:1rem">
+      <div style="font-family:'Bebas Neue',cursive;font-size:1.1rem;letter-spacing:0.08em;color:var(--gold);margin-bottom:0.5rem">
+        🌟 11 Ideal — ${PHASE_LABELS[fase]||fase} ${jorn}
+      </div>
+      <div style="display:flex;gap:1.5rem;font-size:0.82rem;color:var(--silver)">
+        <span>⚽ <strong style="color:var(--white)">${totalGols}</strong> gols</span>
+        <span>🅰️ <strong style="color:var(--white)">${totalAss}</strong> assists</span>
+        <span>🏆 <strong style="color:var(--gold)">${totalPts.toFixed(1)}</strong> pts totals</span>
+        ${!hasRols?`<span style="color:rgba(245,200,66,0.5);font-size:0.75rem">· Afegeix rols a 11_Ideals per al posicionament exacte</span>`:''}
+      </div>
+    </div>
+    ${pitchHtml}
+    <div style="margin-top:1rem">
+      <div class="pitch-list-header" style="display:grid;grid-template-columns:1fr auto auto;padding:0.4rem 0.8rem;font-size:0.72rem;font-family:'Space Mono',monospace;color:var(--silver);text-transform:uppercase;letter-spacing:0.06em">
+        <span>Jugador</span><span>Nota</span><span>Pts</span>
+      </div>
+      ${listHtml}
+    </div>`;
+}
+
 function renderJugadorsTab() {
   const view = document.getElementById('jugadorsView');
   if (!gData) return;
@@ -2579,6 +2857,7 @@ document.getElementById('mainNav').addEventListener('click', e => {
 
   if (tab === 'jornades') renderJornades(currentJornada.phase, currentJornada.jorn);
   if (tab === 'jugadors') { populateJugadorsFilters(); renderJugadorsTab(); }
+  if (tab === 'ideal11') renderIdeal11Tab();
   if (tab === 'ruleta') renderRuletaTab();
   if (tab === 'cartes') renderCartesTab();
   if (tab === 'canvis') renderCanvis();
