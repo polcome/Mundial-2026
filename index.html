@@ -1308,9 +1308,112 @@ function renderRanking() {
   }).join('');
 }
 
-// ============================================================
-// RENDER TEAM
-// ============================================================
+// Pin especial per a l'11 Ideal: puntuació crua (sense capitans ni cartes),
+// sense cap badge de capità/carta/canvi/escut. Obre targeta de detall crua.
+function playerPinIdeal(name, pos, sc, jorn, fase, foto, equip) {
+  if (!name) return `<div class="player-pin"><div class="avatar empty-slot">👤</div><div class="pname empty">—</div></div>`;
+  const note = parseNota(v(sc,'Nota'));
+  const g   = sc ? parseInt(v(sc,'Gols')||0) : 0;
+  const a   = sc ? parseInt(v(sc,'Assistencies')||0) : 0;
+  const pen = sc ? parseInt(v(sc,'Penalti')||0) : 0;
+  const groga = sc ? parseInt(v(sc,'DobleGroga')||0) : 0;
+  const verm  = sc ? parseInt(v(sc,'Vermella')||0) : 0;
+  const pts = calcScoreRowCrua(sc, pos); // puntuació CRUA, sense cap efecte
+  const avCls = note===null?'':note>=8?'score-high-av':note>=6.5?'score-mid-av':'score-low-av';
+
+  const iconParts = [];
+  if (g>0)     iconParts.push('⚽'.repeat(Math.min(g,3)));
+  if (pen>0)   iconParts.push('🥅'.repeat(Math.min(pen,3)));
+  if (a>0)     iconParts.push('🅰️'.repeat(Math.min(a,3)));
+  if (groga>0) iconParts.push('🟨');
+  if (verm>0)  iconParts.push('🟥');
+  const goals = iconParts.length ? `<div class="goal-row">${iconParts.join('')}</div>` : '';
+
+  const cs = getCountryStyle(equip);
+  const photoUrl = foto || '';
+  const bCol = 'var(--gold)';
+  const scoreBubble = pts!==null ? `<div style="position:absolute;top:-7px;right:-7px;z-index:10;background:var(--ink);border:1.5px solid ${bCol};color:${bCol};font-family:'Space Mono',monospace;font-size:0.6rem;font-weight:700;padding:2px 5px;border-radius:5px;white-space:nowrap">${pts}</div>` : '';
+  const flagBadge = cs ? `<div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);z-index:10;background:${cs.color};color:#fff;font-size:0.58rem;font-weight:800;padding:1px 5px;border-radius:4px;font-family:'Space Mono',monospace;white-space:nowrap;border:1px solid rgba(255,255,255,0.3)">${cs.abbr}</div>` : '';
+  const innerHtml = photoUrl
+    ? `<img src="${photoUrl}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%;z-index:1" onerror="this.style.display='none'">`
+    : `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.4rem;z-index:1">👤</span>`;
+
+  const safeName = name.replace(/'/g,"\\'");
+  const safeFase = (fase||'').replace(/'/g,"\\'");
+  const safeJorn = (jorn||'').replace(/'/g,"\\'");
+  return `<div class="player-pin" onclick="openPlayerCardIdeal('${safeName}','${safeFase}','${safeJorn}')" style="cursor:pointer">
+    <div class="avatar ${avCls}" style="overflow:visible;position:relative;transition:transform 0.15s" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform=''">${innerHtml}${scoreBubble}${flagBadge}</div>
+    <div class="pname">${name}</div>
+    ${goals}
+  </div>`;
+}
+
+// Obre targeta de detall per a un jugador de l'11 ideal (puntuació crua, sense participant)
+function openPlayerCardIdeal(name, fase, jorn) {
+  const sc = (gData?.puntuacions||[]).find(r =>
+    norm(v(r,'Jugador'))===norm(name) &&
+    norm(v(r,'Fase'))===norm(fase) &&
+    norm(v(r,'Jornada'))===norm(jorn)
+  );
+  const allPl = gData?.jugadors || [];
+  const plData = allPl.find(r => norm(v(r,'Jugador'))===norm(name));
+  const foto    = plData ? v(plData,'Foto')    : '';
+  const equip   = plData ? v(plData,'Equip')   : '';
+  const posicio = plData ? v(plData,'Posicio')  : '';
+  const cs = getCountryStyle(equip);
+  const flagBadge = cs ? `<span style="background:${cs.color};color:#fff;font-size:0.6rem;font-weight:800;padding:2px 6px;border-radius:4px;font-family:'Space Mono',monospace">${cs.abbr}</span>` : '';
+
+  const nota    = sc ? parseNota(v(sc,'Nota'))            : null;
+  const gols    = sc ? parseInt(v(sc,'Gols')||0)          : 0;
+  const assists = sc ? parseInt(v(sc,'Assistencies')||0)  : 0;
+  const penals  = sc ? parseInt(v(sc,'Penalti')||0)       : 0;
+  const dgroga  = sc ? parseInt(v(sc,'DobleGroga')||0)    : 0;
+  const verm    = sc ? parseInt(v(sc,'Vermella')||0)      : 0;
+  const pts     = calcScoreRowCrua(sc, posicio);
+  const notaPts = nota !== null ? notaToPts(nota) : null;
+  const notaCls = nota===null?'score-empty':nota>=8?'score-high':nota>=6.5?'score-mid':'score-low';
+  const noJugat = sc && noHaJugat(sc);
+
+  const photoHtml = foto
+    ? `<img class="card-photo" src="${foto}" onerror="this.outerHTML='<div class=card-no-photo>👤</div>'">`
+    : `<div class="card-no-photo">👤</div>`;
+
+  let statsRows = noJugat
+    ? `<div class="card-stat-row" style="background:rgba(248,113,113,0.1);border-radius:6px;padding:6px 8px"><span style="color:#F87171;font-weight:700">😴 No ha jugat</span><span class="val" style="color:#F87171">0 pts</span></div>`
+    : [
+      nota!==null ? `<div class="card-stat-row"><span>📊 Nota SofaScore</span><span style="display:flex;gap:8px;align-items:center"><span class="score-chip ${notaCls}">${nota.toFixed(1)}</span><span class="val">${notaPts>=0?'+':''}${notaPts} pts</span></span></div>` : '',
+      gols>0   ? `<div class="card-stat-row"><span>⚽ Gols (${posicio} +${golPts(posicio)}pts/gol)</span><span class="val" style="color:#6EE89A">+${gols*golPts(posicio)} pts</span></div>` : '',
+      assists>0? `<div class="card-stat-row"><span>🅰️ Assistències ×${assists}</span><span class="val" style="color:#7DC3F5">+${assists*2} pts</span></div>` : '',
+      penals>0 ? `<div class="card-stat-row"><span>🥅 Gols de penal ×${penals}</span><span class="val" style="color:#6EE89A">+${penals*3} pts</span></div>` : '',
+      dgroga>0 ? `<div class="card-stat-row"><span>🟨 Doble groga</span><span class="val" style="color:#F5C842">-3 pts</span></div>` : '',
+      verm>0   ? `<div class="card-stat-row"><span>🟥 Targeta vermella</span><span class="val" style="color:#F58080">-6 pts</span></div>` : '',
+    ].filter(Boolean).join('');
+
+  if (!noJugat) {
+    statsRows += `<div class="card-divider"></div><div class="card-stat-row"><span style="font-weight:700">Total (puntuació base)</span><span class="val" style="color:var(--gold);font-weight:700">${pts!==null?pts.toFixed(0):'—'} pts</span></div>`;
+  }
+
+  const modal = document.getElementById('playerCardModal');
+  const content = document.getElementById('playerCardContent');
+  if (!modal || !content) return;
+  content.innerHTML = `
+    <div class="card-header-row">
+      ${photoHtml}
+      <div class="card-player-info">
+        <div class="card-player-name">${name}</div>
+        <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-top:0.3rem">
+          <span class="pos-badge pos-${posicio}">${posicio}</span>
+          ${flagBadge}
+          <span style="color:var(--silver);font-size:0.8rem">${equip}</span>
+        </div>
+        <div style="margin-top:0.4rem;font-size:0.78rem;color:var(--silver)">
+          <span style="background:rgba(245,200,66,0.15);border:1px solid rgba(245,200,66,0.3);color:var(--gold);padding:2px 8px;border-radius:10px;font-family:'Space Mono',monospace;font-size:0.65rem">🌟 11 Ideal · ${PHASE_LABELS[fase]||fase} ${jorn}</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-stats">${statsRows || '<div style="color:var(--silver);opacity:0.7;text-align:center;padding:0.5rem">Sense puntuació registrada</div>'}</div>`;
+  modal.style.display = 'flex';
+}
 // Per-participant state
 // _st defined below
 function getTeamState(p) {
@@ -2193,7 +2296,7 @@ function renderIdeal11Tab() {
         const p = grid[r][c];
         if (p) {
           // Genera pin amb playerPin (sense participant, mode crua)
-          cells.push(`<div class="pitch-cell" style="grid-row:${r+1};grid-column:${c+1}">${playerPin(p.name, p.pos, p.sc, jorn, null, fase)}</div>`);
+      cells.push(`<div class="pitch-cell" style="grid-row:${r+1};grid-column:${c+1}">${playerPinIdeal(p.name, p.pos, p.sc, jorn, fase, p.foto, p.equip)}</div>`);
         } else {
           cells.push(`<div class="pitch-cell" style="grid-row:${r+1};grid-column:${c+1}"></div>`);
         }
@@ -2202,7 +2305,7 @@ function renderIdeal11Tab() {
 
     // Jugadors sense rol: fila extra a sobre
     const noRolPins = noRol.map(p=>
-      `<div style="flex:0 0 auto">${playerPin(p.name, p.pos, p.sc, jorn, null, fase)}</div>`
+      `<div style="flex:0 0 auto">${playerPinIdeal(p.name, p.pos, p.sc, jorn, fase, p.foto, p.equip)}</div>`
     ).join('');
     const noRolHtml = noRol.length ? `
       <div style="display:flex;flex-wrap:wrap;gap:0.5rem;justify-content:center;padding:0.5rem;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:0.5rem">
@@ -2221,7 +2324,7 @@ function renderIdeal11Tab() {
     const rowsHtml = rows.map(pos => {
       if (!byPos[pos]?.length) return '';
       const pins = byPos[pos].map(p=>
-        `<div style="flex:0 0 auto">${playerPin(p.name, p.pos, p.sc, jorn, null, fase)}</div>`
+        `<div style="flex:0 0 auto">${playerPinIdeal(p.name, p.pos, p.sc, jorn, fase, p.foto, p.equip)}</div>`
       ).join('');
       return `<div style="display:flex;justify-content:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.4rem">${pins}</div>`;
     }).join('');
@@ -2250,7 +2353,8 @@ function renderIdeal11Tab() {
     if (pen>0) bonusParts.push(`🥅×${pen}`);
     if (dg>0) bonusParts.push(`🟨`);
     if (vm>0) bonusParts.push(`🟥`);
-    return `<div class="pitch-list-row" style="cursor:default">
+    const safeName = p.name.replace(/'/g,"\\'");
+    return `<div class="pitch-list-row" onclick="openPlayerCardIdeal('${safeName}','${fase}','${jorn}')" style="cursor:pointer">
       <div class="pitch-list-name" style="display:flex;align-items:center;gap:0.6rem">
         <span style="font-family:'Space Mono',monospace;font-size:0.7rem;color:var(--silver);min-width:16px">${i+1}</span>
         ${p.foto ? `<img src="${p.foto}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">` : ''}
