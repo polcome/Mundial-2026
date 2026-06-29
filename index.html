@@ -2022,45 +2022,92 @@ function renderJugadorsTab() {
 
   const participants = getParticipants();
 
-  // Build stats per player
-  const rows = [];
+  // Construïm un índex de tots els jugadors que han aparegut a qualsevol plantilla
+  // en qualsevol jornada (incloent cedits i substituts), indexat per nom de jugador.
+  // Per a cada jugador guardem: quin participant el té ACTUALMENT (o l'últim que el va tenir),
+  // i les seves dades base (equip, posicio, foto) — prioritzant el participant actual.
+  const jugadorIndex = {}; // { normName: { name, equip, posicio, foto, participant } }
   for (const p of participants) {
-    const allPl = getPlayers(p);
-    // All unique player names across all phases (including substitutes)
-    const allNames = new Set();
-    for (const ph of PHASES) {
-      getPlayersForPhase(p, ph).forEach(pl => allNames.add(v(pl,'Jugador')));
+    // Primer: jugadors actuals de la plantilla (màxima prioritat per a les dades base)
+    for (const pl of getPlayers(p)) {
+      const nm = norm(v(pl,'Jugador'));
+      if (!jugadorIndex[nm]) {
+        jugadorIndex[nm] = { name: v(pl,'Jugador'), equip: v(pl,'Equip'), posicio: v(pl,'Posicio'), foto: v(pl,'Foto'), participant: p };
+      }
     }
+    // Segon: jugadors que van aparèixer en qualsevol jornada passada (cedits, substituts)
+    for (const ph of PHASES) {
+      for (const jorn of PHASE_JORNADES[ph] || []) {
+        for (const pl of getPlayersForPhase(p, ph, jorn)) {
+          const nm = norm(v(pl,'Jugador'));
+          if (!jugadorIndex[nm]) {
+            // No el tenim encara: afegim amb les dades que tenim (potser parcials)
+            const plData = (gData.jugadors||[]).find(r => norm(v(r,'Participant'))===norm(p) && norm(v(r,'Jugador'))===norm(v(pl,'Jugador')))
+              || (gData.jugadors||[]).find(r => norm(v(r,'Jugador'))===norm(v(pl,'Jugador')));
+            jugadorIndex[nm] = {
+              name: v(pl,'Jugador'),
+              equip: plData ? v(plData,'Equip') : '',
+              posicio: plData ? v(plData,'Posicio') : '',
+              foto: plData ? v(plData,'Foto') : '',
+              participant: p
+            };
+          }
+        }
+      }
+    }
+    // Tercer: jugadors que han puntuat (a Puntuacions) però potser no apareixen a Jugadors actuals
+    for (const sc of (gData.puntuacions||[])) {
+      if (norm(v(sc,'Participant')) !== norm(p)) continue;
+      const nm = norm(v(sc,'Jugador'));
+      if (!jugadorIndex[nm]) {
+        const plData = (gData.jugadors||[]).find(r => norm(v(r,'Jugador'))===nm);
+        jugadorIndex[nm] = {
+          name: v(sc,'Jugador'),
+          equip: plData ? v(plData,'Equip') : '',
+          posicio: plData ? v(plData,'Posicio') : '',
+          foto: plData ? v(plData,'Foto') : '',
+          participant: p
+        };
+      }
+    }
+  }
 
-    for (const name of allNames) {
-      // Find player data (foto, equip, posicio)
-      const plData = allPl.find(r => norm(v(r,'Jugador')) === norm(name))
-        || (gData.jugadors||[]).find(r => norm(v(r,'Participant'))===norm(p) && norm(v(r,'Jugador'))===norm(name));
-      const equip  = plData ? v(plData,'Equip')  : '';
-      const posicio= plData ? v(plData,'Posicio') : '';
-      const foto   = plData ? v(plData,'Foto')    : '';
+  // Ara calculem stats per jugador, acumulant de TOTS els equips que l'han tingut
+  const rows = [];
+  const processed = new Set();
 
-      if (filterEquip && norm(p) !== norm(filterEquip)) continue;
-      if (filterPos && (posicio||'').toUpperCase() !== filterPos) continue;
-      if (filterNom && !name.toLowerCase().includes(filterNom)) continue;
+  for (const [nm, jInfo] of Object.entries(jugadorIndex)) {
+    if (processed.has(nm)) continue;
+    processed.add(nm);
 
-      // Accumulate stats across phases/jornades
-      let totalPts=0, totalGols=0, totalAssists=0, totalPenals=0;
-      let totalDobleGroga=0, totalVermella=0;
-      let notaSum=0, notaCount=0;
-      const phaseDetails = [];
+    const { name, equip, posicio, foto } = jInfo;
 
-      const phasesToCheck = filterFase ? [filterFase] : PHASES;
-      for (const ph of phasesToCheck) {
-        const jorns = PHASE_JORNADES[ph];
-        let phPts=0, phGols=0, phAssists=0, phPenals=0, phDG=0, phV=0;
-        const jornDetails = [];
+    // Filtre per equip fantasy: si filtrem per un participant concret, només mostrem
+    // jugadors que hagin puntuat per a ell en alguna jornada
+    // Filtre per equip de selecció (país), posició i nom
+    if (filterPos && (posicio||'').toUpperCase() !== filterPos) continue;
+    if (filterNom && !name.toLowerCase().includes(filterNom)) continue;
 
-        for (const jorn of jorns) {
-          // Comprova si el jugador era titular EN AQUESTA jornada concreta
+    // Acumula stats de TOTS els participants que han tingut aquest jugador
+    let totalPts=0, totalGols=0, totalAssists=0, totalPenals=0;
+    let totalDobleGroga=0, totalVermella=0;
+    let notaSum=0, notaCount=0;
+    const phaseDetails = [];
+    let hasPuntuat = false;
+
+    const phasesToCheck = filterFase ? [filterFase] : PHASES;
+    for (const ph of phasesToCheck) {
+      const jorns = PHASE_JORNADES[ph] || [];
+      let phPts=0, phGols=0, phAssists=0, phPenals=0, phDG=0, phV=0;
+      const jornDetails = [];
+
+      for (const jorn of jorns) {
+        // Busca en TOTS els participants qui tenia aquest jugador en aquesta jornada
+        for (const p of participants) {
+          if (filterEquip && norm(p) !== norm(filterEquip)) continue;
           const jornRoster = getPlayersForPhase(p, ph, jorn);
-          const inRosterJorn = jornRoster.some(pl => norm(v(pl,'Jugador')) === norm(name));
-          if (!inRosterJorn) continue;
+          const inRoster = jornRoster.some(pl => norm(v(pl,'Jugador')) === nm);
+          if (!inRoster) continue;
 
           const sc = getScore(p, name, ph, jorn);
           if (!sc || v(sc,'Nota')==='') continue;
@@ -2074,17 +2121,30 @@ function renderJugadorsTab() {
           if (nota !== null) { notaSum += nota; notaCount++; }
           phPts += pts||0; phGols += g; phAssists += a; phPenals += pen; phDG += dg; phV += vm;
           jornDetails.push({ jorn, nota, g, a, pen, dg, vm, pts });
-        }
-        if (jornDetails.length) {
-          phaseDetails.push({ phase: ph, pts: phPts, gols: phGols, assists: phAssists, penals: phPenals, dg: phDG, vm: phV, jorns: jornDetails });
-          totalPts += phPts; totalGols += phGols; totalAssists += phAssists;
-          totalPenals += phPenals; totalDobleGroga += phDG; totalVermella += phV;
+          hasPuntuat = true;
         }
       }
-
-      if (phaseDetails.length === 0 && filterFase) continue; // no data for this phase
-      rows.push({ name, equip, posicio, foto, participant:p, totalPts, totalGols, totalAssists, totalPenals, totalDobleGroga, totalVermella, notaMitjana: notaCount>0?(notaSum/notaCount):0, phaseDetails });
+      if (jornDetails.length) {
+        phaseDetails.push({ phase: ph, pts: phPts, gols: phGols, assists: phAssists, penals: phPenals, dg: phDG, vm: phV, jorns: jornDetails });
+        totalPts += phPts; totalGols += phGols; totalAssists += phAssists;
+        totalPenals += phPenals; totalDobleGroga += phDG; totalVermella += phV;
+      }
     }
+
+    // Si filtrem per equip fantasy i el jugador no ha puntuat per a ell, saltem
+    if (filterEquip && !hasPuntuat) continue;
+    if (phaseDetails.length === 0 && filterFase) continue;
+    if (!hasPuntuat && phaseDetails.length === 0) continue; // mai ha puntuat, no mostrar
+
+    // Per al participant mostrat, agafem el que el té ACTUALMENT o l'últim que el va tenir
+    const currentParticipant = (() => {
+      for (const p of participants) {
+        if (getPlayers(p).some(pl => norm(v(pl,'Jugador')) === nm)) return p;
+      }
+      return jInfo.participant; // fallback: últim que el va tenir
+    })();
+
+    rows.push({ name, equip, posicio, foto, participant: currentParticipant, totalPts, totalGols, totalAssists, totalPenals, totalDobleGroga, totalVermella, notaMitjana: notaCount>0?(notaSum/notaCount):0, phaseDetails });
   }
 
   // Sort
