@@ -254,6 +254,13 @@
         #132f52 91.66%, #0f2a4a 91.66%, #0f2a4a 100%);
     border-radius:10px; overflow:visible; border:2px solid rgba(96,165,250,0.25);
   }
+  .pitch-ideal .pitch-grid {
+    position:absolute; inset:6% 4%; z-index:2;
+    display:grid;
+    grid-template-rows: repeat(9, 1fr);
+    grid-template-columns: repeat(5, 1fr);
+    row-gap: 2px;
+  }
     position:absolute; inset:6% 4%; z-index:2;
     display:grid;
     grid-template-rows: repeat(9, 1fr);
@@ -1406,26 +1413,31 @@ function openPlayerCardIdeal(name, fase, jorn) {
     statsRows += `<div class="card-divider"></div><div class="card-stat-row"><span style="font-weight:700">Total (puntuació base)</span><span class="val" style="color:var(--gold);font-weight:700">${pts!==null?pts.toFixed(0):'—'} pts</span></div>`;
   }
 
-  const modal = document.getElementById('playerCardModal');
-  const content = document.getElementById('playerCardContent');
-  if (!modal || !content) return;
-  content.innerHTML = `
-    <div class="card-header-row">
+  const posBadge2 = posicio ? `<span class="pos-badge pos-${posicio}">${posicio}</span>` : '';
+  const totalRow = !noJugat && pts !== null
+    ? `<div class="card-total"><span class="card-total-label">Total base 🌟</span><span class="card-total-pts">${pts} pts</span></div>`
+    : '';
+  const modalEl = document.createElement('div');
+  modalEl.className = 'photo-modal';
+  modalEl.innerHTML = `
+    <div class="player-card-modal" onclick="event.stopPropagation()">
       ${photoHtml}
-      <div class="card-player-info">
-        <div class="card-player-name">${name}</div>
-        <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-top:0.3rem">
-          <span class="pos-badge pos-${posicio}">${posicio}</span>
-          ${flagBadge}
-          <span style="color:var(--silver);font-size:0.8rem">${equip}</span>
+      <div class="card-body">
+        <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.3rem">
+          <div class="card-name" style="margin-bottom:0">${name}</div>
         </div>
-        <div style="margin-top:0.4rem;font-size:0.78rem;color:var(--silver)">
-          <span style="background:rgba(245,200,66,0.15);border:1px solid rgba(245,200,66,0.3);color:var(--gold);padding:2px 8px;border-radius:10px;font-family:'Space Mono',monospace;font-size:0.65rem">🌟 11 Ideal · ${PHASE_LABELS[fase]||fase} ${jorn}</span>
+        <div class="card-meta">
+          ${posBadge2}${flagBadge}
+          ${equip ? `<span style="font-size:0.82rem;color:var(--silver)">${equip}</span>` : ''}
+          <span style="background:rgba(96,165,250,0.15);border:1px solid rgba(96,165,250,0.3);color:#60A5FA;padding:2px 8px;border-radius:10px;font-family:'Space Mono',monospace;font-size:0.65rem">🌟 11 Ideal · ${PHASE_LABELS[fase]||fase} ${jorn}</span>
         </div>
+        ${statsRows || '<div style="color:var(--silver);opacity:0.7;text-align:center;padding:0.5rem">Sense puntuació registrada</div>'}
+        ${totalRow}
       </div>
     </div>
-    <div class="card-stats">${statsRows || '<div style="color:var(--silver);opacity:0.7;text-align:center;padding:0.5rem">Sense puntuació registrada</div>'}</div>`;
-  modal.style.display = 'flex';
+    <button class="modal-close" onclick="this.closest('.photo-modal').remove()">✕</button>`;
+  modalEl.onclick = () => modalEl.remove();
+  document.body.appendChild(modalEl);
 }
 // Per-participant state
 // _st defined below
