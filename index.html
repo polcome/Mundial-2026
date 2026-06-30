@@ -942,10 +942,15 @@ function getPlayers(participant) {
   return (gData.jugadors || []).filter(r => norm(v(r, 'Participant')) === pN);
 }
 
-// Retorna true si el jugador està eliminat del Mundial
-function isEliminated(jugador) {
+// Retorna true si el jugador està eliminat del Mundial, EN L'EQUIP CONCRET indicat
+// (un mateix jugador pot estar eliminat en un equip antic però fitxat i actiu en un altre).
+// Si no es passa participant, cau al comportament antic (busca per nom, primera coincidència).
+function isEliminated(jugador, participant) {
   if (!gData) return false;
-  const pl = (gData.jugadors || []).find(r => norm(v(r,'Jugador')) === norm(jugador));
+  const pl = participant
+    ? (gData.jugadors || []).find(r => norm(v(r,'Participant'))===norm(participant) && norm(v(r,'Jugador'))===norm(jugador))
+      || (gData.jugadors || []).find(r => norm(v(r,'Jugador')) === norm(jugador))
+    : (gData.jugadors || []).find(r => norm(v(r,'Jugador')) === norm(jugador));
   if (!pl) return false;
   return norm(v(pl,'Eliminat')) === 'si' || norm(v(pl,'Eliminat')) === 'yes' || norm(v(pl,'Eliminat')) === '1';
 }
@@ -1297,10 +1302,17 @@ function renderRanking() {
       .map(ph => `<div>${PHASE_LABELS[ph]}: <strong>${r.byPhase[ph].toFixed(0)}</strong></div>`).join('');
 
     // Comptador de jugadors que ja han puntuat a la jornada activa
+    // (l'estat d'eliminat es llegeix directament de la fila pl, que ja és específica
+    // d'aquest participant — un jugador pot estar eliminat en un equip antic però
+    // actiu en l'equip que el té fitxat actualment)
     const teamPlayers = getPlayersForPhase(r.name, FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
-    const totalActius = teamPlayers.filter(pl => !isEliminated(v(pl,'Jugador'))).length;
+    const isElimRow = (pl) => {
+      const e = norm(v(pl,'Eliminat'));
+      return e==='si' || e==='yes' || e==='1';
+    };
+    const totalActius = teamPlayers.filter(pl => !isElimRow(pl)).length;
     const jaPuntuat = teamPlayers.filter(pl => {
-      if (isEliminated(v(pl,'Jugador'))) return false;
+      if (isElimRow(pl)) return false;
       const sc = getScore(r.name, v(pl,'Jugador'), FASE_ACTIVA_GLOBAL, JORNADA_ACTIVA_GLOBAL);
       return sc && v(sc,'Nota') !== '';
     }).length;
