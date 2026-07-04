@@ -689,7 +689,7 @@ async function loadAllData() {
       fetchSheet('Participants').then(parseSheet).catch(e => { console.warn('Participants:', e); return []; }),
       fetchSheet('Jugadors').then(parseSheet).catch(e => { console.warn('Jugadors:', e); return []; }),
       fetchSheet('Puntuacions').then(parseSheet).catch(e => { console.warn('Puntuacions:', e); return []; }),
-      fetchSheet('Canvis').then(parseSheet).catch(e => { console.warn('Canvis:', e); return []; }),
+      fetchSheet('Canvis').then(json => { console.log('🔍 Canvis raw cols:', json?.table?.cols?.map(c=>c.label), '| rows:', json?.table?.rows?.length, '| first data row:', JSON.stringify(json?.table?.rows?.[1]?.c?.map(c=>({v:c?.v,f:c?.f})))); return parseSheet(json); }).catch(e => { console.warn('Canvis:', e); return []; }),
       fetchSheet('11_Ideals').then(parseSheet).catch(e => { console.warn('11_Ideals:', e); return []; }),
     ]);
 
