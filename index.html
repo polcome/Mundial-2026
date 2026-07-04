@@ -972,12 +972,13 @@ function filterActius(players) {
 function changeFaseToPhase(rawFase) {
   const f = norm(rawFase);
   if (PHASES.includes(f)) return f;
-  // Fallback per a valors antics tipus "post-grups"
+  // Fallback per a valors antics o variants
   if (f.includes('post-grups') || f.includes('grups'))  return 'grups';
-  if (f.includes('post-r16')   || f.includes('16ens'))  return 'r16';
-  if (f.includes('post-r8')    || f.includes('vuitens') || f.includes('octavos')) return 'r8';
-  if (f.includes('post-qf')    || f.includes('quarts')) return 'qf';
-  if (f.includes('post-sf')    || f.includes('semis'))  return 'sf';
+  if (f.includes('r16') || f.includes('16ens') || f.includes('post-r16')) return 'r16';
+  if (f === 'r8' || f.includes('post-r8') || f.includes('vuitens') || f.includes('octavos') || f.includes('r8ens')) return 'r8';
+  if (f.includes('post-qf') || f.includes('quarts') || f === 'qf') return 'qf';
+  if (f.includes('post-sf') || f.includes('semis') || f === 'sf') return 'sf';
+  if (f === 'final' || f.includes('final')) return 'final';
   return null;
 }
 
