@@ -2470,49 +2470,70 @@ function renderJugadorsTab() {
   // en qualsevol jornada (incloent cedits i substituts), indexat per nom de jugador.
   // Per a cada jugador guardem: quin participant el té ACTUALMENT (o l'últim que el va tenir),
   // i les seves dades base (equip, posicio, foto) — prioritzant el participant actual.
-  const jugadorIndex = {}; // { normName: { name, equip, posicio, foto, participant } }
+  // Construïm un índex de tots els jugadors que han aparegut a qualsevol plantilla.
+  // Prioritat per a foto/participant: equip actual NO eliminat > equip anterior NO eliminat
+  // > equip actual eliminat > qualsevol altra aparició.
+  // Per detectar si un jugador és "actiu" en un equip, mirem la columna Eliminat
+  // de la seva fila ESPECÍFICA d'aquell participant (no global).
+  const jugadorIndex = {}; // { normName: { name, equip, posicio, foto, participant, eliminat } }
+
+  const isElimRowFn = (pl) => {
+    const e = norm(v(pl,'Eliminat'));
+    return e==='si' || e==='yes' || e==='1';
+  };
+
+  // Prioritat numèrica: com més alt, més prioritat per mostrar foto/participant
+  // 3 = equip actual, no eliminat (màxima prioritat)
+  // 2 = equip anterior (jornades passades), no eliminat
+  // 1 = qualsevol equip, eliminat (mínima prioritat, però millor que res)
+  const getPriority = (pl, isCurrentRoster) => {
+    const elim = isElimRowFn(pl);
+    if (isCurrentRoster && !elim) return 3;
+    if (!isCurrentRoster && !elim) return 2;
+    return 1;
+  };
+
+  const tryUpdate = (nm, candidate) => {
+    if (!jugadorIndex[nm] || candidate.priority > jugadorIndex[nm].priority) {
+      jugadorIndex[nm] = candidate;
+    }
+  };
+
   for (const p of participants) {
-    // Primer: jugadors actuals de la plantilla (màxima prioritat per a les dades base)
+    // Jugadors actuals de la plantilla
     for (const pl of getPlayers(p)) {
       const nm = norm(v(pl,'Jugador'));
-      if (!jugadorIndex[nm]) {
-        jugadorIndex[nm] = { name: v(pl,'Jugador'), equip: v(pl,'Equip'), posicio: v(pl,'Posicio'), foto: v(pl,'Foto'), participant: p };
-      }
+      tryUpdate(nm, {
+        name: v(pl,'Jugador'), equip: v(pl,'Equip'), posicio: v(pl,'Posicio'),
+        foto: v(pl,'Foto'), participant: p, priority: getPriority(pl, true)
+      });
     }
-    // Segon: jugadors que van aparèixer en qualsevol jornada passada (cedits, substituts)
+    // Jugadors de jornades passades (cedits, substituts)
     for (const ph of PHASES) {
       for (const jorn of PHASE_JORNADES[ph] || []) {
         for (const pl of getPlayersForPhase(p, ph, jorn)) {
           const nm = norm(v(pl,'Jugador'));
-          if (!jugadorIndex[nm]) {
-            // No el tenim encara: afegim amb les dades que tenim (potser parcials)
-            const plData = (gData.jugadors||[]).find(r => norm(v(r,'Participant'))===norm(p) && norm(v(r,'Jugador'))===norm(v(pl,'Jugador')))
-              || (gData.jugadors||[]).find(r => norm(v(r,'Jugador'))===norm(v(pl,'Jugador')));
-            jugadorIndex[nm] = {
-              name: v(pl,'Jugador'),
-              equip: plData ? v(plData,'Equip') : '',
-              posicio: plData ? v(plData,'Posicio') : '',
-              foto: plData ? v(plData,'Foto') : '',
-              participant: p
-            };
-          }
+          const plData = (gData.jugadors||[]).find(r => norm(v(r,'Participant'))===norm(p) && norm(v(r,'Jugador'))===norm(v(pl,'Jugador')))
+            || (gData.jugadors||[]).find(r => norm(v(r,'Jugador'))===norm(v(pl,'Jugador')));
+          if (!plData) continue;
+          tryUpdate(nm, {
+            name: v(pl,'Jugador'), equip: v(plData,'Equip'), posicio: v(plData,'Posicio'),
+            foto: v(plData,'Foto'), participant: p, priority: getPriority(plData, false)
+          });
         }
       }
     }
-    // Tercer: jugadors que han puntuat (a Puntuacions) però potser no apareixen a Jugadors actuals
+    // Jugadors que han puntuat però potser no apareixen a Jugadors actuals
     for (const sc of (gData.puntuacions||[])) {
       if (norm(v(sc,'Participant')) !== norm(p)) continue;
       const nm = norm(v(sc,'Jugador'));
-      if (!jugadorIndex[nm]) {
-        const plData = (gData.jugadors||[]).find(r => norm(v(r,'Jugador'))===nm);
-        jugadorIndex[nm] = {
-          name: v(sc,'Jugador'),
-          equip: plData ? v(plData,'Equip') : '',
-          posicio: plData ? v(plData,'Posicio') : '',
-          foto: plData ? v(plData,'Foto') : '',
-          participant: p
-        };
-      }
+      const plData = (gData.jugadors||[]).find(r => norm(v(r,'Participant'))===norm(p) && norm(v(r,'Jugador'))===nm)
+        || (gData.jugadors||[]).find(r => norm(v(r,'Jugador'))===nm);
+      if (!plData) continue;
+      tryUpdate(nm, {
+        name: v(sc,'Jugador'), equip: v(plData,'Equip'), posicio: v(plData,'Posicio'),
+        foto: v(plData,'Foto'), participant: p, priority: getPriority(plData, false)
+      });
     }
   }
 
