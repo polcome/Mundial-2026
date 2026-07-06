@@ -2580,15 +2580,42 @@ function renderJugadorsTab() {
     if (phaseDetails.length === 0 && filterFase) continue;
     if (!hasPuntuat && phaseDetails.length === 0) continue; // mai ha puntuat, no mostrar
 
-    // Per al participant mostrat, agafem el que el té ACTUALMENT o l'últim que el va tenir
+    // Participant vigent: el que el té ACTUALMENT amb Eliminat=NO
+    // Si tots estan eliminats → "Sense Equip"
+    // Si ningú el té a la plantilla actual → fallback a últim que el va tenir
     const currentParticipant = (() => {
+      // Primer: participant actual amb jugador NO eliminat
       for (const p of participants) {
-        if (getPlayers(p).some(pl => norm(v(pl,'Jugador')) === nm)) return p;
+        const plRow = (gData.jugadors||[]).find(r =>
+          norm(v(r,'Participant'))===norm(p) && norm(v(r,'Jugador'))===nm
+        );
+        if (plRow) {
+          const elim = norm(v(plRow,'Eliminat'));
+          if (elim !== 'si' && elim !== 'yes' && elim !== '1') return p;
+        }
       }
-      return jInfo.participant; // fallback: últim que el va tenir
+      // Segon: tots eliminats → "Sense Equip"
+      const anyActive = participants.some(p =>
+        (gData.jugadors||[]).some(r =>
+          norm(v(r,'Participant'))===norm(p) && norm(v(r,'Jugador'))===nm
+        )
+      );
+      if (anyActive) return 'Sense Equip';
+      // Fallback: últim que el va tenir (si no apareix a Jugadors però sí a Puntuacions)
+      return jInfo.participant;
     })();
 
-    rows.push({ name, equip, posicio, foto, participant: currentParticipant, totalPts, totalGols, totalAssists, totalPenals, totalDobleGroga, totalVermella, notaMitjana: notaCount>0?(notaSum/notaCount):0, phaseDetails });
+    // Foto i equip: de la fila específica del participant vigent
+    const vigentRow = currentParticipant && currentParticipant !== 'Sense Equip'
+      ? (gData.jugadors||[]).find(r =>
+          norm(v(r,'Participant'))===norm(currentParticipant) && norm(v(r,'Jugador'))===nm
+        )
+      : (gData.jugadors||[]).find(r => norm(v(r,'Jugador'))===nm);
+    const vigentFoto   = vigentRow ? v(vigentRow,'Foto')    : jInfo.foto;
+    const vigentEquip  = vigentRow ? v(vigentRow,'Equip')   : jInfo.equip;
+    const vigentPosicio= vigentRow ? v(vigentRow,'Posicio') : posicio;
+
+    rows.push({ name, equip: vigentEquip, posicio: vigentPosicio||posicio, foto: vigentFoto, participant: currentParticipant, totalPts, totalGols, totalAssists, totalPenals, totalDobleGroga, totalVermella, notaMitjana: notaCount>0?(notaSum/notaCount):0, phaseDetails });
   }
 
   // Sort
