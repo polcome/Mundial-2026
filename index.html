@@ -1026,25 +1026,24 @@ function getPlayersForPhase(participant, phase, jornada) {
   const changes    = getChanges(participant);
   const targetIdx  = jornadaIndex(phase, jornada);
 
-  // Jugadors que surten per canvi (en qualsevol jornada)
-  const changeOutNames = new Set(changes.map(c => norm(v(c,'Jugador_Surt'))));
+  const originalNames = new Set(allPlayers.map(pl => norm(v(pl,'Jugador'))));
 
   // Excloem de la plantilla base els jugadors que entren per canvi,
-  // EXCEPTE si aquell jugador també ha sortit per canvi prèviament
-  // (cas: De Paul surt J3 i torna r8 → va sortir, per tant NO l'excloem de la base;
-  //  el canvi de J3 el treurà quan toqui i el canvi de r8 el tornarà a posar)
+  // EXCEPTE si aquell jugador era titular original (estava a allPlayers).
+  // Exemple: De Paul era titular, surt J3, torna r8 → NO s'exclou de la base
+  //          (els canvis J3 i r8 el gestionen seqüencialment)
+  // Exemple: Isak NO era titular, entra J2, surt r8 → SÍ s'exclou de la base
+  //          (el canvi J2 l'afegeix quan toca)
   const changeInNames = new Set(
     changes
       .map(c => norm(v(c,'Jugador_Entra')))
-      .filter(nm => !changeOutNames.has(nm))
+      .filter(nm => !originalNames.has(nm))
   );
 
-  // Plantilla base: titulars originals excepte els que entren per canvi "net" (mai han sortit)
   let roster = allPlayers
     .filter(pl => !changeInNames.has(norm(v(pl,'Jugador'))))
     .map(pl => ({ ...pl }));
 
-  // Aplica canvis en ordre cronològic
   for (const c of changes) {
     const cFase    = changeFaseToPhase(v(c, 'Fase')) || norm(v(c,'Fase'));
     const cJornada = v(c, 'Jornada') || (PHASE_JORNADES[cFase]||[])[0] || '';
