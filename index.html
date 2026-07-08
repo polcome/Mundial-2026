@@ -1053,7 +1053,9 @@ function getPlayersForPhase(participant, phase, jornada) {
     const outName = norm(v(c, 'Jugador_Surt'));
     const inName  = v(c, 'Jugador_Entra');
 
-    const inPlayerData = allPlayers.find(pl => norm(v(pl,'Jugador')) === norm(inName));
+    const inPlayerData = allPlayers.find(pl => norm(v(pl,'Jugador')) === norm(inName))
+      || (gData.jugadors||[]).find(r => norm(v(r,'Participant'))===norm(participant) && norm(v(r,'Jugador'))===norm(inName))
+      || (gData.jugadors||[]).find(r => norm(v(r,'Jugador'))===norm(inName));
 
     const idx = roster.findIndex(pl => norm(v(pl,'Jugador')) === outName);
     if (idx >= 0) {
