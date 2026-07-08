@@ -939,7 +939,12 @@ function getParticipants() {
 function getPlayers(participant) {
   if (!gData) return [];
   const pN = norm(participant);
-  return (gData.jugadors || []).filter(r => norm(v(r, 'Participant')) === pN);
+  const all = (gData.jugadors || []).filter(r => norm(v(r, 'Participant')) === pN);
+  // Si existeix la columna Es_Original, filtra només els originals (SI)
+  // Si la columna no existeix o totes les files la tenen buida, retorna tots (compatibilitat enrere)
+  const hasCol = all.some(r => v(r,'Es_Original') !== '');
+  if (!hasCol) return all;
+  return all.filter(r => norm(v(r,'Es_Original')) === 'si' || norm(v(r,'Es_Original')) === 'yes' || norm(v(r,'Es_Original')) === '1');
 }
 
 // Retorna true si el jugador està eliminat del Mundial, EN L'EQUIP CONCRET indicat
