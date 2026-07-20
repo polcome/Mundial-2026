@@ -2476,7 +2476,7 @@ function renderStatsTab() {
   if (!_statsParticipant) _statsParticipant = '__global__';
   const selectorHtml = `<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:1.2rem">
     ${[{name:'🌐 Global',val:'__global__'},...participants.map(p=>({name:p,val:p}))].map(({name,val})=>`
-      <button data-statsp="${val.replace(/"/g,'&quot;')}" onclick="window._statsParticipant=this.getAttribute('data-statsp');renderStatsTab()"
+      <button data-statsp="${val.replace(/"/g,'&quot;')}"
         style="background:${_statsParticipant===val?'var(--gold)':'rgba(255,255,255,0.07)'};color:${_statsParticipant===val?'var(--ink)':'var(--white)'};border:1px solid ${_statsParticipant===val?'var(--gold)':'var(--glass-border)'};border-radius:6px;padding:0.3rem 0.8rem;font-size:0.78rem;font-weight:700;cursor:pointer">${name}</button>`).join('')}
   </div>`;
   const isGlobal = _statsParticipant === '__global__';
@@ -2745,13 +2745,8 @@ function statsEvolutionChartGlobal(participants) {
 // Columnes: Jugador | Nota | Gols | Assists | Pen | Nota Mitj. | Pts | Pts Otorgats·Equip
 function statsJugadorsTable(jugadorsList, participant, isGlobal) {
   if (!jugadorsList.length) return '';
-  const colsCount = isGlobal ? 13 : 12;
-  const ths = [
-    '#','Jugador','Equip','Pos',
-    ...(isGlobal?['Equip Fantasy']:[]),
-    '⚽ Gols','🅰️ Ass.','🥅 Pen.','🟨 2×G','🟥 Verm.',
-    '📊 Nota Mitj.','🏆 Pts','🎯 Pts Otorgats'
-  ].map(h=>`<th>${h}</th>`).join('');
+  const colsCount = isGlobal ? 11 : 10;
+  const ths = ['#','Jugador',...(isGlobal?['Fantasy']:[]),'⚽','🅰️','🥅','🟨','🟥','📊 Mitj.','Pts base','🎯 Otorgats'].map(h=>`<th>${h}</th>`).join('');
 
   const trs = jugadorsList.map((d, i) => {
     const plData=(gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(d.jug)&&norm(v(r,'Participant'))===norm(participant))
@@ -2759,19 +2754,20 @@ function statsJugadorsTable(jugadorsList, participant, isGlobal) {
     const foto=plData?v(plData,'Foto'):''; const equip=plData?v(plData,'Equip'):'';
     const pos=(plData?v(plData,'Posicio'):'')||'';
     const cs = getCountryStyle(equip);
-    const flagBadge = cs ? `<span style="background:${cs.color};color:#fff;font-size:0.58rem;font-weight:800;padding:1px 4px;border-radius:3px;margin-right:4px;font-family:'Space Mono',monospace">${cs.abbr}</span>` : '';
+    const flagBadge = cs ? `<span style="background:${cs.color};color:#fff;font-size:0.55rem;font-weight:800;padding:1px 3px;border-radius:3px;font-family:'Space Mono',monospace">${cs.abbr}</span>` : '';
     const avatar = foto
-      ? `<img src="${foto}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;border:2px solid rgba(255,255,255,0.2)" onerror="this.remove()">`
-      : `<span style="display:inline-flex;width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);align-items:center;justify-content:center;margin-right:6px;font-size:0.9rem;vertical-align:middle">👤</span>`;
+      ? `<img src="${foto}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:5px;border:2px solid rgba(255,255,255,0.2)" onerror="this.remove()">`
+      : `<span style="display:inline-flex;width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);align-items:center;justify-content:center;margin-right:5px;font-size:0.85rem;vertical-align:middle;flex-shrink:0">👤</span>`;
     const posClass = `pos-${(pos||'MIG').toUpperCase()}`;
     const detailId = `std${i}${norm(d.jug).replace(/[^a-z0-9]/g,'_')}`;
+    const ptsBase = d.totalCru !== undefined ? d.totalCru : d.totalPts;
 
-    // Calcula punts otorgats per jornada
+    // Pts otorgats = punts REALS generats a l'equip que el tenia (amb capitans/cartes)
     let totalOtorgats = 0;
     const otorgatsPerJornada = [];
     for (const jd of d.byJornada) {
       const parts = getParticipants();
-      let otorgador = participant, ptsOt = jd.ptsReals;
+      let otorgador = participant, ptsOt = jd.ptsCru;
       for (const p of parts) {
         const roster = getPlayersForPhase(p, jd.ph, jd.jorn);
         const hasEff = roster.some(pl => {
@@ -2779,72 +2775,61 @@ function statsJugadorsTable(jugadorsList, participant, isGlobal) {
           return norm(ef.jugador) === norm(d.jug);
         });
         if (!hasEff) continue;
-        const sc2 = getScore(participant, d.jug, jd.ph, jd.jorn);
-        if (!sc2 || v(sc2,'Nota')==='') continue;
-        ptsOt = calcScoreRow(sc2, pos, d.jug, jd.ph, jd.jorn, p) || 0;
+        const scJ = getScore(participant, d.jug, jd.ph, jd.jorn);
+        if (!scJ || v(scJ,'Nota')==='') continue;
+        ptsOt = calcScoreRow(scJ, pos, d.jug, jd.ph, jd.jorn, p) || 0;
         otorgador = p; break;
       }
       totalOtorgats += ptsOt;
-      otorgatsPerJornada.push({ ph: jd.ph, jorn: jd.jorn, pts: ptsOt, equip: otorgador });
+      otorgatsPerJornada.push({ ph: jd.ph, jorn: jd.jorn, ptsCru: jd.ptsCru, ptsOt, equip: otorgador });
     }
 
-    // Detall — igual que pàgina jugadors
     const byPhase = {};
     for (const jd of d.byJornada) {
-      if (!byPhase[jd.ph]) byPhase[jd.ph] = { pts:0, ptso:0, jorns:[] };
-      byPhase[jd.ph].pts += jd.ptsReals;
+      if (!byPhase[jd.ph]) byPhase[jd.ph] = { ptsCru:0, ptsOt:0, jorns:[] };
+      byPhase[jd.ph].ptsCru += jd.ptsCru;
       const ot = otorgatsPerJornada.find(o=>o.ph===jd.ph&&o.jorn===jd.jorn);
-      byPhase[jd.ph].ptso += ot?ot.pts:0;
+      byPhase[jd.ph].ptsOt += ot?ot.ptsOt:0;
       byPhase[jd.ph].jorns.push(jd);
     }
     const detailContent = Object.entries(byPhase).map(([ph, phData]) => {
       const jornRows = phData.jorns.map(j => {
         const ot = otorgatsPerJornada.find(o=>o.ph===j.ph&&o.jorn===j.jorn);
-        const bonus = [
-          j.g>0?`<span style="color:#6EE89A">⚽ ×${j.g}</span>`:'',
-          j.a>0?`<span style="color:#7DC3F5">🅰️ ×${j.a}</span>`:'',
-          j.pen>0?`<span style="color:#6EE89A">🥅 ×${j.pen}</span>`:'',
-          j.dg>0?`<span style="color:#F5C842">🟨</span>`:'',
-          j.vm>0?`<span style="color:#F58080">🟥</span>`:''
+        const bonus = [j.g>0?`<span style="color:#6EE89A">⚽ ×${j.g}</span>`:'',j.a>0?`<span style="color:#7DC3F5">🅰️ ×${j.a}</span>`:'',j.pen>0?`<span style="color:#6EE89A">🥅 ×${j.pen}</span>`:'',j.dg>0?`<span style="color:#F5C842">🟨</span>`:'',j.vm>0?`<span style="color:#F58080">🟥</span>`:''
         ].filter(Boolean).join(' ');
-        const jornLabel = ph==='grups' ? j.jorn.toUpperCase() : 'E1';
-        const notaCls = j.nota===null?'score-empty':j.nota>=8?'score-high':j.nota>=6.5?'score-mid':'score-low';
-        const otStr = ot ? `<span style="font-size:0.72rem;color:var(--silver)">${ot.pts>=0?'+':''}<strong style="color:${ot.pts>0?'#6EE89A':ot.pts<0?'#F58080':'var(--silver)'}">${ot.pts.toFixed(0)} pts</strong> · <strong style="color:var(--white)">${ot.equip}</strong></span>` : '';
+        const jl = ph==='grups'?j.jorn.toUpperCase():'E1';
+        const nc = j.nota===null?'score-empty':j.nota>=8?'score-high':j.nota>=6.5?'score-mid':'score-low';
+        const otCol = ot?`<span style="min-width:120px;text-align:right;font-size:0.72rem"><strong style="color:${ot.ptsOt>0?'#6EE89A':ot.ptsOt<0?'#F58080':'var(--silver)'}">${ot.ptsOt.toFixed(0)} pts</strong> · <strong style="color:var(--white)">${ot.equip}</strong></span>`:'<span></span>';
         return `<div style="display:grid;grid-template-columns:4rem 1fr auto auto auto;align-items:center;gap:0.6rem;padding:0.45rem 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-          <span style="font-family:'Space Mono',monospace;font-size:0.65rem;color:var(--silver)">${jornLabel}</span>
+          <span style="font-family:'Space Mono',monospace;font-size:0.65rem;color:var(--silver)">${jl}</span>
           <span style="font-size:0.78rem">${bonus||'<span style="opacity:0.3">—</span>'}</span>
-          <span class="score-chip ${notaCls}" style="font-size:0.72rem">${j.nota!==null?j.nota.toFixed(1):'—'}</span>
-          <span style="font-family:'Bebas Neue',cursive;font-size:1.1rem;color:var(--gold);min-width:2.5rem;text-align:right">${j.ptsReals.toFixed(0)}</span>
-          <span style="min-width:130px;text-align:right">${otStr}</span>
+          <span class="score-chip ${nc}" style="font-size:0.72rem">${j.nota!==null?j.nota.toFixed(1):'—'}</span>
+          <span style="font-family:'Bebas Neue',cursive;font-size:1.1rem;color:var(--gold);min-width:2.5rem;text-align:right">${j.ptsCru.toFixed(0)}</span>
+          ${otCol}
         </div>`;
       }).join('');
       return `<div style="margin-bottom:0.8rem">
         <div style="font-family:'Space Mono',monospace;font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);padding:0.5rem 0 0.3rem;display:flex;justify-content:space-between">
           <span>${PHASE_ICONS[ph]||''} ${PHASE_LABELS[ph]||ph}</span>
-          <span style="background:rgba(245,200,66,0.15);padding:2px 8px;border-radius:5px">${phData.pts.toFixed(0)} pts · <span style="color:#60A5FA">${phData.ptso.toFixed(0)} otorgats</span></span>
-        </div>
-        ${jornRows}
+          <span style="background:rgba(245,200,66,0.15);padding:2px 8px;border-radius:5px">${phData.ptsCru.toFixed(0)} base · <span style="color:#60A5FA">${phData.ptsOt.toFixed(0)} otorgats</span></span>
+        </div>${jornRows}
       </div>`;
     }).join('');
 
-    const colPart = isGlobal ? `<td style="font-size:0.78rem;color:var(--silver)">${participant}</td>` : '';
+    const colPart = isGlobal?`<td style="font-size:0.75rem;color:var(--silver);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${participant}</td>`:'';
     return `<tr onclick="toggleJugDetail('${detailId}')">
       <td style="color:var(--silver);font-size:0.8rem">${i+1}</td>
-      <td><div style="display:flex;align-items:center;gap:8px;min-width:140px">${avatar}<span>${d.jug}</span></div></td>
-      <td>${flagBadge}${equip}</td>
-      <td><span class="pos-badge ${posClass}">${pos||'—'}</span></td>
+      <td><div style="display:flex;align-items:center;gap:5px;min-width:100px">${avatar}<div><span style="font-weight:600">${d.jug}</span><br><span>${flagBadge} <span class="pos-badge ${posClass}" style="font-size:0.55rem;padding:0 3px">${pos||'?'}</span></span></div></div></td>
       ${colPart}
-      <td>${d.gols||'—'}</td><td>${d.assists||'—'}</td><td>${d.penals||'—'}</td>
-      <td>${d.grogues||'—'}</td><td>${d.vermelles||'—'}</td>
+      <td>${d.gols||'—'}</td><td>${d.assists||'—'}</td><td>${d.penals||'—'}</td><td>${d.grogues||'—'}</td><td>${d.vermelles||'—'}</td>
       <td style="font-family:'Space Mono',monospace;font-size:0.78rem">${d.notaMitjana>0?d.notaMitjana.toFixed(1):'—'}</td>
-      <td>${d.totalPts.toFixed(0)}</td>
+      <td>${ptsBase.toFixed(0)}</td>
       <td style="color:#60A5FA;font-weight:700">${totalOtorgats.toFixed(0)}</td>
     </tr>
     <tr class="jug-detail" id="${detailId}">
       <td colspan="${colsCount}" style="padding:0.8rem 1.2rem 1rem;background:rgba(0,0,0,0.25)">${detailContent}</td>
     </tr>`;
   }).join('');
-
   return `<div style="overflow-x:auto"><table class="jug-table"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table></div>`;
 }
 
@@ -5357,6 +5342,14 @@ async function init() {
   // Restaura sessió admin si existia
   if (sessionStorage.getItem('adminAuth') === '1') isAdmin = true;
   if (sessionStorage.getItem('cartes_auth')) cParticipant = sessionStorage.getItem('cartes_auth');
+
+  // Event delegation per al selector de Stats (funciona fins i tot després de innerHTML)
+  document.getElementById('statsView').addEventListener('click', function(e) {
+    const btn = e.target.closest('[data-statsp]');
+    if (!btn) return;
+    window._statsParticipant = btn.getAttribute('data-statsp');
+    renderStatsTab();
+  });
 }
 
 init();
