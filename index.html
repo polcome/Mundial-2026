@@ -2476,11 +2476,16 @@ function renderStatsTab() {
   if (!_statsParticipant) _statsParticipant = '__global__';
   const selectorHtml = `<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:1.2rem">
     ${[{name:'🌐 Global',val:'__global__'},...participants.map(p=>({name:p,val:p}))].map(({name,val})=>`
-      <button onclick="_statsParticipant='${val.replace(/'/g,"\\'")}';renderStatsTab()"
+      <button data-statsp="${val}" onclick="statsSelect(this)"
         style="background:${_statsParticipant===val?'var(--gold)':'rgba(255,255,255,0.07)'};color:${_statsParticipant===val?'var(--ink)':'var(--white)'};border:1px solid ${_statsParticipant===val?'var(--gold)':'var(--glass-border)'};border-radius:6px;padding:0.3rem 0.8rem;font-size:0.78rem;font-weight:700;cursor:pointer">${name}</button>`).join('')}
   </div>`;
   const isGlobal = _statsParticipant === '__global__';
   el.innerHTML = selectorHtml + (isGlobal ? renderStatsGlobal(participants) : renderStatsEquip(_statsParticipant, participants));
+}
+
+function statsSelect(btn) {
+  _statsParticipant = btn.getAttribute('data-statsp');
+  renderStatsTab();
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -2736,7 +2741,14 @@ function statsEvolutionChartGlobal(participants) {
   return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px"><rect width="${W}" height="${H}" fill="rgba(0,0,0,0.2)" rx="8"/>${bgLines}${linesSvg}${legendSvg}${xLabels}<text x="${pad.l}" y="${pad.t-6}" font-size="9" fill="rgba(255,255,255,0.35)">Evolució classificació (#1 dalt)</text></svg>`;
 }
 
-// Card jugador per Stats (desplegable per jornada + columna "punts otorgats")
+// Card jugador per Stats — disseny igual que pàgina de jugadors
+// Columnes: Jugador | Nota | Gols | Assists | Pen | Nota Mitj. | Pts | Pts Otorgats·Equip
+function statsListHeader() {
+  return `<div class="pitch-list-header" style="grid-template-columns:1fr auto auto auto auto auto auto auto">
+    <span>Jugador</span><span>Nota</span><span>⚽</span><span>🅰️</span><span>🥅</span><span>📊 Mitj.</span><span>Pts</span><span style="font-size:0.65rem">Pts·Equip</span>
+  </div>`;
+}
+
 function statsJugadorCard(jugNom, participant, isGlobal) {
   const d = statsJugadorDataComplet(participant, jugNom);
   if (d.jornadesPuntua===0) return '';
@@ -2746,43 +2758,89 @@ function statsJugadorCard(jugNom, participant, isGlobal) {
   const posColors={'POR':'#F5C842','DEF':'#4ADE80','MIG':'#60A5FA','DAV':'#F87171'};
   const pc=posColors[pos.toUpperCase()]||'#888';
   const uid=`sc_${norm(jugNom)}_${norm(participant)}`.replace(/[^a-z0-9_]/g,'_');
-  const notaStr=d.notaMitjana>0?d.notaMitjana.toFixed(2):'—';
-  const statParts=[d.gols>0?`⚽ ${d.gols}`:'',d.assists>0?`🅰️ ${d.assists}`:'',d.penals>0?`🥅 ${d.penals}`:'',d.grogues>0?`🟨 ${d.grogues}`:'',d.vermelles>0?`🟥 ${d.vermelles}`:''].filter(Boolean).join('  ');
+  const cs = getCountryStyle ? getCountryStyle(equip) : null;
+  const flag2 = cs ? `<span style="background:${cs.color};color:#fff;font-size:0.58rem;font-weight:800;padding:1px 4px;border-radius:3px;font-family:'Space Mono',monospace">${cs.abbr}</span>` : '';
 
-  // Detall per jornada
-  const detallHtml = d.byJornada.map(jd=>{
-    const jlbl=`${PHASE_LABELS[jd.ph]||jd.ph} ${jd.jorn.toUpperCase()}`;
-    const chips=[jd.g>0?`⚽${jd.g}`:'',jd.a>0?`🅰️${jd.a}`:'',jd.pen>0?`🥅${jd.pen}`:'',jd.dg>0?`🟨`:'',jd.vm>0?`🟥`:''].filter(Boolean).join(' ');
-    return `<div class="detail-line">
-      <span class="dl-label" style="min-width:130px">${jlbl}</span>
-      <span style="color:var(--silver);font-size:0.78rem;flex:1">${jd.nota?.toFixed(1)||'—'}${chips?` · ${chips}`:''}</span>
-      <span class="dl-pts ${jd.ptsCru>=0?'pos':'neg'}" style="min-width:55px;text-align:right">${jd.ptsCru>=0?'+':''}${jd.ptsCru?.toFixed(0)||0} cru</span>
-      <span class="dl-pts ${jd.ptsReals>=0?'pos':'neg'}" style="min-width:60px;text-align:right;font-weight:700">${jd.ptsReals>=0?'+':''}${jd.ptsReals?.toFixed(0)||0} real</span>
+  // Calcula punts otorgats per jornada (amb tots els efectes de l'equip que el tenia)
+  const ptsOtorgats = d.byJornada.map(jd => {
+    // Troba qui tenia el jugador efectivament aquella jornada i quants punts li va donar
+    const parts = getParticipants();
+    let otorgador = participant, ptsOtorgat = jd.ptsReals;
+    for (const p of parts) {
+      const roster = getPlayersForPhase(p, jd.ph, jd.jorn);
+      const hasEffective = roster.some(pl => {
+        const ef = getJugadorEfectiu(p, v(pl,'Jugador'), jd.ph, jd.jorn);
+        return norm(ef.jugador) === norm(jugNom);
+      });
+      if (!hasEffective) continue;
+      const sc2 = getScore(participant, jugNom, jd.ph, jd.jorn);
+      if (!sc2 || v(sc2,'Nota')==='') continue;
+      const ptsEf = calcScoreRow(sc2, pos, jugNom, jd.ph, jd.jorn, p) || 0;
+      otorgador = p; ptsOtorgat = ptsEf;
+      break;
+    }
+    return { ph: jd.ph, jorn: jd.jorn, pts: ptsOtorgat, equip: otorgador };
+  });
+  const totalOtorgat = ptsOtorgats.reduce((s,o)=>s+o.pts,0);
+
+  // Detall per jornada (com a la pàgina de jugadors)
+  const nota = d.notaMitjana;
+  const notaCls = nota>=8?'score-high':nota>=6.5?'score-mid':'score-low';
+  const noJugat = false;
+
+  // Línies de detall
+  let detallLines = '';
+  for (const jd of d.byJornada) {
+    const jlbl = `${PHASE_LABELS[jd.ph]||jd.ph} ${jd.jorn.toUpperCase()}`;
+    const notaJ = jd.nota;
+    const notaPts = notaToPts(notaJ) || 0;
+    const notaClsJ = notaJ>=8?'score-high':notaJ>=6.5?'score-mid':'score-low';
+    const ot = ptsOtorgats.find(o=>o.ph===jd.ph&&o.jorn===jd.jorn);
+    const otStr = ot ? `<span style="margin-left:auto;font-size:0.75rem;color:var(--silver)">${ot.pts>=0?'+':''}${ot.pts.toFixed(0)} pts · <strong style="color:var(--white)">${ot.equip}</strong></span>` : '';
+
+    detallLines += `<div class="detail-line">
+      <span class="dl-label">${jlbl}</span>
     </div>`;
-  }).join('');
+    if (noJugat) {
+      detallLines += `<div class="detail-line" style="background:rgba(248,113,113,0.1);border-radius:6px;padding:6px 8px"><span style="color:#F87171;font-weight:700">😴 No ha jugat</span></div>`;
+    } else {
+      if (notaJ!==null) detallLines += `<div class="detail-line"><span class="dl-label">📊 Nota SofaScore <strong style="color:var(--white)">${notaJ.toFixed(1)}</strong></span><span class="dl-pts ${notaPts>=0?'pos':'neg'}">${notaPts>=0?'+':''}${notaPts} pts</span>${otStr}</div>`;
+      if (jd.g>0) { const gp=golPts(pos); detallLines+=`<div class="detail-line"><span class="dl-label">⚽ ${jd.g} Gol${jd.g>1?'s':''} (${pos} =${gp}pts/gol)</span><span class="dl-pts pos">+${jd.g*gp} pts</span></div>`; }
+      if (jd.a>0) detallLines+=`<div class="detail-line"><span class="dl-label">🅰️ ${jd.a} Assist${jd.a>1?'ències':'ència'}</span><span class="dl-pts pos">+${jd.a*2} pts</span></div>`;
+      if (jd.pen>0) detallLines+=`<div class="detail-line"><span class="dl-label">🥅 ${jd.pen} Gol de penal</span><span class="dl-pts pos">+${jd.pen*3} pts</span></div>`;
+      if (jd.dg>0) detallLines+=`<div class="detail-line"><span class="dl-label">🟨 Doble groga</span><span class="dl-pts neg">-3 pts</span></div>`;
+      if (jd.vm>0) detallLines+=`<div class="detail-line"><span class="dl-label">🟥 Targeta vermella</span><span class="dl-pts neg">-6 pts</span></div>`;
+      detallLines+=`<div class="detail-total-line"><span>Total jornada</span><span style="color:var(--gold)">${jd.ptsReals.toFixed(0)} pts</span></div>`;
+    }
+  }
+  detallLines += `<div class="detail-total-line" style="border-top:2px solid rgba(245,200,66,0.3)"><span style="color:var(--gold);font-weight:700">TOTAL</span><span style="color:var(--gold);font-weight:700">${d.totalPts.toFixed(0)} pts · <small style="color:var(--silver);font-weight:400">otorgats: ${totalOtorgat.toFixed(0)}</small></span></div>`;
 
-  return `<div class="pitch-list-row" onclick="toggleDetail('${uid}')">
-    <div class="pitch-list-name" style="display:flex;align-items:center;gap:0.7rem">
+  const gols = d.gols>0?`<span style="color:#6EE89A;font-size:0.82rem">${d.gols}</span>`:`<span style="color:rgba(255,255,255,0.2)">—</span>`;
+  const assists = d.assists>0?`<span style="color:#60A5FA;font-size:0.82rem">${d.assists}</span>`:`<span style="color:rgba(255,255,255,0.2)">—</span>`;
+  const penals = d.penals>0?`<span style="color:#6EE89A;font-size:0.82rem">${d.penals}</span>`:`<span style="color:rgba(255,255,255,0.2)">—</span>`;
+  const notaMitjStr = d.notaMitjana>0?d.notaMitjana.toFixed(1):'—';
+  const otorgStr = totalOtorgat.toFixed(0);
+
+  return `<div class="pitch-list-row" onclick="toggleDetail('${uid}')" style="grid-template-columns:1fr auto auto auto auto auto auto auto;cursor:pointer">
+    <div class="pitch-list-name">
       ${foto?`<img src="${foto}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">`:
         `<div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">👤</div>`}
       <div>
         <span style="font-weight:700">${jugNom}</span>
         <span style="background:${pc};color:var(--ink);font-size:0.6rem;font-weight:800;padding:1px 5px;border-radius:3px;margin-left:4px;font-family:'Space Mono',monospace">${pos||'?'}</span>
+        ${flag2}
         ${isGlobal?`<small style="color:var(--silver);margin-left:4px">${participant}</small>`:''}
-        <small style="color:var(--silver)"> ${equip}</small>
-        ${statParts?`<small style="color:var(--silver);display:block">${statParts}</small>`:''}
-        <small style="color:var(--silver);display:block">📊 ${notaStr} · ${d.jornadesPuntua} jorn.</small>
+        <small style="color:var(--silver);display:block">${equip} · ${d.jornadesPuntua} jorn.</small>
       </div>
     </div>
-    <div class="pitch-list-note"><span class="score-chip ${d.notaMitjana>=8?'score-high':d.notaMitjana>=6.5?'score-mid':'score-low'}">${d.notaMitjana>0?d.notaMitjana.toFixed(1):'—'}</span></div>
-    <div class="pitch-list-bonus">${d.gols>0?`<span style="color:#6EE89A">⚽×${d.gols}</span>`:'<span style="color:rgba(255,255,255,0.2)">—</span>'}</div>
+    <div class="pitch-list-note"><span class="score-chip ${notaCls}">${d.notaMitjana>0?d.notaMitjana.toFixed(1):'—'}</span></div>
+    <div style="text-align:center">${gols}</div>
+    <div style="text-align:center">${assists}</div>
+    <div style="text-align:center">${penals}</div>
+    <div style="text-align:center;font-size:0.82rem;color:var(--silver)">${notaMitjStr}</div>
     <div class="pitch-list-total" style="color:var(--gold);font-weight:700">${d.totalPts.toFixed(0)}</div>
-    <div class="pitch-detail" id="${uid}">
-      <div style="font-size:0.78rem;color:var(--silver);padding:0.2rem 0 0.4rem">
-        <span>Punts totals: <strong style="color:var(--gold)">${d.totalPts.toFixed(0)} reals</strong> · <strong style="color:var(--silver)">${d.totalCru.toFixed(0)} crus</strong></span>
-      </div>
-      ${detallHtml}
-    </div>
+    <div style="text-align:center;font-size:0.78rem;color:var(--silver)">${otorgStr}</div>
+    <div class="pitch-detail" id="${uid}">${detallLines}</div>
   </div>`;
 }
 
@@ -2912,12 +2970,12 @@ function renderStatsEquip(participant, participants) {
   html+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.2rem">
     <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1rem">
       <div style="font-family:'Bebas Neue',cursive;font-size:1rem;letter-spacing:0.08em;color:#4ADE80;margin-bottom:0.6rem">🏆 Top 5 Jugadors</div>
-      <div class="pitch-list-header"><span>Jugador</span><span>Nota</span><span>Gols</span><span>Pts</span></div>
+      ${statsListHeader()}
       ${top5.map(d=>statsJugadorCard(d.jug,participant,false)).join('')}
     </div>
     <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1rem">
       <div style="font-family:'Bebas Neue',cursive;font-size:1rem;letter-spacing:0.08em;color:#F87171;margin-bottom:0.6rem">📉 Flop 5 Jugadors</div>
-      <div class="pitch-list-header"><span>Jugador</span><span>Nota</span><span>Gols</span><span>Pts</span></div>
+      ${statsListHeader()}
       ${flop5.map(d=>statsJugadorCard(d.jug,participant,false)).join('')}
     </div>
   </div>`;
@@ -3001,7 +3059,7 @@ function renderStatsGlobal(participants) {
   // Millor jugador per equip (complet, amb desplegable)
   html+=`<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1rem;margin-bottom:1.2rem">
     <div style="font-family:'Bebas Neue',cursive;font-size:1rem;letter-spacing:0.08em;color:#4ADE80;margin-bottom:0.6rem">🏆 Millor jugador de cada equip</div>
-    <div class="pitch-list-header"><span>Jugador</span><span>Nota</span><span>Gols</span><span>Pts</span></div>`;
+    ${statsListHeader()}`;
   for (const {p} of rankFinal) {
     const jugadorsVists=new Set();
     for (const ph of PHASES) for (const jorn of (PHASE_JORNADES[ph]||[])) getPlayersForPhase(p,ph,jorn).forEach(pl=>jugadorsVists.add(v(pl,'Jugador')));
