@@ -439,6 +439,7 @@
   <button class="tab-btn" data-tab="jornades">📅 Jornades</button>
   <button class="tab-btn" data-tab="jugadors">⚽ Jugadors</button>
   <button class="tab-btn" data-tab="ideal11">🌟 11 Ideals</button>
+  <button class="tab-btn" data-tab="stats">📊 Stats</button>
   <button class="tab-btn" data-tab="canvis">🔄 Canvis</button>
   <button class="tab-btn" data-tab="ruleta">⭐ Capità</button>
   <button class="tab-btn" data-tab="cartes">🃏 Carta</button>
@@ -510,6 +511,10 @@
 
   <section class="section" id="tab-ideal11">
     <div id="ideal11View"></div>
+  </section>
+
+  <section class="section" id="tab-stats">
+    <div id="statsView"></div>
   </section>
 
   <section class="section" id="tab-canvis">
@@ -2462,6 +2467,577 @@ function renderIdeal11Tab() {
     </div>`;
 }
 
+// ============================================================
+// STATS TAB
+// ============================================================
+let _statsParticipant = null; // null = global/conjunt
+
+function renderStatsTab() {
+  const el = document.getElementById('statsView');
+  if (!gData) { el.innerHTML = '<p style="color:var(--silver);padding:1rem">Carregant...</p>'; return; }
+  const participants = getParticipants();
+  if (!_statsParticipant) _statsParticipant = '__global__';
+
+  // Selector
+  const selectorHtml = `<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:1.2rem">
+    ${[{name:'🌐 Global / Conjunt', val:'__global__'}, ...participants.map(p=>({name:p,val:p}))].map(({name,val})=>`
+      <button onclick="_statsParticipant='${val.replace(/'/g,"\\'")}';renderStatsTab()"
+        style="background:${_statsParticipant===val?'var(--gold)':'rgba(255,255,255,0.07)'};color:${_statsParticipant===val?'var(--ink)':'var(--white)'};border:1px solid ${_statsParticipant===val?'var(--gold)':'var(--glass-border)'};border-radius:6px;padding:0.3rem 0.8rem;font-size:0.78rem;font-weight:700;cursor:pointer">${name}</button>`).join('')}
+  </div>`;
+
+  const isGlobal = _statsParticipant === '__global__';
+  const content = isGlobal ? renderStatsGlobal(participants) : renderStatsEquip(_statsParticipant);
+  el.innerHTML = selectorHtml + content;
+}
+
+// ── Calculs auxiliars ─────────────────────────────────────────────────────────
+function statsPtsJornada(participant, fase, jornada) {
+  // Puntuació real (amb cartes i capitans) per a un participant i jornada
+  const players = getPlayersForPhase(participant, fase, jornada);
+  let total = 0;
+  for (const pl of players) {
+    const sc = getScoreEfectiu(participant, v(pl,'Jugador'), fase, jornada);
+    if (!sc || v(sc,'Nota') === '') continue;
+    total += calcScoreRow(sc, v(pl,'Posicio')||v(sc,'Posicio'), v(pl,'Jugador'), fase, jornada, participant) || 0;
+  }
+  return total;
+}
+
+function statsJugadorData(participant, jugador) {
+  // Recull totes les jornades on el jugador ha puntuat per a aquest participant
+  let totalPts = 0, totalCru = 0, gols = 0, assists = 0, penals = 0, grogues = 0, vermelles = 0;
+  let notaSum = 0, notaCount = 0, jornadesPuntua = 0;
+  for (const ph of PHASES) {
+    for (const jorn of PHASE_JORNADES[ph] || []) {
+      const roster = getPlayersForPhase(participant, ph, jorn);
+      if (!roster.some(pl => norm(v(pl,'Jugador')) === norm(jugador))) continue;
+      const sc = getScore(participant, jugador, ph, jorn);
+      if (!sc || v(sc,'Nota') === '') continue;
+      const nota = parseNota(v(sc,'Nota'));
+      if (!nota && nota !== 0) continue;
+      if (noHaJugat(sc)) continue;
+      const pos = v(sc,'Posicio') || (() => { const pl = (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(jugador)&&norm(v(r,'Participant'))===norm(participant)); return pl?v(pl,'Posicio'):'DAV'; })();
+      const cru = calcScoreRowCrua(sc, pos) || 0;
+      const eff = calcScoreRow(sc, pos, jugador, ph, jorn, participant) || 0;
+      totalCru += cru; totalPts += eff;
+      gols += parseInt(v(sc,'Gols')||0);
+      assists += parseInt(v(sc,'Assistencies')||0);
+      penals += parseInt(v(sc,'Penalti')||0);
+      grogues += parseInt(v(sc,'DobleGroga')||0);
+      vermelles += parseInt(v(sc,'Vermella')||0);
+      notaSum += nota; notaCount++; jornadesPuntua++;
+    }
+  }
+  return { totalPts, totalCru, gols, assists, penals, grogues, vermelles,
+    notaMitjana: notaCount > 0 ? notaSum/notaCount : 0, jornadesPuntua };
+}
+
+function statsCapitaJornada(participant, fase, jornada) {
+  const cap = capitansSlot(fase, jornada)[norm(participant)];
+  if (!cap) return null;
+  const sc = getScore(participant, cap, fase, jornada);
+  if (!sc || v(sc,'Nota') === '') return null;
+  const pos = (() => { const pl = (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(cap)&&norm(v(r,'Participant'))===norm(participant)); return pl?v(pl,'Posicio'):'DAV'; })();
+  const ptsCrus = calcScoreRowCrua(sc, pos) || 0;
+  const ptsReals = calcScoreRow(sc, pos, cap, fase, jornada, participant) || 0;
+  const mult = getCapitaMultiplier(participant, fase, jornada);
+  const bonus = isCapitaAnulat(participant, fase, jornada) ? -ptsCrus : ptsCrus * (mult - 1);
+  return { cap, ptsCrus, ptsReals, mult, bonus, anulat: isCapitaAnulat(participant, fase, jornada) };
+}
+
+function statsCartaJornada(participant, fase, jornada) {
+  if (esJornadaOculta(fase, jornada)) return null;
+  const carta = cartesSlot(fase, jornada)[norm(participant)];
+  if (!carta || !carta.carta) return null;
+  let bonus = 0, desc = '';
+  const c = carta.carta; const det = carta.detall || {};
+  if (c === 'Gol doble') {
+    const players = getPlayersForPhase(participant, fase, jornada);
+    let golsExtra = 0;
+    for (const pl of players) {
+      const sc = getScore(participant, v(pl,'Jugador'), fase, jornada);
+      if (!sc) continue;
+      const g = parseInt(v(sc,'Gols')||0) + parseInt(v(sc,'Penalti')||0);
+      if (g > 0) { const pos = v(pl,'Posicio')||'DAV'; golsExtra += g * golPts(pos); }
+    }
+    bonus = golsExtra; desc = `+${bonus} pts extra (gols dobles)`;
+  } else if (c === 'Capita x3') {
+    const cap = capitansSlot(fase, jornada)[norm(participant)];
+    if (cap) {
+      const sc = getScore(participant, cap, fase, jornada);
+      if (sc && v(sc,'Nota') !== '') {
+        const pos = (() => { const pl=(gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(cap)&&norm(v(r,'Participant'))===norm(participant)); return pl?v(pl,'Posicio'):'DAV'; })();
+        const cru = calcScoreRowCrua(sc, pos) || 0;
+        bonus = cru; desc = `+${bonus} pts extra (x3 vs x2 de ${cap})`;
+      }
+    }
+  } else if (c === 'Canvi jugador rival') {
+    desc = `${det.jugador_meu||'?'} ↔ ${det.jugador_rival||'?'} (${det.rival||'?'})`;
+  } else if (c === 'Anular capita rival') {
+    desc = `Capità de ${det.rival||'?'} anulat`;
+  } else if (c === 'Anular jugador rival') {
+    desc = `${det.jugador||'?'} de ${det.rival||'?'} anulat`;
+  } else if (c === 'Blindar jugador') {
+    desc = `${det.jugador||'?'} protegit`;
+  } else if (c === 'Capita manual') {
+    desc = `Capità: ${det.jugador||'?'}`;
+  } else if (c === 'Doble capita') {
+    desc = `Dos capitans`;
+  } else if (c === 'Comodi') {
+    desc = `Comodí → ${det.carta||'?'}`;
+  }
+  return { carta: c, bonus, desc };
+}
+
+function statsCanvisJornada(participant, fase, jornada) {
+  const canvis = (gData.canvis||[]).filter(c =>
+    norm(v(c,'Participant'))===norm(participant) &&
+    norm(v(c,'Fase'))===norm(fase) &&
+    norm(v(c,'Jornada'))===norm(jornada)
+  );
+  return canvis.map(c => {
+    const surt = v(c,'Jugador_Surt'); const entra = v(c,'Jugador_Entra');
+    // Punts del que entra a partir d'aquesta jornada
+    let ptsEntra = 0;
+    const tidx = jornadaIndex(fase, jornada);
+    for (let i = tidx; i < ALL_JORNADES_ORDER.length; i++) {
+      const [ff, jj] = ALL_JORNADES_ORDER[i].split('_');
+      const sc = getScore(participant, entra, ff, jj);
+      if (sc && v(sc,'Nota') !== '') {
+        const pl = (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(entra)&&norm(v(r,'Participant'))===norm(participant));
+        const pos = pl ? v(pl,'Posicio') : 'DAV';
+        ptsEntra += calcScoreRow(sc, pos, entra, ff, jj, participant) || 0;
+      }
+    }
+    return { surt, entra, ptsEntra };
+  });
+}
+
+function statsCalcIdeal11Equip(participant) {
+  // Millor 11 de tots els jugadors que ha tingut l'equip, per punts crurs
+  const jugadorsTinguts = new Set();
+  for (const ph of PHASES) {
+    for (const jorn of PHASE_JORNADES[ph]||[]) {
+      getPlayersForPhase(participant, ph, jorn).forEach(pl => jugadorsTinguts.add(norm(v(pl,'Jugador'))));
+    }
+  }
+  const scored = [];
+  for (const jugNorm of jugadorsTinguts) {
+    const plData = (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===jugNorm&&norm(v(r,'Participant'))===norm(participant))
+      || (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===jugNorm);
+    if (!plData) continue;
+    const pos = (v(plData,'Posicio')||'').toUpperCase();
+    if (!pos) continue;
+    let totalCru = 0, hasPlayed = false;
+    for (const ph of PHASES) {
+      for (const jorn of PHASE_JORNADES[ph]||[]) {
+        const sc = getScore(participant, v(plData,'Jugador'), ph, jorn);
+        if (!sc || v(sc,'Nota')==='') continue;
+        if (noHaJugat(sc)) continue;
+        totalCru += calcScoreRowCrua(sc, pos) || 0;
+        hasPlayed = true;
+      }
+    }
+    if (!hasPlayed) continue;
+    scored.push({ name: v(plData,'Jugador'), pos, foto: v(plData,'Foto'), equip: v(plData,'Equip'), pts: totalCru, sc: null });
+  }
+  scored.sort((a,b) => b.pts - a.pts);
+  const selected = []; const usedNames = new Set();
+  const pick = (posFilter, count) => {
+    let picked = 0;
+    for (const p of scored) {
+      if (picked >= count) break;
+      if (usedNames.has(norm(p.name)) || p.pos !== posFilter) continue;
+      selected.push(p); usedNames.add(norm(p.name)); picked++;
+    }
+  };
+  pick('POR', 1); pick('DEF', 3); pick('MIG', 2);
+  const defC = () => selected.filter(p=>p.pos==='DEF').length;
+  const migC = () => selected.filter(p=>p.pos==='MIG').length;
+  const davC = () => selected.filter(p=>p.pos==='DAV').length;
+  while (selected.length < 11) {
+    let added = false;
+    for (const p of scored) {
+      if (usedNames.has(norm(p.name)) || p.pos==='POR') continue;
+      if (p.pos==='DEF' && defC()>=5) continue;
+      if (p.pos==='MIG' && migC()>=5) continue;
+      if (p.pos==='DAV' && davC()>=5) continue;
+      selected.push(p); usedNames.add(norm(p.name)); added=true; break;
+    }
+    if (!added) break;
+  }
+  return selected;
+}
+
+// ── Gràfic d'evolució SVG ─────────────────────────────────────────────────────
+function statsEvolutionChart(participant, participants) {
+  const jornades = ALL_JORNADES_ORDER;
+  // Calcula ranking acumulat per cada jornada
+  const acum = {}; participants.forEach(p => acum[p] = 0);
+  const positions = []; // [{jorn, pos}]
+  for (const jk of jornades) {
+    const [fase, jorn] = jk.split('_');
+    participants.forEach(p => {
+      acum[p] += statsPtsJornada(p, fase, jorn);
+    });
+    const sorted = [...participants].sort((a,b) => acum[b]-acum[a]);
+    positions.push({ jk, pos: sorted.indexOf(participant) + 1, pts: acum[participant] });
+  }
+  const W = 560, H = 160, pad = { t:20, r:20, b:30, l:28 };
+  const iW = W - pad.l - pad.r; const iH = H - pad.t - pad.b;
+  const n = positions.length;
+  const xScale = i => pad.l + (i / (n-1)) * iW;
+  const yScale = pos => pad.t + ((pos-1) / (participants.length-1)) * iH;
+  // Línies de fons (posicions)
+  let bgLines = '';
+  for (let i = 1; i <= participants.length; i++) {
+    const y = yScale(i);
+    bgLines += `<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+    if (i===1||i===participants.length) bgLines += `<text x="${pad.l-4}" y="${y+4}" font-size="9" fill="rgba(255,255,255,0.3)" text-anchor="end">${i}</text>`;
+  }
+  // Línia del participant
+  const pts = positions.map((p,i) => `${xScale(i)},${yScale(p.pos)}`).join(' ');
+  // Àrea sota la línia
+  const areaPath = `M${xScale(0)},${yScale(positions[0].pos)} ` +
+    positions.map((p,i) => `L${xScale(i)},${yScale(p.pos)}`).join(' ') +
+    ` L${xScale(n-1)},${pad.t+iH} L${xScale(0)},${pad.t+iH} Z`;
+  // Punts i labels de jornada
+  let dotsSvg = '';
+  positions.forEach((p, i) => {
+    const x = xScale(i); const y = yScale(p.pos);
+    const [fase, jorn] = p.jk.split('_');
+    const lbl = jorn.toUpperCase();
+    const isFirst = p.pos === 1;
+    dotsSvg += `<circle cx="${x}" cy="${y}" r="4" fill="${isFirst?'var(--gold)':'#60A5FA'}" stroke="var(--ink)" stroke-width="1.5"/>`;
+    dotsSvg += `<text x="${x}" y="${H-4}" font-size="7.5" fill="rgba(255,255,255,0.4)" text-anchor="middle">${lbl}</text>`;
+    // Tooltip de posició
+    dotsSvg += `<text x="${x}" y="${y-8}" font-size="8.5" fill="${isFirst?'var(--gold)':'rgba(255,255,255,0.7)'}" text-anchor="middle" font-weight="${isFirst?'bold':'normal'}">#${p.pos}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:560px">
+    <defs>
+      <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#60A5FA" stop-opacity="0.3"/>
+        <stop offset="100%" stop-color="#60A5FA" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <rect width="${W}" height="${H}" fill="rgba(0,0,0,0.2)" rx="8"/>
+    ${bgLines}
+    <path d="${areaPath}" fill="url(#sg)"/>
+    <polyline points="${pts}" fill="none" stroke="#60A5FA" stroke-width="2.5" stroke-linejoin="round"/>
+    ${dotsSvg}
+    <text x="${pad.l}" y="${pad.t-6}" font-size="9" fill="rgba(255,255,255,0.4)">Posició (#1 = millor)</text>
+  </svg>`;
+}
+
+// ── Vista per equip ───────────────────────────────────────────────────────────
+function renderStatsEquip(participant) {
+  const participants = getParticipants();
+  let html = '';
+
+  // Calcula totes les jornades
+  const allJornades = [];
+  let totalPts = 0, totalGols = 0, totalAssists = 0, totalPenals = 0, totalGrogues = 0, totalVermelles = 0;
+  let notaSumTotal = 0, notaCountTotal = 0;
+
+  for (const ph of PHASES) {
+    for (const jorn of PHASE_JORNADES[ph]||[]) {
+      const pts = statsPtsJornada(participant, ph, jorn);
+      const players = getPlayersForPhase(participant, ph, jorn);
+      let g=0,a=0,pen=0,dg=0,vm=0,ns=0,nc=0;
+      for (const pl of players) {
+        const sc = getScore(participant, v(pl,'Jugador'), ph, jorn);
+        if (!sc||v(sc,'Nota')==='') continue;
+        g+=parseInt(v(sc,'Gols')||0); a+=parseInt(v(sc,'Assistencies')||0);
+        pen+=parseInt(v(sc,'Penalti')||0); dg+=parseInt(v(sc,'DobleGroga')||0);
+        vm+=parseInt(v(sc,'Vermella')||0);
+        const nota=parseNota(v(sc,'Nota')); if(nota!==null){ns+=nota;nc++;}
+      }
+      const cap = statsCapitaJornada(participant, ph, jorn);
+      const carta = statsCartaJornada(participant, ph, jorn);
+      const canvis = statsCanvisJornada(participant, ph, jorn);
+      totalPts+=pts; totalGols+=g; totalAssists+=a; totalPenals+=pen;
+      totalGrogues+=dg; totalVermelles+=vm; notaSumTotal+=ns; notaCountTotal+=nc;
+      allJornades.push({ ph, jorn, pts, g, a, pen, dg, vm, ns, nc, cap, carta, canvis });
+    }
+  }
+  const notaMitjana = notaCountTotal>0 ? (notaSumTotal/notaCountTotal).toFixed(2) : '—';
+
+  // Capçalera
+  const ranking = getParticipants().map(p => {
+    let t=0;
+    for(const ph of PHASES) for(const j of PHASE_JORNADES[ph]||[]) t+=statsPtsJornada(p,ph,j);
+    return {p,t};
+  }).sort((a,b)=>b.t-a.t);
+  const pos = ranking.findIndex(r=>norm(r.p)===norm(participant))+1;
+  const logo = (gData.participants||[]).find(r=>norm(v(r,'Nom'))===norm(participant));
+  const logoUrl = logo ? v(logo,'Logo') : '';
+
+  html += `<div style="background:linear-gradient(135deg,rgba(245,200,66,0.15),rgba(245,200,66,0.05));border:1px solid rgba(245,200,66,0.3);border-radius:12px;padding:1.2rem;margin-bottom:1.2rem;display:flex;gap:1rem;align-items:center">
+    ${logoUrl?`<img src="${logoUrl}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid var(--gold)" onerror="this.style.display='none'">`:''}
+    <div style="flex:1">
+      <div style="font-family:'Bebas Neue',cursive;font-size:1.8rem;color:var(--gold);letter-spacing:0.05em">${participant}</div>
+      <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:0.3rem">
+        <span style="font-size:0.85rem"><strong style="color:var(--gold)">#${pos}</strong> <span style="color:var(--silver)">Posició final</span></span>
+        <span style="font-size:0.85rem"><strong style="color:var(--white)">${totalPts.toFixed(0)}</strong> <span style="color:var(--silver)">pts totals</span></span>
+        <span style="font-size:0.85rem">⚽ <strong style="color:var(--white)">${totalGols}</strong> <span style="color:var(--silver)">gols</span></span>
+        <span style="font-size:0.85rem">🅰️ <strong style="color:var(--white)">${totalAssists}</strong> <span style="color:var(--silver)">assists</span></span>
+        ${totalPenals?`<span style="font-size:0.85rem">🥅 <strong style="color:var(--white)">${totalPenals}</strong> <span style="color:var(--silver)">penals</span></span>`:''}
+        ${totalGrogues?`<span style="font-size:0.85rem">🟨 <strong style="color:var(--white)">${totalGrogues}</strong></span>`:''}
+        ${totalVermelles?`<span style="font-size:0.85rem">🟥 <strong style="color:var(--white)">${totalVermelles}</strong></span>`:''}
+        <span style="font-size:0.85rem">📊 <strong style="color:var(--white)">${notaMitjana}</strong> <span style="color:var(--silver)">nota mitjana</span></span>
+      </div>
+    </div>
+  </div>`;
+
+  // Gràfic evolució
+  html += `<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1rem;margin-bottom:1.2rem">
+    <div style="font-family:'Bebas Neue',cursive;font-size:1rem;letter-spacing:0.08em;color:var(--gold);margin-bottom:0.6rem">📈 Evolució a la classificació</div>
+    ${statsEvolutionChart(participant, participants)}
+  </div>`;
+
+  // Puntuació per jornada
+  html += `<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1rem;margin-bottom:1.2rem">
+    <div style="font-family:'Bebas Neue',cursive;font-size:1rem;letter-spacing:0.08em;color:var(--gold);margin-bottom:0.8rem">📅 Puntuació per jornada</div>
+    <div style="display:flex;flex-direction:column;gap:0.5rem">`;
+
+  for (const {ph, jorn, pts, g, a, pen, dg, vm, ns, nc, cap, carta, canvis} of allJornades) {
+    const nota = nc>0?(ns/nc).toFixed(1):'—';
+    const statChips = [
+      g>0?`⚽ ${g}`:'', a>0?`🅰️ ${a}`:'', pen>0?`🥅 ${pen}`:'',
+      dg>0?`🟨 ${dg}`:'', vm>0?`🟥 ${vm}`:''
+    ].filter(Boolean).join(' · ');
+    const jornLabel = `${PHASE_LABELS[ph]||ph} ${jorn.toUpperCase()}`;
+
+    html += `<div style="background:rgba(255,255,255,0.03);border:1px solid var(--glass-border);border-radius:8px;padding:0.7rem 0.8rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem">
+        <span style="font-weight:700;font-size:0.85rem">${jornLabel}</span>
+        <span style="font-family:'Space Mono',monospace;font-size:1rem;color:var(--gold);font-weight:700">${pts.toFixed(0)} pts</span>
+      </div>
+      <div style="display:flex;gap:1rem;flex-wrap:wrap;font-size:0.78rem;color:var(--silver)">
+        ${nota!=='—'?`<span>📊 ${nota}</span>`:''}
+        ${statChips?`<span>${statChips}</span>`:''}
+        ${cap?`<span>⭐ <strong style="color:var(--white)">${cap.cap}</strong> · ${cap.ptsReals.toFixed(0)}pts${cap.anulat?' <span style="color:#F87171">(anulat)</span>':cap.mult>2?' <span style="color:#4ADE80">(×3)</span>':''} · bonus cap: <strong style="color:${cap.bonus>=0?'#4ADE80':'#F87171'}">${cap.bonus>=0?'+':''}${cap.bonus.toFixed(0)}</strong></span>`:''}
+        ${carta?`<span>🃏 <strong style="color:var(--gold)">${carta.carta}</strong>${carta.desc?` · ${carta.desc}`:''}${carta.bonus?` · <strong style="color:#4ADE80">+${carta.bonus.toFixed(0)} pts</strong>`:''}</span>`:''}
+        ${canvis.length?canvis.map(c=>`<span>🔄 ${c.surt} → <strong style="color:var(--white)">${c.entra}</strong> · <strong style="color:#60A5FA">${c.ptsEntra.toFixed(0)} pts</strong> posterior</span>`).join(''):''}
+      </div>
+    </div>`;
+  }
+  html += `</div></div>`;
+
+  // Top 5 i Flop 5 jugadors
+  const jugadorsList = [];
+  const jugadorsVists = new Set();
+  for (const ph of PHASES) {
+    for (const jorn of PHASE_JORNADES[ph]||[]) {
+      for (const pl of getPlayersForPhase(participant, ph, jorn)) {
+        const nm = norm(v(pl,'Jugador'));
+        if (!jugadorsVists.has(nm)) { jugadorsVists.add(nm); jugadorsList.push(v(pl,'Jugador')); }
+      }
+    }
+  }
+  const jugadorsStats = jugadorsList.map(jug => {
+    const d = statsJugadorData(participant, jug);
+    if (d.jornadesPuntua === 0) return null;
+    const plData = (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(jug)&&norm(v(r,'Participant'))===norm(participant))
+      || (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(jug));
+    return { jug, ...d, foto: plData?v(plData,'Foto'):'', equip: plData?v(plData,'Equip'):'', pos: plData?v(plData,'Posicio'):'' };
+  }).filter(Boolean);
+
+  const top5 = [...jugadorsStats].sort((a,b)=>b.totalPts-a.totalPts).slice(0,5);
+  const flop5 = [...jugadorsStats].sort((a,b)=>a.totalPts-b.totalPts).slice(0,5);
+
+  const jugadorRow = (d, showRank, rank) => {
+    const notaStr = d.notaMitjana>0?d.notaMitjana.toFixed(2):'—';
+    const statParts=[d.gols>0?`⚽${d.gols}`:'',d.assists>0?`🅰️${d.assists}`:'',d.penals>0?`🥅${d.penals}`:'',d.grogues>0?`🟨`:'',d.vermelles>0?`🟥`:''].filter(Boolean).join(' ');
+    const posColors={'POR':'#F5C842','DEF':'#4ADE80','MIG':'#60A5FA','DAV':'#F87171'};
+    const pc=posColors[(d.pos||'').toUpperCase()]||'#888';
+    return `<div class="pitch-list-row" onclick="openPlayerCard('${d.jug.replace(/'/g,"\\'")}','${participant.replace(/'/g,"\\'")}','grups','J1')" style="cursor:pointer">
+      <div class="pitch-list-name" style="display:flex;align-items:center;gap:0.7rem">
+        ${showRank?`<span style="font-family:'Space Mono',monospace;font-size:0.7rem;color:var(--silver);min-width:16px">${rank}</span>`:''}
+        ${d.foto?`<img src="${d.foto}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">`:
+          `<div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">👤</div>`}
+        <div>
+          <span style="font-weight:700">${d.jug}</span>
+          <span style="background:${pc};color:var(--ink);font-size:0.6rem;font-weight:800;padding:1px 5px;border-radius:3px;margin-left:4px;font-family:'Space Mono',monospace">${d.pos||'?'}</span>
+          <small style="color:var(--silver)"> ${d.equip||''}</small>
+          ${statParts?`<small style="color:var(--silver);margin-left:4px">${statParts}</small>`:''}
+          <small style="color:var(--silver);display:block">📊 ${notaStr} · ${d.jornadesPuntua} jorn.</small>
+        </div>
+      </div>
+      <div class="pitch-list-note"><span class="score-chip ${d.notaMitjana>=8?'score-high':d.notaMitjana>=6.5?'score-mid':'score-low'}">${d.notaMitjana>0?d.notaMitjana.toFixed(1):'—'}</span></div>
+      <div class="pitch-list-bonus">${d.gols>0?`<span style="color:#6EE89A">⚽×${d.gols}</span>`:'—'}</div>
+      <div class="pitch-list-total" style="color:var(--gold)">${d.totalPts.toFixed(0)}</div>
+    </div>`;
+  };
+
+  html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.2rem">
+    <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1rem">
+      <div style="font-family:'Bebas Neue',cursive;font-size:1rem;letter-spacing:0.08em;color:#4ADE80;margin-bottom:0.6rem">🏆 Top 5 Jugadors</div>
+      <div class="pitch-list-header"><span>Jugador</span><span>Nota</span><span>Gols</span><span>Pts</span></div>
+      ${top5.map((d,i)=>jugadorRow(d,true,i+1)).join('')}
+    </div>
+    <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1rem">
+      <div style="font-family:'Bebas Neue',cursive;font-size:1rem;letter-spacing:0.08em;color:#F87171;margin-bottom:0.6rem">📉 Flop 5 Jugadors</div>
+      <div class="pitch-list-header"><span>Jugador</span><span>Nota</span><span>Gols</span><span>Pts</span></div>
+      ${flop5.map((d,i)=>jugadorRow(d,true,i+1)).join('')}
+    </div>
+  </div>`;
+
+  // Millor 11 de l'equip
+  const ideal = statsCalcIdeal11Equip(participant);
+  if (ideal.length > 0) {
+    const byPos = { POR:[], DEF:[], MIG:[], DAV:[] };
+    for (const p of ideal) if (byPos[p.pos]) byPos[p.pos].push(p);
+    const rowsHtml = ['DAV','MIG','DEF','POR'].map(pos => {
+      if (!byPos[pos]?.length) return '';
+      const pins = byPos[pos].map(p => {
+        const sc = (() => {
+          let best = null, bestPts = -Infinity;
+          for (const ph of PHASES) for (const j of PHASE_JORNADES[ph]||[]) {
+            const s = getScore(participant, p.name, ph, j);
+            if (!s||v(s,'Nota')==='') continue;
+            const pts = calcScoreRowCrua(s, p.pos)||0;
+            if (pts > bestPts) { bestPts=pts; best=s; }
+          }
+          return best;
+        })();
+        return `<div style="flex:0 0 auto">${playerPinIdeal(p.name, p.pos, sc, '—', participant, p.foto, p.equip)}</div>`;
+      }).join('');
+      return `<div style="display:flex;justify-content:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.4rem">${pins}</div>`;
+    }).join('');
+
+    html += `<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1rem;margin-bottom:1.2rem">
+      <div style="font-family:'Bebas Neue',cursive;font-size:1rem;letter-spacing:0.08em;color:var(--gold);margin-bottom:0.6rem">🌟 Millor 11 de l'equip (base crua)</div>
+      <div class="pitch-wrap"><div class="pitch-ideal" style="position:relative;width:100%;padding-bottom:175%">
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-around;padding:1rem 0.5rem">${rowsHtml}</div>
+      </div></div>
+    </div>`;
+  }
+
+  return html;
+}
+
+// ── Vista global/conjunt ──────────────────────────────────────────────────────
+function renderStatsGlobal(participants) {
+  let html = '';
+
+  // Capçalera global
+  let totalGols=0,totalAssists=0,totalGrogues=0,totalVermelles=0,totalPenals=0;
+  let notaSum=0,notaCount=0;
+  for (const r of (gData.puntuacions||[])) {
+    if (!r||v(r,'Nota')==='') continue;
+    const nota=parseNota(v(r,'Nota')); if(nota===null) continue;
+    if(nota===0) continue;
+    totalGols+=parseInt(v(r,'Gols')||0); totalAssists+=parseInt(v(r,'Assistencies')||0);
+    totalPenals+=parseInt(v(r,'Penalti')||0); totalGrogues+=parseInt(v(r,'DobleGroga')||0);
+    totalVermelles+=parseInt(v(r,'Vermella')||0); notaSum+=nota; notaCount++;
+  }
+  const totalPtsGlobal = participants.reduce((s,p)=>{
+    let t=0; for(const ph of PHASES) for(const j of PHASE_JORNADES[ph]||[]) t+=statsPtsJornada(p,ph,j);
+    return s+t;
+  },0);
+
+  html += `<div style="background:linear-gradient(135deg,rgba(96,165,250,0.15),rgba(96,165,250,0.05));border:1px solid rgba(96,165,250,0.3);border-radius:12px;padding:1.2rem;margin-bottom:1.2rem">
+    <div style="font-family:'Bebas Neue',cursive;font-size:1.8rem;color:#60A5FA;letter-spacing:0.05em">🌐 Global — Mundial 2026 Fantasy</div>
+    <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:0.3rem">
+      <span style="font-size:0.85rem"><strong style="color:var(--white)">${participants.length}</strong> <span style="color:var(--silver)">equips</span></span>
+      <span style="font-size:0.85rem"><strong style="color:var(--white)">${totalPtsGlobal.toFixed(0)}</strong> <span style="color:var(--silver)">pts totals</span></span>
+      <span style="font-size:0.85rem">⚽ <strong style="color:var(--white)">${totalGols}</strong> gols</span>
+      <span style="font-size:0.85rem">🅰️ <strong style="color:var(--white)">${totalAssists}</strong> assists</span>
+      ${totalPenals?`<span style="font-size:0.85rem">🥅 <strong style="color:var(--white)">${totalPenals}</strong> penals</span>`:''}
+      ${totalGrogues?`<span style="font-size:0.85rem">🟨 <strong style="color:var(--white)">${totalGrogues}</strong></span>`:''}
+      ${totalVermelles?`<span style="font-size:0.85rem">🟥 <strong style="color:var(--white)">${totalVermelles}</strong></span>`:''}
+      <span style="font-size:0.85rem">📊 <strong style="color:var(--white)">${notaCount>0?(notaSum/notaCount).toFixed(2):'—'}</strong> nota mitjana</span>
+    </div>
+  </div>`;
+
+  // Classificació final
+  const rankFinal = participants.map(p => {
+    let t=0; for(const ph of PHASES) for(const j of PHASE_JORNADES[ph]||[]) t+=statsPtsJornada(p,ph,j);
+    return {p,t};
+  }).sort((a,b)=>b.t-a.t);
+
+  html += `<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1rem;margin-bottom:1.2rem">
+    <div style="font-family:'Bebas Neue',cursive;font-size:1rem;letter-spacing:0.08em;color:var(--gold);margin-bottom:0.8rem">🏆 Classificació Final</div>
+    ${rankFinal.map((r,i)=>{
+      const medal=['🥇','🥈','🥉'][i]||`${i+1}.`;
+      const pct = r.t/rankFinal[0].t*100;
+      return `<div style="display:flex;align-items:center;gap:0.8rem;padding:0.4rem 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+        <span style="font-size:${i<3?'1.1rem':'0.85rem'};min-width:28px">${medal}</span>
+        <span style="flex:1;font-weight:${i<3?'700':'400'}">${r.p}</span>
+        <div style="flex:2;background:rgba(255,255,255,0.07);border-radius:4px;height:8px;overflow:hidden">
+          <div style="background:${i===0?'var(--gold)':i===1?'#9E9E9E':i===2?'#8B4513':'#60A5FA'};width:${pct}%;height:100%;border-radius:4px"></div>
+        </div>
+        <span style="font-family:'Space Mono',monospace;font-size:0.85rem;color:var(--gold);min-width:60px;text-align:right">${r.t.toFixed(0)} pts</span>
+      </div>`;
+    }).join('')}
+  </div>`;
+
+  // Top 1 per equip (millor jugador de cada equip)
+  html += `<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1rem;margin-bottom:1.2rem">
+    <div style="font-family:'Bebas Neue',cursive;font-size:1rem;letter-spacing:0.08em;color:#4ADE80;margin-bottom:0.6rem">🏆 Millor jugador de cada equip</div>
+    <div class="pitch-list-header"><span>Jugador</span><span>Nota</span><span>Gols</span><span>Pts</span></div>`;
+
+  for (const {p} of rankFinal) {
+    const jugadorsVists = new Set();
+    for (const ph of PHASES) for (const jorn of PHASE_JORNADES[ph]||[])
+      getPlayersForPhase(p, ph, jorn).forEach(pl => jugadorsVists.add(v(pl,'Jugador')));
+    const stats = [...jugadorsVists].map(jug => {
+      const d = statsJugadorData(p, jug);
+      if (d.jornadesPuntua===0) return null;
+      const plData=(gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(jug)&&norm(v(r,'Participant'))===norm(p))
+        ||(gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(jug));
+      return {jug,...d,foto:plData?v(plData,'Foto'):'',equip:plData?v(plData,'Equip'):'',pos:plData?v(plData,'Posicio'):'',part:p};
+    }).filter(Boolean);
+    const best = stats.sort((a,b)=>b.totalPts-a.totalPts)[0];
+    if (!best) continue;
+    const posColors={'POR':'#F5C842','DEF':'#4ADE80','MIG':'#60A5FA','DAV':'#F87171'};
+    const pc=posColors[(best.pos||'').toUpperCase()]||'#888';
+    const statParts=[best.gols>0?`⚽${best.gols}`:'',best.assists>0?`🅰️${best.assists}`:''].filter(Boolean).join(' ');
+    html += `<div class="pitch-list-row">
+      <div class="pitch-list-name" style="display:flex;align-items:center;gap:0.7rem">
+        ${best.foto?`<img src="${best.foto}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">`:
+          `<div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">👤</div>`}
+        <div>
+          <span style="font-weight:700">${best.jug}</span>
+          <span style="background:${pc};color:var(--ink);font-size:0.6rem;font-weight:800;padding:1px 5px;border-radius:3px;margin-left:4px;font-family:'Space Mono',monospace">${best.pos||'?'}</span>
+          ${statParts?`<small style="color:var(--silver);margin-left:4px">${statParts}</small>`:''}
+          <small style="color:var(--silver);display:block">${p}</small>
+        </div>
+      </div>
+      <div class="pitch-list-note"><span class="score-chip ${best.notaMitjana>=8?'score-high':best.notaMitjana>=6.5?'score-mid':'score-low'}">${best.notaMitjana>0?best.notaMitjana.toFixed(1):'—'}</span></div>
+      <div class="pitch-list-bonus">${best.gols>0?`<span style="color:#6EE89A">⚽×${best.gols}</span>`:'—'}</div>
+      <div class="pitch-list-total" style="color:var(--gold)">${best.totalPts.toFixed(0)}</div>
+    </div>`;
+  }
+  html += `</div>`;
+
+  // Puntuació per jornada global
+  html += `<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1rem;margin-bottom:1.2rem">
+    <div style="font-family:'Bebas Neue',cursive;font-size:1rem;letter-spacing:0.08em;color:var(--gold);margin-bottom:0.8rem">📅 Punts per jornada (tots els equips)</div>`;
+
+  for (const ph of PHASES) {
+    for (const jorn of PHASE_JORNADES[ph]||[]) {
+      const jornLabel=`${PHASE_LABELS[ph]||ph} ${jorn.toUpperCase()}`;
+      const ptsPerPart=participants.map(p=>({p,pts:statsPtsJornada(p,ph,jorn)})).sort((a,b)=>b.pts-a.pts);
+      const max=ptsPerPart[0]?.pts||1;
+      html += `<div style="margin-bottom:0.8rem">
+        <div style="font-weight:700;font-size:0.82rem;color:var(--silver);margin-bottom:0.4rem">${jornLabel}</div>
+        ${ptsPerPart.map(({p,pts},i)=>`<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.2rem">
+          <span style="font-size:0.75rem;min-width:130px;color:${i===0?'var(--gold)':'var(--white)'};font-weight:${i===0?'700':'400'}">${i===0?'🏆 ':''} ${p}</span>
+          <div style="flex:1;background:rgba(255,255,255,0.07);border-radius:3px;height:6px;overflow:hidden">
+            <div style="background:${i===0?'var(--gold)':'#60A5FA'};width:${pts/max*100}%;height:100%;border-radius:3px"></div>
+          </div>
+          <span style="font-family:'Space Mono',monospace;font-size:0.75rem;color:${i===0?'var(--gold)':'var(--silver)'};min-width:45px;text-align:right">${pts.toFixed(0)}</span>
+        </div>`).join('')}
+      </div>`;
+    }
+  }
+  html += `</div>`;
+
+  return html;
+}
+
 function renderJugadorsTab() {
   const view = document.getElementById('jugadorsView');
   if (!gData) return;
@@ -3155,6 +3731,7 @@ document.getElementById('mainNav').addEventListener('click', e => {
   if (tab === 'jornades') renderJornades(currentJornada.phase, currentJornada.jorn);
   if (tab === 'jugadors') { populateJugadorsFilters(); renderJugadorsTab(); }
   if (tab === 'ideal11') renderIdeal11Tab();
+  if (tab === 'stats') renderStatsTab();
   if (tab === 'ruleta') renderRuletaTab();
   if (tab === 'cartes') renderCartesTab();
   if (tab === 'canvis') renderCanvis();
