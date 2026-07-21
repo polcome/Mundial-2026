@@ -516,7 +516,7 @@
   <section class="section" id="tab-stats">
     <div class="form-row" style="margin-bottom:1.2rem">
       <label>Participant:</label>
-      <select id="statsSelect" style="max-width:280px" onchange="window._statsParticipant=this.value;renderStatsContent()"></select>
+      <select id="statsSelect" style="max-width:280px" onchange="statsSelectChange(this.value)"></select>
     </div>
     <div id="statsContent"></div>
   </section>
@@ -2473,14 +2473,20 @@ function renderIdeal11Tab() {
 // ============================================================
 // STATS TAB — versió completa amb tots els ajustos
 // ============================================================
-let _statsParticipant = null;
+window._statsParticipant = null;
+
+function statsSelectChange(val) {
+  window._statsParticipant = val;
+  _statsParticipant = val;
+  renderStatsContent();
+}
 
 function renderStatsTab() {
   if (!gData) return;
   const participants = getParticipants();
-  if (!_statsParticipant) _statsParticipant = '__global__';
+  if (!window._statsParticipant) window._statsParticipant = '__global__';
+  _statsParticipant = window._statsParticipant;
 
-  // Omple el select (només si no té opcions ja)
   const sel = document.getElementById('statsSelect');
   if (sel && sel.options.length === 0) {
     sel.innerHTML = [
@@ -2496,8 +2502,9 @@ function renderStatsContent() {
   const el = document.getElementById('statsContent');
   if (!el || !gData) return;
   const participants = getParticipants();
-  const isGlobal = _statsParticipant === '__global__';
-  el.innerHTML = isGlobal ? renderStatsGlobal(participants) : renderStatsEquip(_statsParticipant, participants);
+  const cur = _statsParticipant || window._statsParticipant || '__global__';
+  const isGlobal = cur === '__global__';
+  el.innerHTML = isGlobal ? renderStatsGlobal(participants) : renderStatsEquip(cur, participants);
 }
 
 
