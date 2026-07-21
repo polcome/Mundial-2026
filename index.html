@@ -513,7 +513,13 @@
     <div id="ideal11View"></div>
   </section>
 
-  <section class="section" id="tab-stats"><div id="statsView"></div></section>
+  <section class="section" id="tab-stats">
+    <div class="form-row" style="margin-bottom:1.2rem">
+      <label>Participant:</label>
+      <select id="statsSelect" style="max-width:280px" onchange="window._statsParticipant=this.value;renderStatsContent()"></select>
+    </div>
+    <div id="statsContent"></div>
+  </section>
   <section class="section" id="tab-canvis">
     <div class="section-title">🔄 Registre de Canvis</div>
     <div id="canvisView"></div>
@@ -2470,20 +2476,28 @@ function renderIdeal11Tab() {
 let _statsParticipant = null;
 
 function renderStatsTab() {
-  const el = document.getElementById('statsView');
-  if (!gData) { el.innerHTML = '<p style="color:var(--silver);padding:1rem">Carregant...</p>'; return; }
+  if (!gData) return;
   const participants = getParticipants();
   if (!_statsParticipant) _statsParticipant = '__global__';
-  const options = [
-    `<option value="__global__" ${_statsParticipant==='__global__'?'selected':''}>🌐 Global / Conjunt</option>`,
-    ...participants.map(p=>`<option value="${p.replace(/"/g,'&quot;')}" ${_statsParticipant===p?'selected':''}>${p}</option>`)
-  ].join('');
-  const selectorHtml = `<div class="form-row" style="margin-bottom:1.2rem">
-    <label>Participant:</label>
-    <select style="max-width:280px" onchange="window._statsParticipant=this.value;renderStatsTab()">${options}</select>
-  </div>`;
+
+  // Omple el select (només si no té opcions ja)
+  const sel = document.getElementById('statsSelect');
+  if (sel && sel.options.length === 0) {
+    sel.innerHTML = [
+      `<option value="__global__">🌐 Global / Conjunt</option>`,
+      ...participants.map(p=>`<option value="${p.replace(/"/g,'&quot;')}">${p}</option>`)
+    ].join('');
+  }
+  if (sel) sel.value = _statsParticipant;
+  renderStatsContent();
+}
+
+function renderStatsContent() {
+  const el = document.getElementById('statsContent');
+  if (!el || !gData) return;
+  const participants = getParticipants();
   const isGlobal = _statsParticipant === '__global__';
-  el.innerHTML = selectorHtml + (isGlobal ? renderStatsGlobal(participants) : renderStatsEquip(_statsParticipant, participants));
+  el.innerHTML = isGlobal ? renderStatsGlobal(participants) : renderStatsEquip(_statsParticipant, participants);
 }
 
 
@@ -5342,13 +5356,7 @@ async function init() {
   if (sessionStorage.getItem('adminAuth') === '1') isAdmin = true;
   if (sessionStorage.getItem('cartes_auth')) cParticipant = sessionStorage.getItem('cartes_auth');
 
-  // Event delegation per al selector de Stats (funciona fins i tot després de innerHTML)
-  document.getElementById('statsView').addEventListener('click', function(e) {
-    const btn = e.target.closest('[data-statsp]');
-    if (!btn) return;
-    window._statsParticipant = btn.getAttribute('data-statsp');
-    renderStatsTab();
-  });
+  // Stats tab select is static, no event delegation needed
 }
 
 init();
