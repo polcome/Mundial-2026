@@ -2474,19 +2474,18 @@ function renderStatsTab() {
   if (!gData) { el.innerHTML = '<p style="color:var(--silver);padding:1rem">Carregant...</p>'; return; }
   const participants = getParticipants();
   if (!_statsParticipant) _statsParticipant = '__global__';
-  const selectorHtml = `<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:1.2rem">
-    ${[{name:'🌐 Global',val:'__global__'},...participants.map(p=>({name:p,val:p}))].map(({name,val})=>`
-      <button data-statsp="${val.replace(/"/g,'&quot;')}"
-        style="background:${_statsParticipant===val?'var(--gold)':'rgba(255,255,255,0.07)'};color:${_statsParticipant===val?'var(--ink)':'var(--white)'};border:1px solid ${_statsParticipant===val?'var(--gold)':'var(--glass-border)'};border-radius:6px;padding:0.3rem 0.8rem;font-size:0.78rem;font-weight:700;cursor:pointer">${name}</button>`).join('')}
+  const options = [
+    `<option value="__global__" ${_statsParticipant==='__global__'?'selected':''}>🌐 Global / Conjunt</option>`,
+    ...participants.map(p=>`<option value="${p.replace(/"/g,'&quot;')}" ${_statsParticipant===p?'selected':''}>${p}</option>`)
+  ].join('');
+  const selectorHtml = `<div class="form-row" style="margin-bottom:1.2rem">
+    <label>Participant:</label>
+    <select style="max-width:280px" onchange="window._statsParticipant=this.value;renderStatsTab()">${options}</select>
   </div>`;
   const isGlobal = _statsParticipant === '__global__';
   el.innerHTML = selectorHtml + (isGlobal ? renderStatsGlobal(participants) : renderStatsEquip(_statsParticipant, participants));
 }
 
-function statsSelect(btn) {
-  _statsParticipant = btn.getAttribute('data-statsp');
-  renderStatsTab();
-}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function statsPtsJornada(participant, fase, jornada) {
