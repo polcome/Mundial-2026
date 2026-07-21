@@ -514,9 +514,10 @@
   </section>
 
   <section class="section" id="tab-stats">
-    <div class="form-row" style="margin-bottom:1.2rem">
+    <div class="section-title">📊 Stats</div>
+    <div class="form-row" style="margin-bottom:1.5rem">
       <label>Participant:</label>
-      <select id="statsSelect" style="max-width:280px" onchange="statsSelectChange(this.value)"></select>
+      <select id="statsSelect" style="max-width:280px" onchange="selectStats(this.value)"></select>
     </div>
     <div id="statsContent"></div>
   </section>
@@ -2471,22 +2472,20 @@ function renderIdeal11Tab() {
 }
 
 // ============================================================
-// STATS TAB — versió completa amb tots els ajustos
+// STATS TAB
 // ============================================================
-window._statsParticipant = null;
+let _statsParticipant = '__global__';
 
-function statsSelectChange(val) {
-  window._statsParticipant = val;
-  _statsParticipant = val;
-  renderStatsContent();
+function selectStats(participant) {
+  _statsParticipant = participant;
+  const sel = document.getElementById('statsSelect');
+  if (sel && sel.value !== participant) sel.value = participant;
+  _renderStats();
 }
 
 function renderStatsTab() {
   if (!gData) return;
   const participants = getParticipants();
-  if (!window._statsParticipant) window._statsParticipant = '__global__';
-  _statsParticipant = window._statsParticipant;
-
   const sel = document.getElementById('statsSelect');
   if (sel && sel.options.length === 0) {
     sel.innerHTML = [
@@ -2495,17 +2494,20 @@ function renderStatsTab() {
     ].join('');
   }
   if (sel) sel.value = _statsParticipant;
-  renderStatsContent();
+  _renderStats();
 }
 
-function renderStatsContent() {
+function _renderStats() {
   const el = document.getElementById('statsContent');
   if (!el || !gData) return;
   const participants = getParticipants();
-  const cur = _statsParticipant || window._statsParticipant || '__global__';
-  const isGlobal = cur === '__global__';
-  el.innerHTML = isGlobal ? renderStatsGlobal(participants) : renderStatsEquip(cur, participants);
+  el.innerHTML = (_statsParticipant === '__global__')
+    ? renderStatsGlobal(participants)
+    : renderStatsEquip(_statsParticipant, participants);
 }
+
+function renderStatsContent() { _renderStats(); }
+function statsSelectChange(val) { selectStats(val); }
 
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
