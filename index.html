@@ -3005,7 +3005,18 @@ function renderStatsEquip(participant, participants) {
           const diffColor = diff >= 0 ? '#4ADE80' : '#F87171';
           cartaPtsHtml = `<strong style="color:#60A5FA">${ptsRep.toFixed(0)} pts</strong> de ${inJug} · <strong style="color:${diffColor}">${diff>=0?'+':''}${diff.toFixed(0)} pts</strong> de profit`;
         }
-      } else if (c === 'Blindar jugador') {
+      } else if (c === 'Doble capita') {
+        // Segon capità guardat al detall de la carta
+        const cap2Nom = det.jugador;
+        if (cap2Nom) {
+          const sc2 = getScore(participant, cap2Nom, jd.ph, jd.jorn);
+          const pl2 = (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(cap2Nom)&&norm(v(r,'Participant'))===norm(participant));
+          const ptsCap2 = sc2 && v(sc2,'Nota')!=='' ? (calcScoreRowCrua(sc2, pl2?v(pl2,'Posicio'):'DAV')||0) : 0;
+          const bonusCap2 = ptsCap2; // x2 → bonus = ptsCru (guanya el mateix que fa base)
+          cartaPtsHtml = `2n capità: <strong style="color:#FBBF24">${cap2Nom}</strong> · ${ptsCap2.toFixed(0)} pts base · <strong style="color:#4ADE80">+${bonusCap2.toFixed(0)} pts</strong> bonus ×2`;
+        } else {
+          cartaPtsHtml = `<span style="color:var(--silver)">2n capità no assignat</span>`;
+        }
         const jugB = det.jugador;
         if (jugB) {
           const sc2 = getScore(participant, jugB, jd.ph, jd.jorn);
