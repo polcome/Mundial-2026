@@ -2474,12 +2474,9 @@ function renderIdeal11Tab() {
 // ============================================================
 // STATS TAB
 // ============================================================
-let _statsParticipant = '__global__';
-
 function selectStats(participant) {
-  _statsParticipant = participant;
   const sel = document.getElementById('statsSelect');
-  if (sel && sel.value !== participant) sel.value = participant;
+  if (sel) sel.value = participant;
   _renderStats();
 }
 
@@ -2493,17 +2490,18 @@ function renderStatsTab() {
       ...participants.map(p=>`<option value="${p.replace(/"/g,'&quot;')}">${p}</option>`)
     ].join('');
   }
-  if (sel) sel.value = _statsParticipant;
   _renderStats();
 }
 
 function _renderStats() {
   const el = document.getElementById('statsContent');
   if (!el || !gData) return;
+  const sel = document.getElementById('statsSelect');
+  const val = sel ? sel.value : '__global__';
   const participants = getParticipants();
-  el.innerHTML = (_statsParticipant === '__global__')
+  el.innerHTML = (val === '__global__')
     ? renderStatsGlobal(participants)
-    : renderStatsEquip(_statsParticipant, participants);
+    : renderStatsEquip(val, participants);
 }
 
 function renderStatsContent() { _renderStats(); }
