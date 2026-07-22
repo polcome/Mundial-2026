@@ -2962,10 +2962,12 @@ function renderStatsEquip(participant, participants) {
     // Detall intern
     let detallHtml='';
     if (jd.cap) {
+      const capTagStr = jd.cap.anulat ? '<span style="color:#F87171">(anulat ×1)</span>' : (jd.cap.mult>2 ? '<span style="color:#4ADE80">(×'+jd.cap.mult+')</span>' : '');
+      const capBonusCol = jd.cap.bonus>=0?'#4ADE80':'#F87171';
       detallHtml+=`<div style="margin:0.5rem 0 0.3rem;padding:0.5rem 0.7rem;background:rgba(245,200,66,0.08);border-radius:6px;border-left:3px solid var(--gold)">
         <div style="font-size:0.72rem;font-weight:700;color:var(--gold);margin-bottom:0.3rem;font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:0.06em">⭐ Capità</div>
         <div style="font-size:0.82rem;color:var(--white)">${jd.cap.cap}
-          <span style="color:var(--silver)"> · ${jd.cap.ptsReals.toFixed(0)} pts ${capTagStr}</span>\n          · bonus: <strong style="color:${capBonusCol}">${jd.cap.bonus>=0?'+':''}${jd.cap.bonus.toFixed(0)} pts</strong>
+          <span style="color:var(--silver)"> · ${jd.cap.ptsReals.toFixed(0)} pts ${capTagStr}</span> · bonus: <strong style="color:${capBonusCol}">${jd.cap.bonus>=0?'+':''}${jd.cap.bonus.toFixed(0)} pts</strong>
         </div>
       </div>`;
     }
