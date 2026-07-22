@@ -515,11 +515,12 @@
 
   <section class="section" id="tab-stats">
     <div class="section-title">📊 Stats</div>
-    <div class="form-row" style="margin-bottom:1.5rem">
-      <label>Participant:</label>
+    <div id="statsGlobal"></div>
+    <div class="form-row" style="margin:1.2rem 0">
+      <label>Stats per equip:</label>
       <select id="statsSelect" style="max-width:280px" onchange="selectStats(this.value)"></select>
     </div>
-    <div id="statsContent"></div>
+    <div id="statsEquip"></div>
   </section>
   <section class="section" id="tab-canvis">
     <div class="section-title">🔄 Registre de Canvis</div>
@@ -2486,22 +2487,38 @@ function renderStatsTab() {
   const sel = document.getElementById('statsSelect');
   if (sel && sel.options.length === 0) {
     sel.innerHTML = [
-      `<option value="__global__">🌐 Global / Conjunt</option>`,
+      `<option value="__global__">— Selecciona un equip —</option>`,
       ...participants.map(p=>`<option value="${p.replace(/"/g,'&quot;')}">${p}</option>`)
     ].join('');
   }
-  _renderStats();
+  // Renderitza global sempre (primera vegada o si estava buit)
+  const elGlobal = document.getElementById('statsGlobal');
+  if (elGlobal && !elGlobal.innerHTML) {
+    elGlobal.innerHTML = renderStatsGlobal(participants);
+  }
 }
 
 function _renderStats() {
-  const el = document.getElementById('statsContent');
-  if (!el || !gData) return;
+  const elGlobal = document.getElementById('statsGlobal');
+  const elEquip = document.getElementById('statsEquip');
+  if (!gData) return;
   const sel = document.getElementById('statsSelect');
   const val = sel ? sel.value : '__global__';
   const participants = getParticipants();
-  el.innerHTML = (val === '__global__')
-    ? renderStatsGlobal(participants)
-    : renderStatsEquip(val, participants);
+
+  // Global: només renderitza un cop (o si estava buit)
+  if (elGlobal && !elGlobal.innerHTML) {
+    elGlobal.innerHTML = renderStatsGlobal(participants);
+  }
+
+  // Equip: sempre actualitza amb l'equip seleccionat
+  if (elEquip) {
+    if (val === '__global__') {
+      elEquip.innerHTML = '';
+    } else {
+      elEquip.innerHTML = `<div style="border-top:2px solid rgba(245,200,66,0.3);margin-top:1.5rem;padding-top:1.5rem">${renderStatsEquip(val, participants)}</div>`;
+    }
+  }
 }
 
 function renderStatsContent() { _renderStats(); }
