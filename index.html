@@ -2979,8 +2979,9 @@ function renderStatsEquip(participant, participants) {
       if (jd.carta.bonus && jd.carta.bonus !== 0) {
         cartaPtsHtml = `<strong style="color:#4ADE80">+${jd.carta.bonus.toFixed(0)} pts extra</strong>`;
       } else if (c === 'Canvi jugador rival') {
-        // Punts del jugador que reps
+        // Punts del jugador que reps vs el que cedeixis
         const inJug = det.jugador_rival;
+        const outJug = det.jugador_meu;
         if (inJug) {
           let ptsRep = 0;
           for (const ph2 of PHASES) for (const j2 of (PHASE_JORNADES[ph2]||[])) {
@@ -2990,7 +2991,19 @@ function renderStatsEquip(participant, participants) {
               ptsRep += calcScoreRow(sc2, pl2?v(pl2,'Posicio'):'DAV', inJug, ph2, j2, participant) || 0;
             }
           }
-          cartaPtsHtml = `<strong style="color:#60A5FA">${ptsRep.toFixed(0)} pts</strong> obtinguts per ${inJug}`;
+          let ptsCedits = 0;
+          if (outJug) {
+            for (const ph2 of PHASES) for (const j2 of (PHASE_JORNADES[ph2]||[])) {
+              const sc2 = getScore(participant, outJug, ph2, j2);
+              if (sc2 && v(sc2,'Nota')!=='') {
+                const pl2=(gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(outJug));
+                ptsCedits += calcScoreRowCrua(sc2, pl2?v(pl2,'Posicio'):'DAV') || 0;
+              }
+            }
+          }
+          const diff = ptsRep - ptsCedits;
+          const diffColor = diff >= 0 ? '#4ADE80' : '#F87171';
+          cartaPtsHtml = `<strong style="color:#60A5FA">${ptsRep.toFixed(0)} pts</strong> de ${inJug} · <strong style="color:${diffColor}">${diff>=0?'+':''}${diff.toFixed(0)} pts</strong> de profit`;
         }
       } else if (c === 'Blindar jugador') {
         const jugB = det.jugador;
