@@ -2476,9 +2476,20 @@ function renderIdeal11Tab() {
 // STATS TAB
 // ============================================================
 function selectStats(participant) {
-  const sel = document.getElementById('statsSelect');
-  if (sel) sel.value = participant;
-  _renderStats();
+  const elEquip = document.getElementById('statsEquip');
+  if (!elEquip || !gData) return;
+  if (!participant || participant === '__global__') {
+    elEquip.innerHTML = '';
+    return;
+  }
+  const participants = getParticipants();
+  try {
+    const html = renderStatsEquip(participant, participants);
+    elEquip.innerHTML = `<div style="border-top:2px solid rgba(245,200,66,0.3);margin-top:1.5rem;padding-top:1.5rem">${html}</div>`;
+  } catch(e) {
+    elEquip.innerHTML = `<p style="color:#F87171;padding:1rem">Error: ${e.message}</p>`;
+    console.error(e);
+  }
 }
 
 function renderStatsTab() {
