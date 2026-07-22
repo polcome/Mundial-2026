@@ -2791,8 +2791,9 @@ function statsEvolutionChartGlobal(participants) {
 
 // Card jugador per Stats — disseny igual que pàgina de jugadors
 // Columnes: Jugador | Nota | Gols | Assists | Pen | Nota Mitj. | Pts | Pts Otorgats·Equip
-function statsJugadorsTable(jugadorsList, participant, isGlobal) {
+function statsJugadorsTable(jugadorsList, participant, isGlobal, prefix) {
   if (!jugadorsList.length) return '';
+  const pfx = prefix || 'jug';
   const colsCount = isGlobal ? 11 : 10;
   const ths = ['#','Jugador',...(isGlobal?['Fantasy']:[]),'⚽','🅰️','🥅','🟨','🟥','📊 Mitj.','Pts base','🎯 Otorgats'].map(h=>`<th>${h}</th>`).join('');
 
@@ -2807,7 +2808,7 @@ function statsJugadorsTable(jugadorsList, participant, isGlobal) {
       ? `<img src="${foto}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:5px;border:2px solid rgba(255,255,255,0.2)" onerror="this.remove()">`
       : `<span style="display:inline-flex;width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#1e3a5f,#2d5a8e);align-items:center;justify-content:center;margin-right:5px;font-size:0.85rem;vertical-align:middle;flex-shrink:0">👤</span>`;
     const posClass = `pos-${(pos||'MIG').toUpperCase()}`;
-    const detailId = `std${i}${norm(d.jug).replace(/[^a-z0-9]/g,'_')}`;
+    const detailId = `${pfx}${i}${norm(d.jug).replace(/[^a-z0-9]/g,'_')}`;
     const ptsBase = d.totalCru !== undefined ? d.totalCru : d.totalPts;
 
     // Pts otorgats = punts REALS generats a l'equip que el tenia (amb capitans/cartes)
@@ -2972,10 +2973,85 @@ function renderStatsEquip(participant, participants) {
       </div>`;
     }
     if (jd.carta) {
+      // Efecte en punts de la carta pròpia
+      let cartaPtsHtml = '';
+      const c = jd.carta.carta; const det = jd.carta.detall || {};
+      if (jd.carta.bonus && jd.carta.bonus !== 0) {
+        cartaPtsHtml = `<strong style="color:#4ADE80">+${jd.carta.bonus.toFixed(0)} pts extra</strong>`;
+      } else if (c === 'Canvi jugador rival') {
+        // Punts del jugador que reps
+        const inJug = det.jugador_rival;
+        if (inJug) {
+          let ptsRep = 0;
+          for (const ph2 of PHASES) for (const j2 of (PHASE_JORNADES[ph2]||[])) {
+            const sc2 = getScore(participant, inJug, ph2, j2);
+            if (sc2 && v(sc2,'Nota')!=='') {
+              const pl2=(gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(inJug));
+              ptsRep += calcScoreRow(sc2, pl2?v(pl2,'Posicio'):'DAV', inJug, ph2, j2, participant) || 0;
+            }
+          }
+          cartaPtsHtml = `<strong style="color:#60A5FA">${ptsRep.toFixed(0)} pts</strong> obtinguts per ${inJug}`;
+        }
+      } else if (c === 'Blindar jugador') {
+        const jugB = det.jugador;
+        if (jugB) {
+          const sc2 = getScore(participant, jugB, jd.ph, jd.jorn);
+          const pl2=(gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(jugB)&&norm(v(r,'Participant'))===norm(participant));
+          const ptsB = sc2 && v(sc2,'Nota')!=='' ? (calcScoreRowCrua(sc2, pl2?v(pl2,'Posicio'):'DAV')||0) : 0;
+          cartaPtsHtml = `<strong style="color:#38BDF8">${ptsB.toFixed(0)} pts</strong> protegits`;
+        }
+      }
       detallHtml+=`<div style="margin:0.3rem 0;padding:0.5rem 0.7rem;background:rgba(96,165,250,0.08);border-radius:6px;border-left:3px solid #60A5FA">
-        <div style="font-size:0.72rem;font-weight:700;color:#60A5FA;margin-bottom:0.3rem;font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:0.06em">🃏 Carta</div>
-        <div style="font-size:0.82rem;color:var(--white)">${jd.carta.carta}${jd.carta.desc?` <span style="color:var(--silver)">· ${jd.carta.desc}</span>`:''}${jd.carta.bonus?` · <strong style="color:#4ADE80">+${jd.carta.bonus.toFixed(0)} pts extra</strong>`:''}</div>
+        <div style="font-size:0.72rem;font-weight:700;color:#60A5FA;margin-bottom:0.3rem;font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:0.06em">🃏 Carta pròpia</div>
+        <div style="font-size:0.82rem;color:var(--white)">${jd.carta.carta}${jd.carta.desc?` <span style="color:var(--silver)">· ${jd.carta.desc}</span>`:''}${cartaPtsHtml?` · ${cartaPtsHtml}`:''}</div>
       </div>`;
+    }
+
+    // Carta rebuda (algú t'ha aplicat una carta)
+    const cartaRebuda = (() => {
+      if (esJornadaOculta(jd.ph, jd.jorn)) return null;
+      const cartesMap = cartesSlot(jd.ph, jd.jorn);
+      const results = [];
+      for (const [pNorm, rc] of Object.entries(cartesMap)) {
+        if (pNorm === norm(participant)) continue;
+        const c = rc.carta; const det = rc.detall || {};
+        if (!c) continue;
+        // Cartes que afecten aquest participant
+        if (c === 'Anular capita rival' && norm(det.rival||'') === norm(participant)) {
+          const cap = capitansSlot(jd.ph, jd.jorn)[norm(participant)];
+          const sc2 = cap ? getScore(participant, cap, jd.ph, jd.jorn) : null;
+          const pl2 = cap ? (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(cap)&&norm(v(r,'Participant'))===norm(participant)) : null;
+          const ptsPerduts = sc2 && v(sc2,'Nota')!=='' ? (calcScoreRowCrua(sc2, pl2?v(pl2,'Posicio'):'DAV')||0) : 0;
+          results.push({ autor: pNorm, carta: c, efecte: `Capità ${cap||'?'} ha jugat ×1`, pts: -ptsPerduts });
+        } else if (c === 'Anular jugador rival' && norm(det.rival||'') === norm(participant)) {
+          const jug = det.jugador;
+          const sc2 = jug ? getScore(participant, jug, jd.ph, jd.jorn) : null;
+          const pl2 = jug ? (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(jug)&&norm(v(r,'Participant'))===norm(participant)) : null;
+          const ptsPerduts = sc2 && v(sc2,'Nota')!=='' ? (calcScoreRowCrua(sc2, pl2?v(pl2,'Posicio'):'DAV')||0) : 0;
+          results.push({ autor: pNorm, carta: c, efecte: `${jug||'?'} ha jugat 0 pts`, pts: -ptsPerduts });
+        } else if (c === 'Canvi jugador rival' && norm(det.rival||'') === norm(participant)) {
+          const surt = det.jugador_rival; const entra = det.jugador_meu;
+          const scSurt = surt ? getScore(participant, surt, jd.ph, jd.jorn) : null;
+          const plSurt = surt ? (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(surt)) : null;
+          const ptsSurt = scSurt && v(scSurt,'Nota')!=='' ? (calcScoreRowCrua(scSurt, plSurt?v(plSurt,'Posicio'):'DAV')||0) : 0;
+          const scEntra = entra ? getScore(pNorm, entra, jd.ph, jd.jorn) : null;
+          const plEntra = entra ? (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(entra)) : null;
+          const ptsEntra = scEntra && v(scEntra,'Nota')!=='' ? (calcScoreRowCrua(scEntra, plEntra?v(plEntra,'Posicio'):'DAV')||0) : 0;
+          const diff = ptsEntra - ptsSurt;
+          results.push({ autor: pNorm, carta: c, efecte: `${surt||'?'} → ${entra||'?'}`, pts: diff });
+        }
+      }
+      return results.length ? results : null;
+    })();
+
+    if (cartaRebuda && cartaRebuda.length > 0) {
+      cartaRebuda.forEach(cr => {
+        const ptsColor = cr.pts > 0 ? '#4ADE80' : cr.pts < 0 ? '#F87171' : 'var(--silver)';
+        detallHtml+=`<div style="margin:0.3rem 0;padding:0.5rem 0.7rem;background:rgba(248,113,113,0.08);border-radius:6px;border-left:3px solid #F87171">
+          <div style="font-size:0.72rem;font-weight:700;color:#F87171;margin-bottom:0.3rem;font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:0.06em">🎯 Carta rebuda — ${cr.autor.toUpperCase()}</div>
+          <div style="font-size:0.82rem;color:var(--white)">${cr.carta} · ${cr.efecte} · <strong style="color:${ptsColor}">${cr.pts>=0?'+':''}${cr.pts.toFixed(0)} pts</strong></div>
+        </div>`;
+      });
     }
     if (jd.canvis.length>0) {
       detallHtml+=`<div style="margin:0.3rem 0;padding:0.5rem 0.7rem;background:rgba(74,222,128,0.06);border-radius:6px;border-left:3px solid #4ADE80">
@@ -3009,11 +3085,11 @@ function renderStatsEquip(participant, participants) {
   html+=`<div style="margin-bottom:1.2rem">
     <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1rem;margin-bottom:0.8rem">
       <div style="font-family:'Bebas Neue',cursive;font-size:1rem;letter-spacing:0.08em;color:#4ADE80;margin-bottom:0.6rem">🏆 Top 5 Jugadors</div>
-      ${statsJugadorsTable(top5, participant, false)}
+      ${statsJugadorsTable(top5, participant, false, 'top')}
     </div>
     <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:1rem">
       <div style="font-family:'Bebas Neue',cursive;font-size:1rem;letter-spacing:0.08em;color:#F87171;margin-bottom:0.6rem">📉 Flop 5 Jugadors</div>
-      ${statsJugadorsTable(flop5, participant, false)}
+      ${statsJugadorsTable(flop5, participant, false, 'flop')}
     </div>
   </div>`;
 
