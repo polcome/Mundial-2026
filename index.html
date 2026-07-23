@@ -2997,17 +2997,19 @@ function renderStatsEquip(participant, participants) {
         }
       } else if (cNom === 'Canvi jugador rival') {
         const inJug = cDet.jugador_rival; const outJug = cDet.jugador_meu;
+        const rivalPart = cDet.rival || '';
         if (inJug) {
-          // Punts del jugador rebut en aquesta jornada concreta
-          const sc2 = getScore(participant, inJug, jd.ph, jd.jorn);
-          const pl2 = (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(inJug));
+          // El jugador rebut puntuava per l'equip rival aquella jornada
+          const sc2 = getScore(rivalPart, inJug, jd.ph, jd.jorn) || getScore(participant, inJug, jd.ph, jd.jorn);
+          const pl2 = (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(inJug)&&norm(v(r,'Participant'))===norm(rivalPart))
+                   || (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(inJug));
           const ptsRep = sc2 && v(sc2,'Nota')!=='' ? (calcScoreRowCrua(sc2, pl2?v(pl2,'Posicio'):'DAV')||0) : 0;
-          // Punts del jugador cedit en aquesta jornada concreta
+          // El jugador cedit puntuava per participant aquella jornada
           let ptsCedits = 0;
           if (outJug) {
-            const rivalPart = cDet.rival || '';
-            const sc3 = getScore(rivalPart, outJug, jd.ph, jd.jorn) || getScore(participant, outJug, jd.ph, jd.jorn);
-            const pl3 = (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(outJug));
+            const sc3 = getScore(participant, outJug, jd.ph, jd.jorn);
+            const pl3 = (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(outJug)&&norm(v(r,'Participant'))===norm(participant))
+                     || (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(outJug));
             ptsCedits = sc3 && v(sc3,'Nota')!=='' ? (calcScoreRowCrua(sc3, pl3?v(pl3,'Posicio'):'DAV')||0) : 0;
           }
           const diff = ptsRep - ptsCedits;
