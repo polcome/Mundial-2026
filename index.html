@@ -2998,24 +2998,20 @@ function renderStatsEquip(participant, participants) {
       } else if (cNom === 'Canvi jugador rival') {
         const inJug = cDet.jugador_rival; const outJug = cDet.jugador_meu;
         if (inJug) {
-          let ptsRep = 0, ptsCedits = 0;
-          for (let i = tidxC; i < ALL_JORNADES_ORDER.length; i++) {
-            const [ff,jj] = ALL_JORNADES_ORDER[i].split('_');
-            const sc2 = getScore(participant, inJug, ff, jj);
-            if (sc2 && v(sc2,'Nota')!=='') {
-              const pl2 = (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(inJug));
-              ptsRep += calcScoreRow(sc2, pl2?v(pl2,'Posicio'):'DAV', inJug, ff, jj, participant) || 0;
-            }
-            if (outJug) {
-              const sc3 = getScore(cDet.rival||'', outJug, ff, jj);
-              if (sc3 && v(sc3,'Nota')!=='') {
-                const pl3 = (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(outJug));
-                ptsCedits += calcScoreRowCrua(sc3, pl3?v(pl3,'Posicio'):'DAV') || 0;
-              }
-            }
+          // Punts del jugador rebut en aquesta jornada concreta
+          const sc2 = getScore(participant, inJug, jd.ph, jd.jorn);
+          const pl2 = (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(inJug));
+          const ptsRep = sc2 && v(sc2,'Nota')!=='' ? (calcScoreRowCrua(sc2, pl2?v(pl2,'Posicio'):'DAV')||0) : 0;
+          // Punts del jugador cedit en aquesta jornada concreta
+          let ptsCedits = 0;
+          if (outJug) {
+            const rivalPart = cDet.rival || '';
+            const sc3 = getScore(rivalPart, outJug, jd.ph, jd.jorn) || getScore(participant, outJug, jd.ph, jd.jorn);
+            const pl3 = (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(outJug));
+            ptsCedits = sc3 && v(sc3,'Nota')!=='' ? (calcScoreRowCrua(sc3, pl3?v(pl3,'Posicio'):'DAV')||0) : 0;
           }
           const diff = ptsRep - ptsCedits;
-          cartaPtsHtml = `<strong style="color:#60A5FA">${ptsRep.toFixed(0)} pts</strong> de ${inJug} · <strong style="color:${diff>=0?'#4ADE80':'#F87171'}">${diff>=0?'+':''}${diff.toFixed(0)} pts</strong> de profit`;
+          cartaPtsHtml = `<strong style="color:#60A5FA">${ptsRep.toFixed(0)} pts</strong> de ${inJug} · cedits: ${ptsCedits.toFixed(0)} pts de ${outJug||'?'} · <strong style="color:${diff>=0?'#4ADE80':'#F87171'}">${diff>=0?'+':''}${diff.toFixed(0)} pts</strong> de profit`;
         }
       } else if (cNom === 'Blindar jugador') {
         const jugB = cDet.jugador;
