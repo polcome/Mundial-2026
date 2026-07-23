@@ -2664,14 +2664,16 @@ function statsCartaJornada(participant, fase, jornada) {
         desc=`+${bonus} pts extra (×3 vs ×2 de ${cap})`;
       }
     }
+  } else if (c==='Doble capita') {
+    const cap2Nom = det.jugador2 || det.jugador || null;
+    desc = cap2Nom ? `2n capità: ${cap2Nom}` : `Dos capitans`;
   } else if (c==='Canvi jugador rival') { desc=`${det.jugador_meu||'?'} ↔ ${det.jugador_rival||'?'} (${det.rival||'?'})`; }
   else if (c==='Anular capita rival') { desc=`Capità de ${det.rival||'?'} anulat`; }
   else if (c==='Anular jugador rival') { desc=`${det.jugador||'?'} de ${det.rival||'?'} anulat`; }
   else if (c==='Blindar jugador') { desc=`${det.jugador||'?'} protegit`; }
   else if (c==='Capita manual') { desc=`Capità: ${det.jugador||'?'}`; }
-  else if (c==='Doble capita') { desc=`Dos capitans`; }
   else if (c==='Comodi') { desc=`Comodí → ${det.carta||'?'}`; }
-  return { carta: c, bonus, desc };
+  return { carta: c, bonus, desc, detall: det };
 }
 
 function statsCanvisJornada(participant, fase, jornada) {
@@ -2973,63 +2975,64 @@ function renderStatsEquip(participant, participants) {
       </div>`;
     }
     if (jd.carta) {
-      // Efecte en punts de la carta pròpia
       let cartaPtsHtml = '';
-      const c = jd.carta.carta; const det = jd.carta.detall || {};
-      if (jd.carta.bonus && jd.carta.bonus !== 0) {
+      const cNom = jd.carta.carta;
+      const cDet = jd.carta.detall || {};
+      const tidxC = jornadaIndex(jd.ph, jd.jorn);
+
+      if (cNom === 'Gol doble' && jd.carta.bonus) {
         cartaPtsHtml = `<strong style="color:#4ADE80">+${jd.carta.bonus.toFixed(0)} pts extra</strong>`;
-      } else if (c === 'Canvi jugador rival') {
-        // Punts del jugador que reps vs el que cedeixis
-        const inJug = det.jugador_rival;
-        const outJug = det.jugador_meu;
-        if (inJug) {
-          let ptsRep = 0;
-          for (const ph2 of PHASES) for (const j2 of (PHASE_JORNADES[ph2]||[])) {
-            const sc2 = getScore(participant, inJug, ph2, j2);
-            if (sc2 && v(sc2,'Nota')!=='') {
-              const pl2=(gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(inJug));
-              ptsRep += calcScoreRow(sc2, pl2?v(pl2,'Posicio'):'DAV', inJug, ph2, j2, participant) || 0;
-            }
-          }
-          let ptsCedits = 0;
-          if (outJug) {
-            for (const ph2 of PHASES) for (const j2 of (PHASE_JORNADES[ph2]||[])) {
-              const sc2 = getScore(participant, outJug, ph2, j2);
-              if (sc2 && v(sc2,'Nota')!=='') {
-                const pl2=(gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(outJug));
-                ptsCedits += calcScoreRowCrua(sc2, pl2?v(pl2,'Posicio'):'DAV') || 0;
-              }
-            }
-          }
-          const diff = ptsRep - ptsCedits;
-          const diffColor = diff >= 0 ? '#4ADE80' : '#F87171';
-          cartaPtsHtml = `<strong style="color:#60A5FA">${ptsRep.toFixed(0)} pts</strong> de ${inJug} · <strong style="color:${diffColor}">${diff>=0?'+':''}${diff.toFixed(0)} pts</strong> de profit`;
-        }
-      } else if (c === 'Doble capita') {
-        // Segon capità guardat al detall de la carta
-        const cap2Nom = det.jugador;
+      } else if (cNom === 'Capita x3' && jd.carta.bonus) {
+        const capN = capitansSlot(jd.ph, jd.jorn)[norm(participant)] || '?';
+        cartaPtsHtml = `<strong style="color:#4ADE80">+${jd.carta.bonus.toFixed(0)} pts extra</strong> (×3 vs ×2 de ${capN})`;
+      } else if (cNom === 'Doble capita') {
+        const cap2Nom = cDet.jugador2 || cDet.jugador || null;
         if (cap2Nom) {
           const sc2 = getScore(participant, cap2Nom, jd.ph, jd.jorn);
           const pl2 = (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(cap2Nom)&&norm(v(r,'Participant'))===norm(participant));
           const ptsCap2 = sc2 && v(sc2,'Nota')!=='' ? (calcScoreRowCrua(sc2, pl2?v(pl2,'Posicio'):'DAV')||0) : 0;
-          const bonusCap2 = ptsCap2; // x2 → bonus = ptsCru (guanya el mateix que fa base)
-          cartaPtsHtml = `2n capità: <strong style="color:#FBBF24">${cap2Nom}</strong> · ${ptsCap2.toFixed(0)} pts base · <strong style="color:#4ADE80">+${bonusCap2.toFixed(0)} pts</strong> bonus ×2`;
+          cartaPtsHtml = `2n capità: <strong style="color:#FBBF24">${cap2Nom}</strong> · ${ptsCap2.toFixed(0)} pts base · <strong style="color:#4ADE80">+${ptsCap2.toFixed(0)} pts</strong> bonus ×2`;
         } else {
-          cartaPtsHtml = `<span style="color:var(--silver)">2n capità no assignat</span>`;
+          cartaPtsHtml = `<span style="color:var(--silver)">2n capità pendent d'assignar</span>`;
         }
-        const jugB = det.jugador;
+      } else if (cNom === 'Canvi jugador rival') {
+        const inJug = cDet.jugador_rival; const outJug = cDet.jugador_meu;
+        if (inJug) {
+          let ptsRep = 0, ptsCedits = 0;
+          for (let i = tidxC; i < ALL_JORNADES_ORDER.length; i++) {
+            const [ff,jj] = ALL_JORNADES_ORDER[i].split('_');
+            const sc2 = getScore(participant, inJug, ff, jj);
+            if (sc2 && v(sc2,'Nota')!=='') {
+              const pl2 = (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(inJug));
+              ptsRep += calcScoreRow(sc2, pl2?v(pl2,'Posicio'):'DAV', inJug, ff, jj, participant) || 0;
+            }
+            if (outJug) {
+              const sc3 = getScore(cDet.rival||'', outJug, ff, jj);
+              if (sc3 && v(sc3,'Nota')!=='') {
+                const pl3 = (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(outJug));
+                ptsCedits += calcScoreRowCrua(sc3, pl3?v(pl3,'Posicio'):'DAV') || 0;
+              }
+            }
+          }
+          const diff = ptsRep - ptsCedits;
+          cartaPtsHtml = `<strong style="color:#60A5FA">${ptsRep.toFixed(0)} pts</strong> de ${inJug} · <strong style="color:${diff>=0?'#4ADE80':'#F87171'}">${diff>=0?'+':''}${diff.toFixed(0)} pts</strong> de profit`;
+        }
+      } else if (cNom === 'Blindar jugador') {
+        const jugB = cDet.jugador;
         if (jugB) {
           const sc2 = getScore(participant, jugB, jd.ph, jd.jorn);
-          const pl2=(gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(jugB)&&norm(v(r,'Participant'))===norm(participant));
+          const pl2 = (gData.jugadors||[]).find(r=>norm(v(r,'Jugador'))===norm(jugB)&&norm(v(r,'Participant'))===norm(participant));
           const ptsB = sc2 && v(sc2,'Nota')!=='' ? (calcScoreRowCrua(sc2, pl2?v(pl2,'Posicio'):'DAV')||0) : 0;
-          cartaPtsHtml = `<strong style="color:#38BDF8">${ptsB.toFixed(0)} pts</strong> protegits`;
+          cartaPtsHtml = `<strong style="color:#38BDF8">${ptsB.toFixed(0)} pts</strong> protegits de ${jugB}`;
         }
       }
+
       detallHtml+=`<div style="margin:0.3rem 0;padding:0.5rem 0.7rem;background:rgba(96,165,250,0.08);border-radius:6px;border-left:3px solid #60A5FA">
         <div style="font-size:0.72rem;font-weight:700;color:#60A5FA;margin-bottom:0.3rem;font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:0.06em">🃏 Carta pròpia</div>
-        <div style="font-size:0.82rem;color:var(--white)">${jd.carta.carta}${jd.carta.desc?` <span style="color:var(--silver)">· ${jd.carta.desc}</span>`:''}${cartaPtsHtml?` · ${cartaPtsHtml}`:''}</div>
+        <div style="font-size:0.82rem;color:var(--white)">${cNom}${jd.carta.desc?` <span style="color:var(--silver)">· ${jd.carta.desc}</span>`:''}${cartaPtsHtml?` · ${cartaPtsHtml}`:''}</div>
       </div>`;
     }
+
 
     // Carta rebuda (algú t'ha aplicat una carta)
     const cartaRebuda = (() => {
